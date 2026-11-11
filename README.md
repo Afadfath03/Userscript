@@ -12,6 +12,7 @@ Every script here is written with AI assistance: the code is generated or drafte
 | --- | --- | :---: |
 | [`youtube-hide-people-mentioned`](scripts/youtube-hide-people-mentioned.user.js) | Hides the "These people are mentioned in the video" shelf on YouTube watch pages. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-hide-people-mentioned.user.js) |
 | [`youtube-expand-description`](scripts/youtube-expand-description.user.js) | Expands the watch page description automatically. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-expand-description.user.js) |
+| [`youtube-preferred-resolution`](scripts/youtube-preferred-resolution.user.js) | Starts videos at a preferred quality, with the next best available as fallback. Set it from the userscript manager menu. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-preferred-resolution.user.js) |
 
 The **Install** links point at the raw `.user.js`; most userscript managers (Tampermonkey, Violentmonkey, ScriptCat, Safari Userscripts) pick it up and offer to install.
 
