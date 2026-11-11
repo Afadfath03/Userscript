@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         YouTube: Custom
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.2
-// @description  All in one: hide people shelf, expand description, preferred resolution, autoplay control and playback defaults
+// @version      1.3
+// @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
 // @supportURL   https://github.com/Afadfath03/Userscript/issues
@@ -62,6 +62,13 @@
       title: 'YouTube: Hide "These people are mentioned in the video"',
       short: 'Hide People Mentioned',
       desc: 'Removes the shelf under the player that lists people mentioned in the video. YouTube rebuilds that shelf on every page, so the removal runs again each time it appears.',
+      rows: [],
+    },
+    {
+      id: 'members',
+      title: 'YouTube: Hide Members Only and Premium',
+      short: 'Hide Members Only',
+      desc: 'Hides videos marked Members only or Premium across feeds, search results, sidebars and playlists. The badge text is what gets matched, so the removal survives markup changes.',
       rows: [],
     },
     {
@@ -380,6 +387,79 @@
     }).observe(document.documentElement, { childList: true, subtree: true });
   }
 
+  // ---------- hide members only ----------
+
+  {
+    const squash = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+    const LABELS = new Set(['members only', 'premium', 'khusus anggota']);
+    const BADGE = 'yt-badge-shape, badge-shape, ytd-badge-supported-renderer';
+    const CARD = [
+      'ytd-rich-item-renderer',
+      'ytd-video-renderer',
+      'ytd-compact-video-renderer',
+      'ytd-grid-video-renderer',
+      'ytd-playlist-video-renderer',
+      'ytd-playlist-panel-video-renderer',
+      'yt-lockup-view-model',
+    ].join(',');
+
+    const enabled = () => get('membersOn', true) === true;
+    const hidden = new Set();
+
+    function hideCard(badge) {
+      const card = badge.closest(CARD);
+      if (!card || hidden.has(card)) return;
+      card.style.setProperty('display', 'none', 'important');
+      // Autoplay checks this before picking the next video
+      card.setAttribute('data-ytc-off', '');
+      hidden.add(card);
+    }
+
+    function restore() {
+      for (const node of hidden) {
+        node.style.removeProperty('display');
+        node.removeAttribute('data-ytc-off');
+      }
+      hidden.clear();
+    }
+
+    function mark(root) {
+      if (!root.isConnected) return;
+      const badges = [...root.querySelectorAll(BADGE)];
+      if (root.matches(BADGE)) badges.push(root);
+      for (const badge of badges) {
+        if (LABELS.has(squash(badge.textContent))) hideCard(badge);
+      }
+    }
+
+    const queue = new Set();
+    let raf = 0;
+
+    function flush() {
+      raf = 0;
+      const batch = [...queue];
+      queue.clear();
+      if (!enabled()) return;
+      for (const node of batch) mark(node);
+    }
+
+    document.addEventListener('ytc-change', () => {
+      if (enabled()) mark(document.body);
+      else restore();
+    });
+
+    new MutationObserver((list) => {
+      if (!enabled()) return;
+      for (const mutation of list) {
+        for (const node of mutation.addedNodes) if (node.nodeType === 1) queue.add(node);
+      }
+      if (queue.size && !raf) raf = requestAnimationFrame(flush);
+    }).observe(document.documentElement, { childList: true, subtree: true });
+
+    // Content already present when the script runs never fires a mutation
+    if (document.body) mark(document.body);
+  }
+
   // ---------- expand description ----------
 
   {
@@ -526,6 +606,7 @@
       for (const el of [...cards, ...related]) {
         if (!el.href) continue;
         if (skipShorts() && el.href.includes('/shorts/')) continue;
+        if (el.closest('[data-ytc-off]')) continue;
         return el;
       }
       return null;
