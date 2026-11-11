@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.3
+// @version      1.4
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -55,6 +55,7 @@
   const THEATERS = ONOFF;
   const SUBTITLES = ONOFF;
   const AUDIOS = [['leave', 'Leave as-is'], ['original', 'Original (first track)']];
+  const PROMPTS = [['yes', 'Yes'], ['no', 'No'], ['leave', 'Leave as-is']];
 
   const FEATURES = [
     {
@@ -112,6 +113,13 @@
         { key: 'audio', label: 'Audio track', type: 'choice', def: 'leave', options: AUDIOS },
         { key: 'pauseHidden', label: 'Pause when hidden', type: 'toggle', def: false },
       ],
+    },
+    {
+      id: 'paused',
+      title: 'YouTube: Dismiss "Video paused. Continue watching?"',
+      short: 'Dismiss Paused Prompt',
+      desc: 'Answers the "Video paused. Continue watching?" and "Are you still watching?" prompts. Pick Yes to carry on playing, No to stay paused, or leave the prompt untouched. Only dialogs containing those phrases are affected.',
+      rows: [{ key: 'answer', label: 'Answer', type: 'choice', def: 'yes', options: PROMPTS }],
     },
   ];
 
@@ -894,6 +902,74 @@
     document.addEventListener('ytc-change', startSync);
     hookVideo();
     startSync();
+  }
+
+  // ---------- dismiss paused prompt ----------
+
+  {
+    const squash = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+    const PHRASES = [
+      'video paused. continue watching?',
+      'video dijeda. lanjutkan menonton?',
+      'are you still watching?',
+      'apakah anda masih menonton?',
+    ];
+    const YES = new Set(['yes', 'ya', 'continue watching', 'lanjutkan menonton', 'resume']);
+    const NO = new Set(['no', 'tidak', 'not now', 'bukan sekarang']);
+    const DIALOG = 'yt-confirm-dialog-renderer, yt-confirm-dialog-view-model, tp-yt-paper-dialog';
+    const BUTTON = 'yt-button-renderer, button, tp-yt-paper-button';
+
+    const enabled = () => get('pausedOn', true) === true;
+    const answerMode = () => {
+      const value = get('answer', 'yes');
+      return PROMPTS.some(([v]) => v === value) ? value : 'yes';
+    };
+
+    function answer(dialog) {
+      const choice = answerMode();
+      if (choice === 'leave') return;
+      const text = squash(dialog.textContent || '');
+      if (!PHRASES.some((p) => text.includes(p))) return;
+      // Matching the label keeps No and Cancel apart from the confirming button
+      const wanted = choice === 'yes' ? YES : NO;
+      for (const button of dialog.querySelectorAll(BUTTON)) {
+        if (!wanted.has(squash(button.textContent))) continue;
+        button.click();
+        return;
+      }
+    }
+
+    function scan() {
+      if (!enabled() || location.pathname !== '/watch') return;
+      for (const dialog of document.querySelectorAll(DIALOG)) answer(dialog);
+    }
+
+    const queue = new Set();
+    let raf = 0;
+
+    function flush() {
+      raf = 0;
+      const batch = [...queue];
+      queue.clear();
+      if (!enabled() || location.pathname !== '/watch') return;
+      for (const node of batch) {
+        if (!node.isConnected) continue;
+        if (node.matches(DIALOG)) answer(node);
+        for (const dialog of node.querySelectorAll(DIALOG)) answer(dialog);
+      }
+    }
+
+    new MutationObserver((list) => {
+      if (!enabled()) return;
+      for (const mutation of list) {
+        for (const node of mutation.addedNodes) if (node.nodeType === 1) queue.add(node);
+      }
+      if (queue.size && !raf) raf = requestAnimationFrame(flush);
+    }).observe(document.documentElement, { childList: true, subtree: true });
+
+    document.addEventListener('ytc-change', scan);
+    // Content already present when the script runs never fires a mutation
+    if (document.body) scan();
   }
 
   // ---------- menu ----------
