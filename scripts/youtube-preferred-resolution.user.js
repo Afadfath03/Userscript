@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: preferred resolution
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.1
+// @version      1.2
 // @description  Start every video at a preferred quality, falling back to the next best available
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -21,10 +21,10 @@
   // YouTube quality codes, highest first
   const ORDER = ['highres', 'hd2880', 'hd2160', 'hd1440', 'hd1080', 'hd720', 'large', 'medium', 'small', 'tiny'];
   const LABELS = {
-    auto: 'Auto (YouTube default)',
+    auto: 'Auto',
     highest: 'Highest available',
-    highres: '4320p and up',
-    hd2880: '2880p (5K)',
+    highres: '4320p',
+    hd2880: '2880p',
     hd2160: '2160p',
     hd1440: '1440p',
     hd1080: '1080p',
@@ -93,19 +93,25 @@
     }, 400);
   }
 
-  let menuId = null;
+  // One menu entry per level, so the choice needs no dialog
+  let menuIds = [];
   function drawMenu() {
     if (typeof GM_registerMenuCommand !== 'function') return;
-    if (menuId !== null && typeof GM_unregisterMenuCommand === 'function') GM_unregisterMenuCommand(menuId);
-    menuId = GM_registerMenuCommand(`Preferred resolution: ${LABELS[getPref()]}`, pick);
+    if (menuIds.length) {
+      // Without unregister support, redrawing would duplicate every entry
+      if (typeof GM_unregisterMenuCommand !== 'function') return;
+      for (const id of menuIds) GM_unregisterMenuCommand(id);
+      menuIds = [];
+    }
+    const pref = getPref();
+    for (const choice of CHOICES) {
+      const label = choice === pref ? `${LABELS[choice]} \u2713` : LABELS[choice];
+      const id = GM_registerMenuCommand(label, () => setPref(choice));
+      if (id !== undefined && id !== null) menuIds.push(id);
+    }
   }
 
-  function pick() {
-    const list = CHOICES.map((c, i) => `${i + 1}. ${LABELS[c]}`).join('\n');
-    const answer = prompt(`Preferred resolution\n\n${list}`, String(CHOICES.indexOf(getPref()) + 1));
-    if (answer === null) return;
-    const choice = CHOICES[Number.parseInt(answer, 10) - 1];
-    if (!choice) return alert('Enter a number from the list.');
+  function setPref(choice) {
     GM_setValue('quality', choice);
     drawMenu();
     startWatchdog();
