@@ -8,7 +8,7 @@
 // @supportURL   https://github.com/Afadfath03/Userscript/issues
 // @downloadURL  https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-expand-description.user.js
 // @updateURL    https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-expand-description.user.js
-// @license      Apache-2.0
+// @license      MIT
 // @match        https://www.youtube.com/*
 // @run-at       document-idle
 // @grant        none

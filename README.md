@@ -34,6 +34,6 @@ File naming, script structure and commit rules: see [CONVENTIONS.md](CONVENTIONS
 
 ## License
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full text.
+MIT. See [LICENSE](LICENSE).
 
 Copyright (c) 2026 Afadfath03
