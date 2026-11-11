@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         YouTube — auto-expand description
+// @name         YouTube: auto-expand description
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.1
+// @version      1.2
 // @description  Expand the watch page description automatically
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -36,7 +36,7 @@
     if (tries++ >= MAX_TRIES) return;
     btn.click();
     requestAnimationFrame(() => {
-      // The click only counts once YouTube actually collapsed the button
+      // The click only counts once YouTube actually hides the button
       if (btn.hidden || !btn.isConnected) done = url;
       else setTimeout(schedule, 300);
     });

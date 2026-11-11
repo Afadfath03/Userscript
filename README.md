@@ -4,9 +4,7 @@ Personal collection of browser userscripts.
 
 ## AI-assisted
 
-Every script here is written with AI assistance: the code is generated or drafted by a
-language model (LLM) and reviewed before use. Treat this repo as personal tooling, not a
-supported product. Read a script before installing it, and use it at your own risk.
+Every script here is written with AI assistance: the code is generated or drafted by a language model (LLM) and reviewed before use. Treat this repo as personal tooling, not a supported product. Read a script before installing it, and use it at your own risk.
 
 ## Scripts
 
@@ -15,13 +13,11 @@ supported product. Read a script before installing it, and use it at your own ri
 | [`youtube-hide-people-mentioned`](scripts/youtube-hide-people-mentioned.user.js) | Hides the "These people are mentioned in the video" shelf on YouTube watch pages. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-hide-people-mentioned.user.js) |
 | [`youtube-expand-description`](scripts/youtube-expand-description.user.js) | Expands the watch page description automatically. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-expand-description.user.js) |
 
-The **Install** links point at the raw `.user.js`; any userscript manager (Tampermonkey, Violentmonkey, ScriptCat, Safari Userscripts) picks it up and offers to install.
+The **Install** links point at the raw `.user.js`; most userscript managers (Tampermonkey, Violentmonkey, ScriptCat, Safari Userscripts) pick it up and offer to install.
 
 ## Install
 
-Easiest: click **Install** in the table above — your userscript manager offers to install.
-
-Manual:
+Click **Install** in the table above. To add a script by hand:
 
 1. Install a userscript manager, for example [Tampermonkey](https://www.tampermonkey.net/) or [Violentmonkey](https://violentmonkey.github.io/).
 2. Open its dashboard and create a new script.
@@ -30,7 +26,7 @@ Manual:
 
 ## Conventions
 
-- English only: code, comments, `@name`, `@description`, and file names.
+- English only: code, comments, `@name`, `@description`, and file names. Text a script matches on a page stays in that site's language.
 - All scripts live in `scripts/`.
 - File names follow `<site>-<action>.user.js`.
 - No build step; each file is a standalone script.
