@@ -9,12 +9,12 @@
 // ==/UserScript==
 
 (() => {
-  // Add other UI languages here (lowercase, single spaces)
+  const squash = (s) => s.replace(/\s+/g, ' ').toLowerCase();
+  // Add other UI languages here; case and spacing are normalized
   const PHRASES = [
     'these people are mentioned in the video',
     'orang-orang ini disebutkan dalam video',
-  ];
-  const squash = (s) => s.replace(/\s+/g, ' ').toLowerCase();
+  ].map(squash);
   const STOP_TAGS = new Set(['BODY', 'YTD-APP', 'YTD-WATCH-FLEXY', 'YTD-WATCH-GRID']);
   const STOP_IDS = new Set(['below', 'primary', 'columns']);
 
@@ -65,4 +65,10 @@
   });
 
   mo.observe(document.documentElement, { childList: true, subtree: true });
+
+  // Content already present at document-idle never fires a mutation
+  if (location.pathname === '/watch' && document.body) {
+    const target = locate(document.body);
+    if (target) hide(target);
+  }
 })();
