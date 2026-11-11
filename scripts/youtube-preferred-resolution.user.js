@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: preferred resolution
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.2
+// @version      1.3
 // @description  Start every video at a preferred quality, falling back to the next best available
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -93,28 +93,109 @@
     }, 400);
   }
 
-  // One menu entry per level, so the choice needs no dialog
-  let menuIds = [];
-  function drawMenu() {
-    if (typeof GM_registerMenuCommand !== 'function') return;
-    if (menuIds.length) {
-      // Without unregister support, redrawing would duplicate every entry
-      if (typeof GM_unregisterMenuCommand !== 'function') return;
-      for (const id of menuIds) GM_unregisterMenuCommand(id);
-      menuIds = [];
+  const PANEL_CSS = `
+#ytpr-backdrop{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)}
+#ytpr-panel{min-width:236px;max-width:88vw;max-height:calc(100vh - 24px);overflow:auto;padding:6px 0 8px;border-radius:12px;background:var(--yt-spec-base-background,#fff);color:var(--yt-spec-text-primary,#0f0f0f);box-shadow:0 12px 32px rgba(0,0,0,.45);font-family:Roboto,Arial,sans-serif}
+#ytpr-panel h2{margin:0;padding:12px 20px 6px;font-size:13px;font-weight:500;color:var(--yt-spec-text-secondary,#606060)}
+#ytpr-panel button{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0 20px;border:0;background:none;color:inherit;font:inherit;font-size:14px;text-align:left;cursor:pointer}
+#ytpr-panel button:hover{background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05))}
+#ytpr-panel button:focus-visible{outline:2px solid var(--yt-spec-call-to-action,#065fd4);outline-offset:-2px}
+#ytpr-panel .ytpr-mark{flex:0 0 14px;font-size:14px;line-height:1;color:inherit}
+#ytpr-panel button[aria-current="true"]{font-weight:500}
+`;
+
+  function closePanel() {
+    document.removeEventListener('keydown', onKey, true);
+    document.getElementById('ytpr-backdrop')?.remove();
+    document.getElementById('ytpr-style')?.remove();
+  }
+
+  function onKey(e) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      closePanel();
+      return;
     }
+    if (e.key !== 'Tab') return;
+    const panel = document.getElementById('ytpr-panel');
+    if (!panel) return;
+    const items = [...panel.querySelectorAll('button')];
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (!items.includes(document.activeElement)) {
+      e.preventDefault();
+      first.focus();
+    } else if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  function openPanel() {
+    if (document.getElementById('ytpr-backdrop')) return;
+    const style = document.createElement('style');
+    style.id = 'ytpr-style';
+    style.textContent = PANEL_CSS;
+    document.head.append(style);
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'ytpr-backdrop';
+    backdrop.addEventListener('mousedown', (e) => {
+      if (e.target === backdrop) closePanel();
+    });
+
+    const panel = document.createElement('div');
+    panel.id = 'ytpr-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', 'Preferred resolution');
+
+    const title = document.createElement('h2');
+    title.textContent = 'Preferred resolution';
+    panel.append(title);
+
     const pref = getPref();
+    let active = null;
     for (const choice of CHOICES) {
-      const label = choice === pref ? `${LABELS[choice]} \u2713` : LABELS[choice];
-      const id = GM_registerMenuCommand(label, () => setPref(choice));
-      if (id !== undefined && id !== null) menuIds.push(id);
+      const button = document.createElement('button');
+      button.type = 'button';
+      const mark = document.createElement('span');
+      mark.className = 'ytpr-mark';
+      mark.setAttribute('aria-hidden', 'true');
+      mark.textContent = choice === pref ? '\u2713' : '';
+      button.append(mark, document.createTextNode(LABELS[choice]));
+      if (choice === pref) {
+        button.setAttribute('aria-current', 'true');
+        active = button;
+      }
+      button.addEventListener('click', () => {
+        setPref(choice);
+        closePanel();
+      });
+      panel.append(button);
     }
+
+    backdrop.append(panel);
+    document.body.append(backdrop);
+    document.addEventListener('keydown', onKey, true);
+    (active || panel.querySelector('button')).focus();
   }
 
   function setPref(choice) {
     GM_setValue('quality', choice);
     drawMenu();
     startWatchdog();
+  }
+
+  let menuId = null;
+  function drawMenu() {
+    if (typeof GM_registerMenuCommand !== 'function') return;
+    if (menuId !== null && typeof GM_unregisterMenuCommand === 'function') GM_unregisterMenuCommand(menuId);
+    menuId = GM_registerMenuCommand(`Preferred resolution: ${LABELS[getPref()]}`, openPanel);
   }
 
   drawMenu();
