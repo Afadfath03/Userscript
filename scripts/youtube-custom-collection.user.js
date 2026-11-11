@@ -1,13 +1,14 @@
 // ==UserScript==
-// @name         YouTube: Custom
+// @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.4
+// @version      1.5
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
 // @supportURL   https://github.com/Afadfath03/Userscript/issues
-// @downloadURL  https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-custom.user.js
-// @updateURL    https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-custom.user.js
+// @downloadURL  https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-custom-collection.user.js
+// @updateURL    https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-custom-collection.user.js
+// @icon         https://raw.githubusercontent.com/Afadfath03/Userscript/main/assets/icons/youtube-custom-collection.png
 // @license      MIT
 // @match        https://www.youtube.com/*
 // @run-at       document-idle

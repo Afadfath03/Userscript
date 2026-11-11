@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         YouTube: Dismiss "Video paused. Continue watching?"
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.0
+// @version      1.1
 // @description  Answers the "Video paused. Continue watching?" and "Are you still watching?" prompts with Yes, No, or leaves them alone
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
 // @supportURL   https://github.com/Afadfath03/Userscript/issues
 // @downloadURL  https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-dismiss-paused-prompt.user.js
 // @updateURL    https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-dismiss-paused-prompt.user.js
+// @icon         https://raw.githubusercontent.com/Afadfath03/Userscript/main/assets/icons/youtube-dismiss-paused-prompt.png
 // @license      MIT
 // @match        https://www.youtube.com/*
 // @run-at       document-idle

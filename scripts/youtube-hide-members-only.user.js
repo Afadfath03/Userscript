@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         YouTube: Hide Members Only and Premium
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.0
+// @version      1.1
 // @description  Hide videos marked Members only or Premium in feeds, search results, sidebars and playlists
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
 // @supportURL   https://github.com/Afadfath03/Userscript/issues
 // @downloadURL  https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-hide-members-only.user.js
 // @updateURL    https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-hide-members-only.user.js
+// @icon         https://raw.githubusercontent.com/Afadfath03/Userscript/main/assets/icons/youtube-hide-members-only.png
 // @license      MIT
 // @match        https://www.youtube.com/*
 // @run-at       document-idle

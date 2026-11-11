@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         YouTube: Preferred Resolution
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.4
+// @version      1.5
 // @description  Start every video at a preferred quality, falling back to the next best available
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
 // @supportURL   https://github.com/Afadfath03/Userscript/issues
 // @downloadURL  https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-preferred-resolution.user.js
 // @updateURL    https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-preferred-resolution.user.js
+// @icon         https://raw.githubusercontent.com/Afadfath03/Userscript/main/assets/icons/youtube-preferred-resolution.png
 // @license      MIT
 // @match        https://www.youtube.com/*
 // @run-at       document-idle
