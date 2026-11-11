@@ -3,7 +3,7 @@
 // @namespace    https://github.com/Afadfath03/Userscript
 // @version      1.1
 // @description  Expand the watch page description automatically
-// @author       Afadfath
+// @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
 // @supportURL   https://github.com/Afadfath03/Userscript/issues
 // @downloadURL  https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-expand-description.user.js
