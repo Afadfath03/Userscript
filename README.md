@@ -32,6 +32,7 @@ Click **Install** in the table above. To add a script by hand:
 - English only: code, comments, `@name`, `@description`, and file names. Text a script matches on a page stays in that site's language.
 - All scripts live in `scripts/`.
 - File names follow `<site>-<action>.user.js`.
+- The script table is sorted alphabetically.
 - No build step; each file is a standalone script.
 
 ## License
