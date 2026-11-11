@@ -8,7 +8,7 @@
 // @supportURL   https://github.com/Afadfath03/Userscript/issues
 // @downloadURL  https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-hide-people-mentioned.user.js
 // @updateURL    https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-hide-people-mentioned.user.js
-// @license      MIT
+// @license      Apache-2.0
 // @match        https://www.youtube.com/*
 // @run-at       document-idle
 // @grant        none
