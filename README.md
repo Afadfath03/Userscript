@@ -10,15 +10,21 @@ supported product. Read a script before installing it, and use it at your own ri
 
 ## Scripts
 
-| Script | What it does |
-| --- | --- |
-| [`scripts/youtube-hide-people-mentioned.user.js`](scripts/youtube-hide-people-mentioned.user.js) | Hides the "These people are mentioned in the video" shelf on YouTube watch pages. |
-| [`scripts/youtube-expand-description.user.js`](scripts/youtube-expand-description.user.js) | Expands the watch page description automatically. |
+| Script | What it does | Install |
+| --- | --- | :---: |
+| [`youtube-hide-people-mentioned`](scripts/youtube-hide-people-mentioned.user.js) | Hides the "These people are mentioned in the video" shelf on YouTube watch pages. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-hide-people-mentioned.user.js) |
+| [`youtube-expand-description`](scripts/youtube-expand-description.user.js) | Expands the watch page description automatically. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-expand-description.user.js) |
+
+The **Install** links point at the raw `.user.js`; any userscript manager (Tampermonkey, Violentmonkey, ScriptCat, Safari Userscripts) picks it up and offers to install.
 
 ## Install
 
-1. Install [Tampermonkey](https://www.tampermonkey.net/) or [Violentmonkey](https://violentmonkey.github.io/).
-2. Open the extension dashboard and create a new script.
+Easiest: click **Install** in the table above — your userscript manager offers to install.
+
+Manual:
+
+1. Install a userscript manager, for example [Tampermonkey](https://www.tampermonkey.net/) or [Violentmonkey](https://violentmonkey.github.io/).
+2. Open its dashboard and create a new script.
 3. Paste the contents of a `.user.js` file from this repo, replacing the template.
 4. Save, then reload the target site.
 
