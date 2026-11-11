@@ -9,3 +9,6 @@ Thumbs.db
 *.log
 *.tmp
 node_modules/
+
+# Local agent instructions
+AGENTS.md
