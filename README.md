@@ -13,6 +13,7 @@ supported product. Read a script before installing it, and use it at your own ri
 | Script | What it does |
 | --- | --- |
 | [`scripts/youtube-hide-people-mentioned.user.js`](scripts/youtube-hide-people-mentioned.user.js) | Hides the "These people are mentioned in the video" shelf on YouTube watch pages. |
+| [`scripts/youtube-expand-description.user.js`](scripts/youtube-expand-description.user.js) | Expands the watch page description automatically. |
 
 ## Install
 
