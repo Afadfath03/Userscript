@@ -12,7 +12,7 @@ supported product. Read a script before installing it, and use it at your own ri
 
 | Script | What it does |
 | --- | --- |
-| [`youtube-hide-people-mentioned.user.js`](youtube-hide-people-mentioned.user.js) | Hides the "These people are mentioned in the video" shelf on YouTube watch pages. |
+| [`scripts/youtube-hide-people-mentioned.user.js`](scripts/youtube-hide-people-mentioned.user.js) | Hides the "These people are mentioned in the video" shelf on YouTube watch pages. |
 
 ## Install
 
@@ -24,6 +24,7 @@ supported product. Read a script before installing it, and use it at your own ri
 ## Conventions
 
 - English only: code, comments, `@name`, `@description`, and file names.
+- All scripts live in `scripts/`.
 - File names follow `<site>-<action>.user.js`.
 - No build step; each file is a standalone script.
 
