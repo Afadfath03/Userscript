@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: preferred resolution
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.0
+// @version      1.1
 // @description  Start every video at a preferred quality, falling back to the next best available
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -19,11 +19,12 @@
 
 (() => {
   // YouTube quality codes, highest first
-  const ORDER = ['highres', 'hd2160', 'hd1440', 'hd1080', 'hd720', 'large', 'medium', 'small', 'tiny'];
+  const ORDER = ['highres', 'hd2880', 'hd2160', 'hd1440', 'hd1080', 'hd720', 'large', 'medium', 'small', 'tiny'];
   const LABELS = {
     auto: 'Auto (YouTube default)',
     highest: 'Highest available',
     highres: '4320p and up',
+    hd2880: '2880p (5K)',
     hd2160: '2160p',
     hd1440: '1440p',
     hd1080: '1080p',
