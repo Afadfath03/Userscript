@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.0
+// @version      1.1
 // @description  All in one: hide people shelf, expand description, preferred resolution, autoplay control and playback defaults
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -62,14 +62,14 @@
       title: 'YouTube: Hide "These people are mentioned in the video"',
       short: 'Hide People Mentioned',
       desc: 'Removes the shelf under the player that lists people mentioned in the video. YouTube rebuilds that shelf on every page, so the removal runs again each time it appears.',
-      rows: [{ key: 'peopleOn', label: 'Enabled', type: 'toggle', def: true }],
+      rows: [],
     },
     {
       id: 'expand',
       title: 'YouTube: Auto Expand Description',
       short: 'Expand Description',
       desc: 'Clicks the description expander on the watch page, so chapters and links are visible without the extra click. It retries a few times, then stops.',
-      rows: [{ key: 'expandOn', label: 'Enabled', type: 'toggle', def: true }],
+      rows: [],
     },
     {
       id: 'resolution',
@@ -248,7 +248,8 @@
       section.textContent = 'Settings';
       panel.append(title, desc, divider, section);
 
-      for (const row of feature.rows) {
+      const rows = [{ key: `${feature.id}On`, label: 'Enabled', type: 'toggle', def: true }, ...feature.rows];
+      for (const row of rows) {
         panel.append(
           settingRow(row.label, valueLabel(row), () => {
             if (row.type === 'toggle') {
@@ -308,6 +309,7 @@
     const squash = (s) => s.replace(/\s+/g, ' ').toLowerCase();
 
     const enabled = () => get('peopleOn', true) === true;
+    const hidden = new Set();
 
     function hideShelf(start) {
       const own = squash(start.textContent).length;
@@ -319,6 +321,18 @@
         node = parent;
       }
       node.style.setProperty('display', 'none', 'important');
+      hidden.add(node);
+    }
+
+    function restore() {
+      for (const node of hidden) node.style.removeProperty('display');
+      hidden.clear();
+    }
+
+    function scanPage() {
+      if (location.pathname !== '/watch' || !document.body) return;
+      const target = locate(document.body);
+      if (target) hideShelf(target);
     }
 
     function locate(root) {
@@ -351,6 +365,11 @@
         if (target) hideShelf(target);
       }
     }
+
+    document.addEventListener('ytc-change', () => {
+      if (enabled()) scanPage();
+      else restore();
+    });
 
     new MutationObserver((list) => {
       if (!enabled() || location.pathname !== '/watch') return;
@@ -397,6 +416,13 @@
       if (!raf) raf = requestAnimationFrame(scan);
     };
 
+    document.addEventListener('ytc-change', () => {
+      if (!enabled()) return;
+      done = '';
+      tries = 0;
+      schedule();
+    });
+
     new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
     window.addEventListener('yt-navigate-finish', schedule, true);
     schedule();
@@ -406,6 +432,7 @@
 
   {
     const ORDER = ['highres', 'hd2880', 'hd2160', 'hd1440', 'hd1080', 'hd720', 'large', 'medium', 'small', 'tiny'];
+    const enabled = () => get('resolutionOn', true) === true;
     const quality = () => {
       const value = get('quality', 'auto');
       return ORDER.includes(value) || value === 'auto' || value === 'highest' ? value : 'auto';
@@ -444,7 +471,7 @@
     function start() {
       clearInterval(timer);
       tries = 0;
-      if (quality() === 'auto') return;
+      if (!enabled() || quality() === 'auto') return;
       timer = setInterval(() => {
         const el = playerEl();
         const code = target();
@@ -467,6 +494,7 @@
 
   {
     const COUNT_KEY = 'ytc.count';
+    const enabled = () => get('autoplayOn', true) === true;
     const behavior = () => {
       const value = get('behavior', 'leave');
       return BEHAVIORS.some(([v]) => v === value) ? value : 'leave';
@@ -522,6 +550,7 @@
     let endTimer = 0;
 
     function onEnded() {
+      if (!enabled()) return;
       const mode = behavior();
       if (mode === 'leave') return;
       if (mode === 'stop') {
@@ -564,6 +593,7 @@
     }
 
     function sync() {
+      if (!enabled()) return;
       hookVideo();
       if (behavior() === 'leave') return;
       // Managed modes decide on their own when to move on
@@ -591,6 +621,7 @@
   // ---------- playback defaults ----------
 
   {
+    const enabled = () => get('playbackOn', true) === true;
     const speed = () => {
       const value = get('speed', 'leave');
       return SPEEDS.some(([v]) => v === value) ? value : 'leave';
@@ -704,6 +735,7 @@
     function startSync() {
       tries = 0;
       theaterClicks = 0;
+      if (!enabled()) return;
       subtitleClicks = 0;
       audioClicks = 0;
       const tick = () => {
@@ -732,7 +764,7 @@
     document.addEventListener(
       'keydown',
       (e) => {
-        if (!hotkeys() || e.ctrlKey || e.metaKey || e.altKey) return;
+        if (!enabled() || !hotkeys() || e.ctrlKey || e.metaKey || e.altKey) return;
         if (e.key !== '[' && e.key !== ']' && e.key !== '0') return;
         if (document.getElementById('ytc-panel')) return;
         const target = e.target;
@@ -747,7 +779,7 @@
     let pausedByUs = false;
 
     document.addEventListener('visibilitychange', () => {
-      if (!pauseHidden()) return;
+      if (!enabled() || !pauseHidden()) return;
       const video = currentVideo();
       if (!video) return;
       if (document.hidden) {
