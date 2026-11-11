@@ -14,6 +14,7 @@ Every script here is written with AI assistance: the code is generated or drafte
 | [`youtube-expand-description`](scripts/youtube-expand-description.user.js) | Expands the watch page description automatically. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-expand-description.user.js) |
 | [`youtube-preferred-resolution`](scripts/youtube-preferred-resolution.user.js) | Starts videos at a preferred quality, with the next best available as fallback. Set it from the userscript manager menu. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-preferred-resolution.user.js) |
 | [`youtube-autoplay-control`](scripts/youtube-autoplay-control.user.js) | Decides what happens when a video ends: next, wait, stop, or loop, with a per-tab limit. Set it from the userscript manager menu. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-autoplay-control.user.js) |
+| [`youtube-playback-defaults`](scripts/youtube-playback-defaults.user.js) | Sets a default speed, theater mode and volume for every video. Set it from the userscript manager menu. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-playback-defaults.user.js) |
 
 The **Install** links point at the raw `.user.js`; most userscript managers (Tampermonkey, Violentmonkey, ScriptCat, Safari Userscripts) pick it up and offer to install.
 
