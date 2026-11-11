@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.1
+// @version      1.2
 // @description  All in one: hide people shelf, expand description, preferred resolution, autoplay control and playback defaults
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -520,7 +520,8 @@
     function pickNext() {
       const cards = document.querySelectorAll('#movie_player .ytp-videowall-still, #movie_player .ytp-ce-video');
       const related = document.querySelectorAll(
-        '#secondary ytd-compact-video-renderer a#thumbnail, ytd-watch-next-secondary-results-container a#thumbnail'
+        'ytd-watch-next-secondary-results-renderer yt-lockup-view-model a[href*="/watch?v="], ' +
+          '#secondary ytd-compact-video-renderer a#thumbnail'
       );
       for (const el of [...cards, ...related]) {
         if (!el.href) continue;
@@ -549,10 +550,16 @@
 
     let endTimer = 0;
 
+    // Stops YouTube's own "Up next" countdown; the only lever left when the autoplay toggle is gone
+    function cancelCountdown() {
+      document.querySelector('.ytp-autonav-endscreen-upnext-cancel-button')?.click();
+    }
+
     function onEnded() {
       if (!enabled()) return;
       const mode = behavior();
       if (mode === 'leave') return;
+      cancelCountdown();
       if (mode === 'stop') {
         setAutoplay(false);
         return;
@@ -572,6 +579,7 @@
       if (hiddenPause() && document.hidden) return;
       clearTimeout(endTimer);
       endTimer = setTimeout(() => {
+        cancelCountdown();
         const target = pickNext();
         if (!target) {
           // Nothing to click: hand back to the YouTube countdown

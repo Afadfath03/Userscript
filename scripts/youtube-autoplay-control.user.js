@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Autoplay Control
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.1
+// @version      1.2
 // @description  Decide what happens when a video ends: next, wait, stop, loop, with a per-session limit
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -59,7 +59,8 @@
     const skipShorts = flag('skipShorts');
     const cards = document.querySelectorAll('#movie_player .ytp-videowall-still, #movie_player .ytp-ce-video');
     const related = document.querySelectorAll(
-      '#secondary ytd-compact-video-renderer a#thumbnail, ytd-watch-next-secondary-results-renderer a#thumbnail'
+      'ytd-watch-next-secondary-results-renderer yt-lockup-view-model a[href*="/watch?v="], ' +
+        '#secondary ytd-compact-video-renderer a#thumbnail'
     );
     for (const el of [...cards, ...related]) {
       if (!el.href) continue;
@@ -84,9 +85,15 @@
 
   let endTimer = 0;
 
+  // Stops YouTube's own "Up next" countdown; the only lever left when the autoplay toggle is gone
+  function cancelCountdown() {
+    document.querySelector('.ytp-autonav-endscreen-upnext-cancel-button')?.click();
+  }
+
   function onEnded() {
     const mode = behavior();
     if (mode === 'leave') return;
+    cancelCountdown();
     if (mode === 'stop') {
       setAutoplay(false);
       return;
@@ -106,6 +113,7 @@
     if (flag('hiddenPause') && document.hidden) return;
     clearTimeout(endTimer);
     endTimer = setTimeout(() => {
+      cancelCountdown();
       const target = pickNext();
       if (!target) {
         // No card to click: hand back to YouTube's own countdown
