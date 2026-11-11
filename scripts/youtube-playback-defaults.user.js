@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         YouTube: playback defaults
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.0
-// @description  Set a default playback speed, theater mode and volume for every video
+// @version      1.1
+// @description  Set a default speed, theater mode, volume, subtitles and audio track for every video
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
 // @supportURL   https://github.com/Afadfath03/Userscript/issues
@@ -21,18 +21,42 @@
   const SPEEDS = ['leave', 0.75, 1, 1.25, 1.5, 1.75, 2];
   const VOLUMES = ['leave', 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
   const THEATERS = ['leave', 'on', 'off'];
+  const SUBTITLES = ['leave', 'on', 'off'];
+  const AUDIOS = ['leave', 'original'];
+  const CHOICES = {
+    speed: SPEEDS,
+    theater: THEATERS,
+    volume: VOLUMES,
+    subtitles: SUBTITLES,
+    audio: AUDIOS,
+  };
+  const TITLES = {
+    speed: 'Speed',
+    hotkeys: 'Speed hotkeys',
+    theater: 'Theater mode',
+    volume: 'Volume',
+    subtitles: 'Subtitles',
+    audio: 'Audio track',
+    pauseHidden: 'Pause when hidden',
+  };
 
   const get = (key, fallback) => {
     const v = GM_getValue(`ytpd.${key}`, fallback);
     return v === undefined || v === null ? fallback : v;
   };
   const put = (key, value) => GM_setValue(`ytpd.${key}`, value);
+  const setting = (key, fallback) => (CHOICES[key].includes(get(key, fallback)) ? get(key, fallback) : fallback);
 
-  const speed = () => (SPEEDS.includes(get('speed', 'leave')) ? get('speed', 'leave') : 'leave');
-  const volume = () => (VOLUMES.includes(get('volume', 'leave')) ? get('volume', 'leave') : 'leave');
-  const theater = () => (THEATERS.includes(get('theater', 'leave')) ? get('theater', 'leave') : 'leave');
+  const speed = () => setting('speed', 'leave');
+  const volume = () => setting('volume', 'leave');
+  const theater = () => setting('theater', 'leave');
+  const subtitles = () => setting('subtitles', 'leave');
+  const audio = () => setting('audio', 'leave');
+  const hotkeys = () => get('hotkeys', false) === true;
+  const pauseHidden = () => get('pauseHidden', false) === true;
 
   const currentVideo = () => document.querySelector('#movie_player video');
+  const player = () => document.getElementById('movie_player');
 
   function theaterOn() {
     const flexy = document.querySelector('ytd-watch-flexy');
@@ -40,17 +64,20 @@
   }
 
   let theaterClickedAt = 0;
+  let theaterClicks = 0;
 
   function applyTheater() {
     if (theater() === 'leave' || document.fullscreenElement) return true;
     const on = theaterOn();
-    if (on === null) return true;
-    if (on === (theater() === 'on')) return true;
+    if (on === null || on === (theater() === 'on')) return true;
     // Clicking twice in a row undoes the first click, so space the attempts out
     if (Date.now() - theaterClickedAt < 800) return false;
+    // A page that ignores the click would otherwise flip the mode over and over
+    if (theaterClicks >= 3) return true;
     const button = document.querySelector('.ytp-size-button');
     if (!button) return false;
     theaterClickedAt = Date.now();
+    theaterClicks++;
     button.click();
     return false;
   }
@@ -58,36 +85,78 @@
   function applyVideo() {
     const video = currentVideo();
     if (!video) return true;
+    let done = true;
     const rate = speed();
-    if (rate !== 'leave' && video.playbackRate !== rate) video.playbackRate = rate;
+    if (rate !== 'leave' && video.playbackRate !== rate) {
+      video.playbackRate = rate;
+      done = video.playbackRate === rate;
+    }
     const level = volume();
     if (level !== 'leave') {
       const target = level / 100;
       if (Math.abs(video.volume - target) > 0.001) video.volume = target;
       if (target > 0 && video.muted) video.muted = false;
+      if (Math.abs(video.volume - target) > 0.001) done = false;
     }
-    return true;
+    return done;
   }
 
-  function settled() {
-    const video = currentVideo();
-    if (!video) return theater() === 'leave' || theaterOn() === (theater() === 'on');
-    const rate = speed();
-    const level = volume();
-    const rateOk = rate === 'leave' || video.playbackRate === rate;
-    const volumeOk = level === 'leave' || Math.abs(video.volume - level / 100) < 0.001;
-    const theaterOk = theater() === 'leave' || theaterOn() === (theater() === 'on');
-    return rateOk && volumeOk && theaterOk;
+  let subtitleClickedAt = 0;
+  let subtitleClicks = 0;
+
+  function applySubtitles() {
+    if (subtitles() === 'leave') return true;
+    const button = document.querySelector('.ytp-subtitles-button');
+    // Videos without captions keep the button hidden, and there is nothing to set
+    if (!button || button.hidden || button.getAttribute('aria-pressed') === null) return true;
+    const on = button.getAttribute('aria-pressed') === 'true';
+    if (on === (subtitles() === 'on')) return true;
+    if (Date.now() - subtitleClickedAt < 400) return false;
+    // Toggling is not idempotent, so stop after two attempts
+    if (subtitleClicks >= 2) return true;
+    subtitleClickedAt = Date.now();
+    subtitleClicks++;
+    button.click();
+    return false;
+  }
+
+  let audioSetAt = 0;
+  let audioClicks = 0;
+
+  function applyAudio() {
+    if (audio() === 'leave') return true;
+    const el = player();
+    if (!el || typeof el.getAvailableAudioTracks !== 'function') return true;
+    const tracks = el.getAvailableAudioTracks() || [];
+    if (tracks.length < 2) return true;
+    const first = tracks[0];
+    const current = typeof el.getAudioTrack === 'function' ? el.getAudioTrack() : null;
+    if (current && current.id === first.id) return true;
+    if (Date.now() - audioSetAt < 1200) return false;
+    if (audioClicks >= 3) return true;
+    audioSetAt = Date.now();
+    audioClicks++;
+    if (typeof el.setAudioTrack === 'function') el.setAudioTrack(first);
+    return false;
   }
 
   let tries = 0;
 
+  function syncPass() {
+    const videoDone = applyVideo();
+    const theaterDone = applyTheater();
+    const subtitlesDone = applySubtitles();
+    const audioDone = applyAudio();
+    return videoDone && theaterDone && subtitlesDone && audioDone;
+  }
+
   function startSync() {
     tries = 0;
+    theaterClicks = 0;
+    subtitleClicks = 0;
+    audioClicks = 0;
     const tick = () => {
-      applyVideo();
-      const theaterDone = applyTheater();
-      if ((theaterDone && settled()) || ++tries > 16) return;
+      if (syncPass() || ++tries > 16) return;
       setTimeout(tick, 250);
     };
     tick();
@@ -101,6 +170,46 @@
     hooked.add(video);
     video.addEventListener('loadedmetadata', startSync);
   }
+
+  function stepRate(delta) {
+    const video = currentVideo();
+    if (!video) return;
+    const next = delta === 0 ? 1 : video.playbackRate + delta;
+    video.playbackRate = Math.min(2, Math.max(0.25, Math.round(next * 4) / 4));
+  }
+
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if (!hotkeys() || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key !== '[' && e.key !== ']' && e.key !== '0') return;
+      if (document.getElementById('ytpd-panel')) return;
+      const target = e.target;
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+      e.preventDefault();
+      e.stopPropagation();
+      stepRate(e.key === '0' ? 0 : e.key === ']' ? 0.25 : -0.25);
+    },
+    true
+  );
+
+  let pausedByUs = false;
+
+  document.addEventListener('visibilitychange', () => {
+    if (!pauseHidden()) return;
+    const video = currentVideo();
+    if (!video) return;
+    if (document.hidden) {
+      if (!video.paused) {
+        pausedByUs = true;
+        video.pause();
+      }
+      return;
+    }
+    if (!pausedByUs) return;
+    pausedByUs = false;
+    video.play().catch(() => {});
+  });
 
   const CSS = `
 #ytpd-backdrop{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)}
@@ -173,21 +282,30 @@
     return button;
   }
 
-  const TITLES = { speed: 'Speed', theater: 'Theater mode', volume: 'Volume' };
-
   function optionList(key) {
     if (key === 'speed') return SPEEDS.map((s) => [s, s === 'leave' ? 'Leave as-is' : `${s}x`]);
     if (key === 'volume') return VOLUMES.map((v) => [v, v === 'leave' ? 'Leave as-is' : `${v}%`]);
-    return THEATERS.map((t) => [t, t === 'leave' ? 'Leave as-is' : t === 'on' ? 'On' : 'Off']);
+    if (key === 'audio') return AUDIOS.map((a) => [a, a === 'leave' ? 'Leave as-is' : 'Original (first track)']);
+    const values = key === 'subtitles' ? SUBTITLES : THEATERS;
+    return values.map((v) => [v, v === 'leave' ? 'Leave as-is' : v === 'on' ? 'On' : 'Off']);
   }
 
-  const currentValue = (key) => (key === 'speed' ? speed() : key === 'volume' ? volume() : theater());
+  const currentValue = (key) => {
+    if (key === 'speed') return speed();
+    if (key === 'volume') return volume();
+    if (key === 'theater') return theater();
+    if (key === 'subtitles') return subtitles();
+    return audio();
+  };
 
   function valueLabel(key) {
+    if (key === 'hotkeys') return hotkeys() ? 'On' : 'Off';
+    if (key === 'pauseHidden') return pauseHidden() ? 'On' : 'Off';
     const v = currentValue(key);
     if (v === 'leave') return 'Default';
     if (key === 'speed') return `${v}x`;
     if (key === 'volume') return `${v}%`;
+    if (key === 'audio') return 'Original';
     return v === 'on' ? 'On' : 'Off';
   }
 
@@ -208,9 +326,14 @@
     if (view.kind === 'settings') {
       title.textContent = 'Playback';
       panel.append(title);
-      for (const key of ['speed', 'theater', 'volume']) {
+      for (const key of ['speed', 'hotkeys', 'theater', 'volume', 'subtitles', 'audio', 'pauseHidden']) {
         panel.append(
           settingRow(TITLES[key], valueLabel(key), () => {
+            if (key === 'hotkeys' || key === 'pauseHidden') {
+              put(key, !get(key, false));
+              render();
+              return;
+            }
             view = { kind: 'options', key };
             render();
           })
