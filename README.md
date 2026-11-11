@@ -12,7 +12,7 @@ Every script here is written with AI assistance: the code is generated or drafte
 | --- | --- | :---: |
 | YouTube: Auto Expand Description | Expands the watch page description automatically. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-expand-description.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube-expand-description.user.js) |
 | YouTube: Autoplay Control | Decides what happens when a video ends: next, wait, stop, or loop, with a per-tab limit. Set it from the userscript manager menu. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-autoplay-control.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube-autoplay-control.user.js) |
-| YouTube: Hide "These People Are Mentioned in the Video" | Hides the "These people are mentioned in the video" shelf on YouTube watch pages. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-hide-people-mentioned.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube-hide-people-mentioned.user.js) |
+| YouTube: Hide "These people are mentioned in the video" | Hides the "These people are mentioned in the video" shelf on YouTube watch pages. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-hide-people-mentioned.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube-hide-people-mentioned.user.js) |
 | YouTube: Playback Defaults | Sets defaults for speed, theater mode, volume, subtitles and audio track, with optional speed hotkeys and auto-pause. Set it from the userscript manager menu. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-playback-defaults.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube-playback-defaults.user.js) |
 | YouTube: Preferred Resolution | Starts videos at a preferred quality, with the next best available as fallback. Set it from the userscript manager menu. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube-preferred-resolution.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube-preferred-resolution.user.js) |
 
@@ -29,12 +29,7 @@ Click **Install** in the table above. To add a script by hand:
 
 ## Conventions
 
-- English only: code, comments, `@name`, `@description`, and file names. Text a script matches on a page stays in that site's language.
-- All scripts live in `scripts/`.
-- File names follow `<site>-<action>.user.js`.
-- Userscript names use Title Case: every word capitalized and separated by spaces, not hyphens (for example `YouTube: Playback Defaults`).
-- The script table is sorted alphabetically.
-- No build step; each file is a standalone script.
+File naming, script structure and commit rules: see [CONVENTIONS.md](CONVENTIONS.md).
 
 ## License
 
