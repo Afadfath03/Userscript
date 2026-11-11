@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         YouTube: Hide "These People Are Mentioned in the Video"
+// @name         YouTube: Hide "These people are mentioned in the video"
 // @namespace    https://github.com/Afadfath03/Userscript
 // @version      1.3
 // @description  Hide the "These people are mentioned in the video" shelf on watch pages
