@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         YouTube: playback defaults
+// @name         YouTube: Playback Defaults
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.1
+// @version      1.2
 // @description  Set a default speed, theater mode, volume, subtitles and audio track for every video
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript

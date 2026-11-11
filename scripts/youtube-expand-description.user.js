@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         YouTube: auto-expand description
+// @name         YouTube: Auto Expand Description
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.2
+// @version      1.3
 // @description  Expand the watch page description automatically
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript

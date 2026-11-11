@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         YouTube: autoplay control
+// @name         YouTube: Autoplay Control
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.0
+// @version      1.1
 // @description  Decide what happens when a video ends: next, wait, stop, loop, with a per-session limit
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript

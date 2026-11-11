@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         YouTube: preferred resolution
+// @name         YouTube: Preferred Resolution
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.3
+// @version      1.4
 // @description  Start every video at a preferred quality, falling back to the next best available
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
