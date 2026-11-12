@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.5
+// @version      1.6
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -476,32 +476,69 @@
     ].join(',');
 
     const enabled = () => get('membersOn', true) === true;
-    const hidden = new Set();
+    const hidden = new Map();
 
-    function hideCard(badge) {
-      const card = badge.closest(CARD);
-      if (!card || hidden.has(card)) return;
+    function videoIdOf(card) {
+      const link = card.querySelector('a[href*="/watch?v="], a[href*="/shorts/"]');
+      if (!link) return '';
+      const url = link.getAttribute('href') || '';
+      if (url.includes('/shorts/')) return url.split('/shorts/')[1].split(/[?&/]/)[0];
+      const match = url.match(/[?&]v=([^&]+)/);
+      return match ? match[1] : '';
+    }
+
+    function hideCard(card, id) {
       card.style.setProperty('display', 'none', 'important');
-      // Autoplay checks this before picking the next video
-      card.setAttribute('data-ytc-off', '');
-      hidden.add(card);
+      // Autoplay checks this before picking the next video; the value is the video it hid
+      card.setAttribute('data-ytc-off', id);
+      hidden.set(card, id);
+    }
+
+    function unhideCard(card) {
+      card.style.removeProperty('display');
+      card.removeAttribute('data-ytc-off');
+      hidden.delete(card);
     }
 
     function restore() {
-      for (const node of hidden) {
-        node.style.removeProperty('display');
-        node.removeAttribute('data-ytc-off');
-      }
+      for (const card of [...hidden.keys()]) unhideCard(card);
       hidden.clear();
+    }
+
+    // A card can hold several badges, so the decision is made once per card
+    function markCard(card) {
+      const shouldHide = [...card.querySelectorAll(BADGE)].some((badge) =>
+        LABELS.has(squash(badge.textContent))
+      );
+      const id = videoIdOf(card);
+      if (shouldHide) hideCard(card, id);
+      else unhideCard(card);
+    }
+
+    // Feed elements get recycled for other videos, so a hidden card whose video
+    // changed has to be judged again, not just released
+    function resync() {
+      for (const [card, id] of [...hidden]) {
+        if (!card.isConnected) {
+          hidden.delete(card);
+          continue;
+        }
+        if (videoIdOf(card) !== id) markCard(card);
+      }
     }
 
     function mark(root) {
       if (!root.isConnected) return;
-      const badges = [...root.querySelectorAll(BADGE)];
-      if (root.matches(BADGE)) badges.push(root);
-      for (const badge of badges) {
-        if (LABELS.has(squash(badge.textContent))) hideCard(badge);
+      const cards = new Set();
+      for (const badge of root.querySelectorAll(BADGE)) {
+        const card = badge.closest(CARD);
+        if (card) cards.add(card);
       }
+      if (root.matches(BADGE)) {
+        const card = root.closest(CARD);
+        if (card) cards.add(card);
+      }
+      for (const card of cards) markCard(card);
     }
 
     const queue = new Set();
@@ -512,12 +549,17 @@
       const batch = [...queue];
       queue.clear();
       if (!enabled()) return;
+      resync();
       for (const node of batch) mark(node);
     }
 
     document.addEventListener('ytc-change', () => {
-      if (enabled()) mark(document.body);
-      else restore();
+      if (!enabled()) {
+        restore();
+        return;
+      }
+      resync();
+      mark(document.body);
     });
 
     new MutationObserver((list) => {

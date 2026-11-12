@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Hide Members Only and Premium
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.1
+// @version      1.2
 // @description  Hide videos marked Members only or Premium in feeds, search results, sidebars and playlists
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -35,15 +35,61 @@
   style.textContent = `[${MARK}]{display:none!important}`;
   document.documentElement.append(style);
 
+  const hidden = new Map();
+
+  function videoIdOf(card) {
+    const link = card.querySelector('a[href*="/watch?v="], a[href*="/shorts/"]');
+    if (!link) return '';
+    const url = link.getAttribute('href') || '';
+    if (url.includes('/shorts/')) return url.split('/shorts/')[1].split(/[?&/]/)[0];
+    const match = url.match(/[?&]v=([^&]+)/);
+    return match ? match[1] : '';
+  }
+
+  function hideCard(card, id) {
+    card.setAttribute(MARK, id);
+    hidden.set(card, id);
+  }
+
+  function unhideCard(card) {
+    card.removeAttribute(MARK);
+    hidden.delete(card);
+  }
+
+  // A card can hold several badges, so the decision is made once per card
+  function markCard(card) {
+    const shouldHide = [...card.querySelectorAll(BADGE)].some((badge) =>
+      LABELS.has(squash(badge.textContent))
+    );
+    const id = videoIdOf(card);
+    if (shouldHide) hideCard(card, id);
+    else unhideCard(card);
+  }
+
+  // Feed elements get recycled for other videos, so a hidden card whose video
+  // changed has to be judged again, not just released
+  function resync() {
+    for (const [card, id] of [...hidden]) {
+      if (!card.isConnected) {
+        hidden.delete(card);
+        continue;
+      }
+      if (videoIdOf(card) !== id) markCard(card);
+    }
+  }
+
   function mark(root) {
     if (!root.isConnected) return;
-    const badges = [...root.querySelectorAll(BADGE)];
-    if (root.matches(BADGE)) badges.push(root);
-    for (const badge of badges) {
-      if (!LABELS.has(squash(badge.textContent))) continue;
+    const cards = new Set();
+    for (const badge of root.querySelectorAll(BADGE)) {
       const card = badge.closest(CARD);
-      if (card) card.setAttribute(MARK, '');
+      if (card) cards.add(card);
     }
+    if (root.matches(BADGE)) {
+      const card = root.closest(CARD);
+      if (card) cards.add(card);
+    }
+    for (const card of cards) markCard(card);
   }
 
   const queue = new Set();
@@ -53,6 +99,7 @@
     raf = 0;
     const batch = [...queue];
     queue.clear();
+    resync();
     for (const node of batch) mark(node);
   }
 
