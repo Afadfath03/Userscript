@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.3
+// @version      2.4
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -130,25 +130,25 @@
       short: 'Quiet Page',
       desc: 'Stops work on the page that plays video you never asked for, and hides the sections that cost the most. Each switch below works on its own.',
       rows: [
-        { key: 'quietPreviews', label: 'Stop thumbnail previews', type: 'toggle', def: true },
-        { key: 'quietEndScreen', label: 'Hide end screen', type: 'toggle', def: true },
-        { key: 'quietAmbient', label: 'Disable ambient mode', type: 'toggle', def: true },
-        { key: 'quietShorts', label: 'Hide Shorts shelves', type: 'toggle', def: false },
-        { key: 'quietComments', label: 'Hide comments', type: 'toggle', def: false },
-        { key: 'quietChat', label: 'Hide live chat', type: 'toggle', def: false },
-        { key: 'quietPromos', label: 'Hide promo banners', type: 'toggle', def: false },
-        { key: 'quietMerch', label: 'Hide merch shelf', type: 'toggle', def: false },
-        { key: 'quietShortsEntry', label: 'Hide Shorts sidebar entry', type: 'toggle', def: false },
-        { key: 'quietDonation', label: 'Hide donation shelves', type: 'toggle', def: false },
-        { key: 'quietChips', label: 'Hide filter chips', type: 'toggle', def: false },
-        { key: 'quietPosts', label: 'Hide community posts', type: 'toggle', def: false },
-        { key: 'quietClarification', label: 'Hide info panels', type: 'toggle', def: false },
-        { key: 'quietPlaylist', label: 'Hide playlist panel', type: 'toggle', def: false },
-        { key: 'quietNudges', label: 'Hide feed nudges', type: 'toggle', def: false },
-        { key: 'quietChannelVideo', label: 'Hide channel featured video', type: 'toggle', def: false },
-        { key: 'quietSuggested', label: 'Hide player suggestion bubble', type: 'toggle', def: false },
-        { key: 'quietInfoPanels', label: 'Hide large info panels', type: 'toggle', def: false },
-        { key: 'quietMiniplayer', label: 'Hide miniplayer', type: 'toggle', def: false },
+        { key: 'quietPreviews', label: 'Stop thumbnail previews', type: 'toggle', group: 'Playback', def: true },
+        { key: 'quietEndScreen', label: 'Hide end screen', type: 'toggle', group: 'Playback', def: true },
+        { key: 'quietAmbient', label: 'Disable ambient mode', type: 'toggle', group: 'Playback', def: true },
+        { key: 'quietShorts', label: 'Hide Shorts shelves', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietComments', label: 'Hide comments', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietChat', label: 'Hide live chat', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietPromos', label: 'Hide promo banners', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietMerch', label: 'Hide merch shelf', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietShortsEntry', label: 'Hide Shorts sidebar entry', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietDonation', label: 'Hide donation shelves', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietChips', label: 'Hide filter chips', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietPosts', label: 'Hide community posts', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietClarification', label: 'Hide info panels', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietPlaylist', label: 'Hide playlist panel', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietNudges', label: 'Hide feed nudges', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietChannelVideo', label: 'Hide channel featured video', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietSuggested', label: 'Hide player suggestion bubble', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietInfoPanels', label: 'Hide large info panels', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietMiniplayer', label: 'Hide miniplayer', type: 'toggle', group: 'Sections', def: false },
       ],
     },
   ];
@@ -179,7 +179,7 @@
 #ytc-panel .ytc-close{font-size:22px}
 #ytc-panel .ytc-desc{margin:12px 0 0;padding:0 20px;font-size:13px;line-height:1.5;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel hr{margin:14px 20px 16px;border:0;border-top:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3))}
-#ytc-panel .ytc-section{margin:0;padding:4px 20px 2px;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-panel .ytc-section{margin:0;padding:4px 20px 2px;font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel button{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0 20px;border:0;background:none;color:inherit;font:inherit;font-size:14px;line-height:1.4;text-align:left;cursor:pointer}
 #ytc-panel button:hover{background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05))}
 #ytc-panel button:active{background:var(--yt-spec-10-percent-layer,rgba(0,0,0,.08))}
@@ -191,20 +191,36 @@
 #ytc-panel textarea{display:block;width:calc(100% - 40px);height:110px;margin:0 20px 10px;padding:8px 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3));border-radius:8px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
 #ytc-panel .ytc-status{margin:0;padding:8px 20px 12px;font-size:12px;line-height:1.4;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel .ytc-info{display:flex;gap:10px;align-items:baseline;padding:6px 20px;font-size:13px;line-height:1.4}
+#ytc-panel .ytc-label{display:block;padding:0 20px 6px;font-size:12px;line-height:1.4;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-panel .ytc-switch{position:relative;flex:0 0 34px;width:34px;height:20px;margin-left:auto;border-radius:10px;background:var(--yt-spec-10-percent-layer,rgba(128,128,128,.45));transition:background .15s}
+#ytc-panel .ytc-switch::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+#ytc-panel button[aria-pressed="true"] .ytc-switch{background:var(--yt-spec-call-to-action,#065fd4)}
+#ytc-panel button[aria-pressed="true"] .ytc-switch::after{transform:translateX(14px)}
+@media (prefers-reduced-motion:reduce){#ytc-panel .ytc-switch,#ytc-panel .ytc-switch::after{transition:none}}
 `;
 
   let panelState = null;
+
+  let lastFocus = null;
 
   function closePanel() {
     document.removeEventListener('keydown', panelKey, true);
     document.getElementById('ytc-backdrop')?.remove();
     document.getElementById('ytc-style')?.remove();
     panelState = null;
+    if (lastFocus && lastFocus.isConnected) lastFocus.focus();
+    lastFocus = null;
   }
 
   function panelKey(e) {
     if (e.key === 'Escape') {
       e.stopPropagation();
+      const box = document.getElementById('ytc-backup');
+      // A pasted export is worth one keystroke of protection
+      if (box && document.activeElement === box && box.value.trim()) {
+        document.querySelector('#ytc-panel .ytc-close')?.focus();
+        return;
+      }
       closePanel();
       return;
     }
@@ -227,15 +243,25 @@
     }
   }
 
-  function settingRow(label, value, onClick) {
+  function settingRow(label, value, onClick, pressed) {
     const button = document.createElement('button');
     button.type = 'button';
     const name = document.createElement('span');
     name.textContent = label;
+    button.append(name);
+    if (typeof pressed === 'boolean') {
+      button.setAttribute('aria-pressed', String(pressed));
+      const toggle = document.createElement('span');
+      toggle.className = 'ytc-switch';
+      toggle.setAttribute('aria-hidden', 'true');
+      button.append(toggle);
+      button.addEventListener('click', onClick);
+      return button;
+    }
     const current = document.createElement('span');
     current.className = 'ytc-value';
     current.textContent = value;
-    button.append(name, current);
+    button.append(current);
     button.addEventListener('click', onClick);
     return button;
   }
@@ -321,6 +347,7 @@
       const row = feature.rows.find((r) => r.key === panelState.rowKey);
       if (!row) return;
       panel.append(panelHeader(row.label));
+      panel.setAttribute('aria-label', row.label);
 
       const back = document.createElement('button');
       back.type = 'button';
@@ -348,28 +375,44 @@
       desc.className = 'ytc-desc';
       desc.textContent = feature.desc;
       const divider = document.createElement('hr');
+      const grouped = feature.rows.some((row) => row.group);
       const section = document.createElement('p');
       section.className = 'ytc-section';
       section.textContent = 'Settings';
-      panel.append(bar, desc, divider, section);
+      panel.append(bar, desc, divider);
+      if (!grouped) panel.append(section);
+      panel.setAttribute('aria-label', feature.title);
 
       const rows = [{ key: `${feature.id}On`, label: 'Enabled', type: 'toggle', def: true }, ...feature.rows];
+      let group = null;
       for (const row of rows) {
-        const button = settingRow(row.label, valueLabel(row), () => {
-          if (row.type === 'toggle') {
-            put(row.key, !read(row));
-            // Updating in place keeps the panel from rebuilding and scrolling to the top
-            const value = button.querySelector('.ytc-value');
-            if (value) value.textContent = valueLabel(row);
-            notifyChange();
-            return;
-          }
-          panelState.view = 'options';
-          panelState.rowKey = row.key;
-          render();
-        });
+        if (row.group && row.group !== group) {
+          group = row.group;
+          const heading = document.createElement('p');
+          heading.className = 'ytc-section';
+          heading.textContent = group;
+          panel.append(heading);
+        }
+        const isToggle = row.type === 'toggle';
+        const button = settingRow(
+          row.label,
+          valueLabel(row),
+          () => {
+            if (isToggle) {
+              put(row.key, !read(row));
+              // Updating in place keeps the panel from rebuilding and scrolling to the top
+              button.setAttribute('aria-pressed', String(read(row)));
+              notifyChange();
+              return;
+            }
+            panelState.view = 'options';
+            panelState.rowKey = row.key;
+            render();
+          },
+          isToggle ? read(row) : undefined
+        );
         // The chevron marks rows that open a subview
-        if (row.type !== 'toggle') button.append(chevron());
+        if (!isToggle) button.append(chevron());
         panel.append(button);
       }
     }
@@ -381,6 +424,7 @@
 
   function openPanel(featureId) {
     if (document.getElementById('ytc-backdrop')) closePanel();
+    lastFocus = document.activeElement;
     const style = document.createElement('style');
     style.id = 'ytc-style';
     style.textContent = CSS;
@@ -1260,6 +1304,7 @@
     desc.className = 'ytc-desc';
     desc.textContent = 'Copy every setting as JSON, or paste exported JSON and import it. Keys and values that do not match a setting are skipped.';
     panel.append(bar, desc, document.createElement('hr'));
+    panel.setAttribute('aria-label', 'Backup');
 
     const copy = document.createElement('button');
     copy.type = 'button';
@@ -1267,10 +1312,14 @@
     panel.append(copy);
 
     const box = document.createElement('textarea');
+    box.id = 'ytc-backup';
     box.spellcheck = false;
-    box.setAttribute('aria-label', 'Settings JSON');
     box.placeholder = 'Paste exported JSON here';
-    panel.append(box);
+    const boxLabel = document.createElement('label');
+    boxLabel.className = 'ytc-label';
+    boxLabel.setAttribute('for', 'ytc-backup');
+    boxLabel.textContent = 'Settings JSON';
+    panel.append(boxLabel, box);
 
     const load = document.createElement('button');
     load.type = 'button';
@@ -1328,6 +1377,7 @@
     desc.className = 'ytc-desc';
     desc.textContent = 'Everything this script keeps, in one place.';
     panel.append(bar, desc, document.createElement('hr'));
+    panel.setAttribute('aria-label', 'Settings');
 
     const entries = [
       ['Features', `${FEATURES.filter(isOn).length} of ${FEATURES.length} on`, 'overview'],
@@ -1356,15 +1406,21 @@
     desc.className = 'ytc-desc';
     desc.textContent = 'Every feature in one place. A switch here is the same switch as the one inside its own panel.';
     panel.append(bar, desc, document.createElement('hr'));
+    panel.setAttribute('aria-label', 'Features');
 
     for (const feature of FEATURES) {
-      const button = settingRow(feature.short, isOn(feature) ? 'On' : 'Off', () => {
-        put(`${feature.id}On`, !isOn(feature));
-        const value = button.querySelector('.ytc-value');
-        if (value) value.textContent = isOn(feature) ? 'On' : 'Off';
-        notifyChange();
-        drawMenu();
-      });
+      const button = settingRow(
+        feature.short,
+        '',
+        () => {
+          put(`${feature.id}On`, !isOn(feature));
+          // Updating in place keeps the panel from rebuilding and scrolling to the top
+          button.setAttribute('aria-pressed', String(isOn(feature)));
+          notifyChange();
+          drawMenu();
+        },
+        isOn(feature)
+      );
       panel.append(button);
     }
 
@@ -1415,6 +1471,7 @@
     desc.className = 'ytc-desc';
     desc.textContent = 'What this copy of the script sees right now. Handy when a feature stays quiet on a page.';
     panel.append(bar, desc, document.createElement('hr'));
+    panel.setAttribute('aria-label', 'Diagnostics');
 
     for (const [label, value] of diagnosticsRows()) panel.append(infoRow(label, value));
 
