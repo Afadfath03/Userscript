@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.0
+// @version      1.1
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -152,6 +152,8 @@
 #ytc-panel .ytc-mark{flex:0 0 14px;font-size:14px;line-height:1;color:inherit}
 #ytc-panel .ytc-value{margin-left:auto;font-size:13px;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel button[aria-current="true"]{font-weight:500}
+#ytc-panel textarea{display:block;width:calc(100% - 40px);height:120px;margin:0 20px 10px;padding:8px 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3));border-radius:8px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
+#ytc-panel .ytc-status{margin:0;padding:8px 20px 12px;font-size:12px;line-height:1.4;color:var(--yt-spec-text-secondary,#606060)}
 `;
 
   let panelState = null;
@@ -172,7 +174,7 @@
     if (e.key !== 'Tab') return;
     const panel = document.getElementById('ytc-panel');
     if (!panel) return;
-    const items = [...panel.querySelectorAll('button')];
+    const items = [...panel.querySelectorAll('button, textarea')];
     if (!items.length) return;
     const first = items[0];
     const last = items[items.length - 1];
@@ -221,6 +223,10 @@
   function render() {
     const panel = document.getElementById('ytc-panel');
     if (!panel || !panelState) return;
+    if (panelState.view === 'backup') {
+      renderBackup(panel);
+      return;
+    }
     const feature = featureById(panelState.feature);
     if (!feature) return;
     panel.textContent = '';
@@ -309,7 +315,7 @@
     backdrop.append(panel);
     document.body.append(backdrop);
     document.addEventListener('keydown', panelKey, true);
-    panelState = { feature: featureId, view: 'settings', rowKey: null };
+    panelState = { feature: featureId, view: featureId === 'backup' ? 'backup' : 'settings', rowKey: null };
     render();
   }
 
@@ -973,6 +979,118 @@
     if (document.body) scan();
   }
 
+  // ---------- settings backup ----------
+
+  const settingKeys = () => {
+    const keys = new Set();
+    for (const feature of FEATURES) {
+      keys.add(`${feature.id}On`);
+      for (const row of feature.rows) keys.add(row.key);
+    }
+    return keys;
+  };
+
+  const rowOf = (key) => {
+    for (const feature of FEATURES) {
+      for (const row of feature.rows) if (row.key === key) return row;
+    }
+    return null;
+  };
+
+  function validValue(key, value) {
+    if (key.endsWith('On')) return typeof value === 'boolean';
+    const row = rowOf(key);
+    if (!row) return false;
+    if (row.type === 'toggle') return typeof value === 'boolean';
+    return row.options.some(([v]) => v === value);
+  }
+
+  function exportSettings() {
+    const settings = {};
+    for (const key of settingKeys()) {
+      const value = GM_getValue(`ytc.${key}`);
+      if (value !== undefined) settings[key] = value;
+    }
+    return JSON.stringify({ script: 'youtube-custom-collection', format: 1, settings }, null, 2);
+  }
+
+  function importSettings(text) {
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return 'That is not valid JSON.';
+    }
+    const settings = data && data.settings;
+    if (!settings || typeof settings !== 'object') return 'That JSON has no settings object.';
+    let applied = 0;
+    let skipped = 0;
+    for (const [key, value] of Object.entries(settings)) {
+      // Keys and values outside the current features are ignored, not trusted
+      if (!validValue(key, value)) {
+        skipped++;
+        continue;
+      }
+      put(key, value);
+      applied++;
+    }
+    if (applied) {
+      notifyChange();
+      drawMenu();
+    }
+    return `Imported ${applied} setting${applied === 1 ? '' : 's'}${skipped ? `, skipped ${skipped} unknown or invalid` : ''}.`;
+  }
+
+  function renderBackup(panel) {
+    panel.textContent = '';
+
+    const title = document.createElement('h2');
+    title.textContent = 'Settings Backup';
+
+    const desc = document.createElement('p');
+    desc.className = 'ytc-desc';
+    desc.textContent = 'Copy every setting as JSON, or paste exported JSON and import it. Keys and values that do not match a setting are skipped.';
+    panel.append(title, desc, document.createElement('hr'));
+
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.textContent = 'Copy settings JSON';
+    panel.append(copy);
+
+    const box = document.createElement('textarea');
+    box.spellcheck = false;
+    box.setAttribute('aria-label', 'Settings JSON');
+    box.placeholder = 'Paste exported JSON here';
+    panel.append(box);
+
+    const load = document.createElement('button');
+    load.type = 'button';
+    load.textContent = 'Import from the box';
+    panel.append(load);
+
+    const status = document.createElement('p');
+    status.className = 'ytc-status';
+    status.setAttribute('role', 'status');
+    panel.append(status);
+
+    copy.addEventListener('click', async () => {
+      box.value = exportSettings();
+      try {
+        await navigator.clipboard.writeText(box.value);
+        status.textContent = 'Copied to clipboard.';
+      } catch {
+        box.select();
+        status.textContent = 'Clipboard blocked, the JSON is selected in the box.';
+      }
+    });
+
+    load.addEventListener('click', () => {
+      status.textContent = importSettings(box.value);
+    });
+
+    (panel.querySelector('button') || panel).focus();
+  }
+
   // ---------- menu ----------
 
   const menuIds = [];
@@ -988,6 +1106,8 @@
       const id = GM_registerMenuCommand(feature.short, () => openPanel(feature.id));
       if (id !== undefined && id !== null) menuIds.push(id);
     }
+    const backupId = GM_registerMenuCommand('Settings Backup', () => openPanel('backup'));
+    if (backupId !== undefined && backupId !== null) menuIds.push(backupId);
   }
 
   drawMenu();
