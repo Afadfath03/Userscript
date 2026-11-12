@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.1
+// @version      1.2
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -16,6 +16,8 @@
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
+// @grant        GM_deleteValue
+// @grant        GM_info
 // ==/UserScript==
 
 (() => {
@@ -154,6 +156,7 @@
 #ytc-panel button[aria-current="true"]{font-weight:500}
 #ytc-panel textarea{display:block;width:calc(100% - 40px);height:120px;margin:0 20px 10px;padding:8px 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3));border-radius:8px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
 #ytc-panel .ytc-status{margin:0;padding:8px 20px 12px;font-size:12px;line-height:1.4;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-panel .ytc-info{display:flex;gap:10px;align-items:baseline;padding:6px 20px;font-size:13px;line-height:1.4}
 `;
 
   let panelState = null;
@@ -223,6 +226,14 @@
   function render() {
     const panel = document.getElementById('ytc-panel');
     if (!panel || !panelState) return;
+    if (panelState.view === 'overview') {
+      renderOverview(panel);
+      return;
+    }
+    if (panelState.view === 'diagnostics') {
+      renderDiagnostics(panel);
+      return;
+    }
     if (panelState.view === 'backup') {
       renderBackup(panel);
       return;
@@ -315,7 +326,7 @@
     backdrop.append(panel);
     document.body.append(backdrop);
     document.addEventListener('keydown', panelKey, true);
-    panelState = { feature: featureId, view: featureId === 'backup' ? 'backup' : 'settings', rowKey: null };
+    panelState = { feature: featureId, view: featureById(featureId) ? 'settings' : featureId, rowKey: null };
     render();
   }
 
@@ -1091,6 +1102,116 @@
     (panel.querySelector('button') || panel).focus();
   }
 
+  // ---------- overview and diagnostics ----------
+
+  const version = () =>
+    typeof GM_info === 'object' && GM_info.script ? String(GM_info.script.version) : 'unknown';
+
+  function infoRow(label, value) {
+    const row = document.createElement('div');
+    row.className = 'ytc-info';
+    const name = document.createElement('span');
+    name.textContent = label;
+    const val = document.createElement('span');
+    val.className = 'ytc-value';
+    val.textContent = value;
+    // Whitespace-only flex items are not rendered, so this only helps textContent
+    row.append(name, ' ', val);
+    return row;
+  }
+
+  const isOn = (feature) => get(`${feature.id}On`, true) === true;
+
+  let resetArmed = false;
+
+  function renderOverview(panel) {
+    panel.textContent = '';
+
+    const title = document.createElement('h2');
+    title.textContent = 'Features';
+    const desc = document.createElement('p');
+    desc.className = 'ytc-desc';
+    desc.textContent = 'Every feature in one place. A switch here is the same switch as the one inside its own panel.';
+    panel.append(title, desc, document.createElement('hr'));
+
+    for (const feature of FEATURES) {
+      panel.append(
+        settingRow(feature.short, isOn(feature) ? 'On' : 'Off', () => {
+          put(`${feature.id}On`, !isOn(feature));
+          notifyChange();
+          drawMenu();
+          render();
+        })
+      );
+    }
+
+    const reset = document.createElement('button');
+    reset.type = 'button';
+    reset.textContent = resetArmed ? 'Press again to delete every setting' : 'Reset all settings';
+    reset.addEventListener('click', () => {
+      if (!resetArmed) {
+        resetArmed = true;
+        render();
+        return;
+      }
+      resetArmed = false;
+      if (typeof GM_deleteValue === 'function') {
+        for (const key of settingKeys()) GM_deleteValue(`ytc.${key}`);
+      }
+      notifyChange();
+      drawMenu();
+      render();
+    });
+
+    panel.append(document.createElement('hr'), reset);
+    (resetArmed ? reset : panel.querySelector('button')).focus();
+  }
+
+  function diagnosticsRows() {
+    const stored = [...settingKeys()].filter((key) => GM_getValue(`ytc.${key}`) !== undefined);
+    return [
+      ['Script', 'youtube-custom-collection'],
+      ['Version', version()],
+      ['Enabled features', `${FEATURES.filter(isOn).length} of ${FEATURES.length}`],
+      ['Stored settings', `${stored.length} of ${settingKeys().size} keys`],
+      ['Settings size', `${exportSettings().length} bytes`],
+      ['Page', location.pathname],
+    ];
+  }
+
+  const diagnosticsText = () =>
+    diagnosticsRows()
+      .map(([label, value]) => `${label}: ${value}`)
+      .join('\n');
+
+  function renderDiagnostics(panel) {
+    panel.textContent = '';
+
+    const title = document.createElement('h2');
+    title.textContent = 'Diagnostics';
+    const desc = document.createElement('p');
+    desc.className = 'ytc-desc';
+    desc.textContent = 'What this copy of the script sees right now. Handy when a feature stays quiet on a page.';
+    panel.append(title, desc, document.createElement('hr'));
+
+    for (const [label, value] of diagnosticsRows()) panel.append(infoRow(label, value));
+
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.textContent = 'Copy report';
+    copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(diagnosticsText());
+        copy.textContent = 'Copied';
+      } catch {
+        copy.textContent = 'Clipboard blocked';
+      }
+    });
+
+    panel.append(document.createElement('hr'), copy);
+    copy.focus();
+  }
+
   // ---------- menu ----------
 
   const menuIds = [];
@@ -1106,8 +1227,15 @@
       const id = GM_registerMenuCommand(feature.short, () => openPanel(feature.id));
       if (id !== undefined && id !== null) menuIds.push(id);
     }
-    const backupId = GM_registerMenuCommand('Settings Backup', () => openPanel('backup'));
-    if (backupId !== undefined && backupId !== null) menuIds.push(backupId);
+    const extra = [
+      ['Features', 'overview'],
+      ['Settings Backup', 'backup'],
+      ['Diagnostics', 'diagnostics'],
+    ];
+    for (const [label, view] of extra) {
+      const id = GM_registerMenuCommand(label, () => openPanel(view));
+      if (id !== undefined && id !== null) menuIds.push(id);
+    }
   }
 
   drawMenu();
