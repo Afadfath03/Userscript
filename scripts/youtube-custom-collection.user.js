@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.7
+// @version      2.8
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -18,6 +18,7 @@
 // @grant        GM_unregisterMenuCommand
 // @grant        GM_deleteValue
 // @grant        GM_info
+// @grant        GM_listValues
 // ==/UserScript==
 
 (() => {
@@ -117,6 +118,7 @@
         { key: 'subtitles', label: 'Subtitles', type: 'choice', def: 'leave', options: SUBTITLES },
         { key: 'audio', label: 'Audio track', type: 'choice', def: 'leave', options: AUDIOS },
         { key: 'pauseHidden', label: 'Pause when hidden', type: 'toggle', def: false },
+        { key: 'pauseBlur', label: 'Pause when window loses focus', type: 'toggle', def: false },
       ],
     },
     {
@@ -418,6 +420,26 @@
         if (!isToggle) button.append(chevron());
         panel.append(button);
       }
+
+      const reset = document.createElement('button');
+      reset.type = 'button';
+      reset.textContent = armedFeature === feature.id ? 'Press again to reset this feature' : 'Reset this feature';
+      reset.addEventListener('click', () => {
+        if (armedFeature !== feature.id) {
+          armedFeature = feature.id;
+          reset.textContent = 'Press again to reset this feature';
+          return;
+        }
+        armedFeature = null;
+        if (typeof GM_deleteValue === 'function') {
+          GM_deleteValue(`ytc.${feature.id}On`);
+          for (const row of feature.rows) GM_deleteValue(`ytc.${row.key}`);
+        }
+        notifyChange();
+        drawMenu();
+        render();
+      });
+      panel.append(document.createElement('hr'), reset);
     }
 
     const active = panel.querySelector('[aria-current="true"]');
@@ -735,6 +757,7 @@
       if (typeof el.setPlaybackQuality === 'function') el.setPlaybackQuality(code);
     }
 
+    const MAX_TRIES = 30;
     let timer = 0;
     let tries = 0;
 
@@ -749,8 +772,10 @@
           clearInterval(timer);
           return;
         }
+        // Ads lock the level, so waiting on one must not burn the attempts
+        if (el && el.classList.contains('ad-showing')) return;
         apply();
-        if (++tries >= 12) clearInterval(timer);
+        if (++tries >= MAX_TRIES) clearInterval(timer);
       }, 400);
     }
 
@@ -1057,6 +1082,12 @@
 
     let pausedByUs = false;
 
+    window.addEventListener('blur', () => {
+      if (!enabled() || !get('pauseBlur', false)) return;
+      const video = currentVideo();
+      if (video && !video.paused) video.pause();
+    });
+
     document.addEventListener('visibilitychange', () => {
       if (!enabled() || !pauseHidden()) return;
       const video = currentVideo();
@@ -1218,6 +1249,8 @@
 
     // Pausing on the event catches previews wherever they start; the player and
     // the Shorts page are not thumbnails, so they keep playing
+    const paused = new WeakMap();
+
     document.addEventListener(
       'playing',
       (event) => {
@@ -1225,6 +1258,10 @@
         const video = event.target;
         if (!(video instanceof HTMLVideoElement)) return;
         if (!video.closest('ytd-thumbnail, yt-thumbnail-view-model, ytd-playlist-thumbnail')) return;
+        // If YouTube restarts the same preview, three pauses is enough evidence
+        const attempts = paused.get(video) || 0;
+        if (attempts >= 3) return;
+        paused.set(video, attempts + 1);
         video.pause();
       },
       true
@@ -1262,9 +1299,13 @@
 
   function exportSettings() {
     const settings = {};
-    for (const key of settingKeys()) {
-      const value = GM_getValue(`ytc.${key}`);
-      if (value !== undefined) settings[key] = value;
+    const keys =
+      typeof GM_listValues === 'function'
+        ? GM_listValues().filter((full) => full.startsWith('ytc.'))
+        : [...settingKeys()].map((key) => `ytc.${key}`);
+    for (const full of keys) {
+      const value = GM_getValue(full);
+      if (value !== undefined) settings[full.slice(4)] = value;
     }
     return JSON.stringify({ script: 'youtube-custom-collection', format: 1, settings }, null, 2);
   }
@@ -1374,6 +1415,31 @@
   const isOn = (feature) => get(`${feature.id}On`, true) === true;
 
   let resetArmed = false;
+  let armedFeature = null;
+
+  function featureSummary(feature) {
+    if (feature.id === 'resolution') {
+      const hit = QUALITY.find(([value]) => value === get('quality', 'auto'));
+      return hit ? hit[1] : 'Auto';
+    }
+    if (feature.id === 'autoplay') {
+      const hit = BEHAVIORS.find(([value]) => value === get('behavior', 'leave'));
+      return hit ? hit[1] : 'Leave as-is';
+    }
+    if (feature.id === 'playback') {
+      const speed = get('speed', 'leave');
+      return speed === 'leave' ? 'Default' : `${speed}x`;
+    }
+    if (feature.id === 'paused') {
+      const hit = PROMPTS.find(([value]) => value === get('answer', 'yes'));
+      return hit ? hit[1] : 'Yes';
+    }
+    if (feature.id === 'quiet') {
+      const on = feature.rows.filter((row) => get(row.key, row.def === true) === true).length;
+      return `${on} on`;
+    }
+    return 'On';
+  }
 
   function renderHub(panel) {
     panel.textContent = '';
@@ -1387,7 +1453,7 @@
 
     const rows = [];
     for (const feature of FEATURES) {
-      const button = settingRow(feature.short, isOn(feature) ? 'On' : 'Off', () => {
+      const button = settingRow(feature.short, isOn(feature) ? featureSummary(feature) : 'Off', () => {
         panelState.feature = feature.id;
         panelState.view = 'settings';
         render();
@@ -1425,7 +1491,7 @@
       // Labels are refreshed in place so the list keeps its position
       for (const [feature, button] of rows) {
         const value = button.querySelector('.ytc-value');
-        if (value) value.textContent = isOn(feature) ? 'On' : 'Off';
+        if (value) value.textContent = isOn(feature) ? featureSummary(feature) : 'Off';
       }
       reset.textContent = 'Reset all settings';
       notifyChange();

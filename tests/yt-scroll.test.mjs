@@ -87,7 +87,7 @@ await page.waitForTimeout(80);
 check('confirm button returns to its idle label', confirmed.includes('Reset all settings'));
 check('reset cleared the keys', (await page.evaluate(() => Object.keys(window.__store).length)) === 0);
 check('reset did not scroll away either', (await scrollTop()) === hubBefore);
-check('hub row reflects the reset', (await page.getByRole('button', { name: 'Quiet Page' }).textContent()).includes('On'));
+check('hub row reflects the reset', (await page.getByRole('button', { name: 'Quiet Page' }).textContent()).includes('3 on'));
 
 await browser.close();
 server.close();

@@ -60,7 +60,7 @@ check('backdrop uses a solid scrim, no blur', await page.evaluate(() =>
 await page.getByRole('button', { name: 'Playback Defaults' }).click();
 await page.waitForTimeout(80);
 check('feature panel opens from the hub', (await title()) === 'YouTube: Playback Defaults');
-check('feature panel has enabled, seven settings, back and close', (await page.locator('#ytc-panel button').count()) === 10);
+check('feature panel has enabled, eight settings, reset, back and close', (await page.locator('#ytc-panel button').count()) === 12);
 check('feature panel has a back button', (await page.getByRole('button', { name: 'Back', exact: true }).count()) === 1);
 
 await page.getByRole('button', { name: 'Enabled' }).click();
@@ -81,7 +81,7 @@ check('reset keeps settings after the first click', (await page.evaluate(() => w
 await page.getByRole('button', { name: /Press again to delete every setting/ }).click();
 await page.waitForTimeout(80);
 check('second click clears every key', (await page.evaluate(() => Object.keys(window.__store).length)) === 0);
-check('hub labels return to their defaults', (await page.getByRole('button', { name: 'Playback Defaults' }).textContent()).includes('On'));
+check('hub labels return to their defaults', (await page.getByRole('button', { name: 'Playback Defaults' }).textContent()).includes('Default'));
 check('reset button returns to its idle label', (await page.getByRole('button', { name: 'Reset all settings' }).count()) === 1);
 
 await page.getByRole('button', { name: 'Backup' }).click();

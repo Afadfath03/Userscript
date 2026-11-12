@@ -79,7 +79,7 @@ await page.evaluate(() => window.__menu[0].cb());
 await page.waitForTimeout(80);
 await page.getByRole('button', { name: 'Quiet Page' }).click();
 await page.waitForTimeout(80);
-check('panel lists enabled, nineteen levers, back and close', (await page.locator('#ytc-panel button').count()) === 22);
+check('panel lists enabled, nineteen levers, reset, back and close', (await page.locator('#ytc-panel button').count()) === 23);
 const onCount = await page.locator('#ytc-panel button[aria-pressed="true"]').count();
 const offCount = await page.locator('#ytc-panel button[aria-pressed="false"]').count();
 check('four rows start on: Enabled plus three playback levers', onCount === 4);
