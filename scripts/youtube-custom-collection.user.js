@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.4
+// @version      2.5
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -327,10 +327,6 @@
       renderHub(panel);
       return;
     }
-    if (panelState.view === 'overview') {
-      renderOverview(panel);
-      return;
-    }
     if (panelState.view === 'diagnostics') {
       renderDiagnostics(panel);
       return;
@@ -370,7 +366,7 @@
         );
       }
     } else {
-      const bar = panelHeader(feature.title);
+      const bar = panelHeader(feature.title, backToHub);
       const desc = document.createElement('p');
       desc.className = 'ytc-desc';
       desc.textContent = feature.desc;
@@ -1369,58 +1365,39 @@
 
   const isOn = (feature) => get(`${feature.id}On`, true) === true;
 
+  let resetArmed = false;
+
   function renderHub(panel) {
     panel.textContent = '';
 
-    const bar = panelHeader('Settings');
+    const bar = panelHeader('YouTube: Custom Collection');
     const desc = document.createElement('p');
     desc.className = 'ytc-desc';
-    desc.textContent = 'Everything this script keeps, in one place.';
+    desc.textContent = 'Every feature in one place. Open one to change its settings.';
     panel.append(bar, desc, document.createElement('hr'));
-    panel.setAttribute('aria-label', 'Settings');
+    panel.setAttribute('aria-label', 'YouTube: Custom Collection');
 
-    const entries = [
-      ['Features', `${FEATURES.filter(isOn).length} of ${FEATURES.length} on`, 'overview'],
+    const rows = [];
+    for (const feature of FEATURES) {
+      const button = settingRow(feature.short, isOn(feature) ? 'On' : 'Off', () => {
+        panelState.feature = feature.id;
+        panelState.view = 'settings';
+        render();
+      });
+      button.append(chevron());
+      rows.push([feature, button]);
+      panel.append(button);
+    }
+
+    for (const [label, value, view] of [
       ['Backup', 'JSON', 'backup'],
       ['Diagnostics', version(), 'diagnostics'],
-    ];
-    for (const [label, value, view] of entries) {
+    ]) {
       const button = settingRow(label, value, () => {
         panelState.view = view;
         render();
       });
       button.append(chevron());
-      panel.append(button);
-    }
-
-    (panel.querySelector('button:not(.ytc-close):not(.ytc-back)') || panel).focus();
-  }
-
-  let resetArmed = false;
-
-  function renderOverview(panel) {
-    panel.textContent = '';
-
-    const bar = panelHeader('Features', backToHub);
-    const desc = document.createElement('p');
-    desc.className = 'ytc-desc';
-    desc.textContent = 'Every feature in one place. A switch here is the same switch as the one inside its own panel.';
-    panel.append(bar, desc, document.createElement('hr'));
-    panel.setAttribute('aria-label', 'Features');
-
-    for (const feature of FEATURES) {
-      const button = settingRow(
-        feature.short,
-        '',
-        () => {
-          put(`${feature.id}On`, !isOn(feature));
-          // Updating in place keeps the panel from rebuilding and scrolling to the top
-          button.setAttribute('aria-pressed', String(isOn(feature)));
-          notifyChange();
-          drawMenu();
-        },
-        isOn(feature)
-      );
       panel.append(button);
     }
 
@@ -1437,12 +1414,17 @@
       if (typeof GM_deleteValue === 'function') {
         for (const key of settingKeys()) GM_deleteValue(`ytc.${key}`);
       }
+      // Labels are refreshed in place so the list keeps its position
+      for (const [feature, button] of rows) {
+        const value = button.querySelector('.ytc-value');
+        if (value) value.textContent = isOn(feature) ? 'On' : 'Off';
+      }
+      reset.textContent = 'Reset all settings';
       notifyChange();
       drawMenu();
-      render();
     });
-
     panel.append(document.createElement('hr'), reset);
+
     (panel.querySelector('button:not(.ytc-close):not(.ytc-back)') || panel).focus();
   }
 
@@ -1502,12 +1484,8 @@
       for (const id of menuIds) GM_unregisterMenuCommand(id);
       menuIds.length = 0;
     }
-    for (const feature of FEATURES) {
-      const id = GM_registerMenuCommand(feature.short, () => openPanel(feature.id));
-      if (id !== undefined && id !== null) menuIds.push(id);
-    }
-    const settingsId = GM_registerMenuCommand('Settings', () => openPanel('hub'));
-    if (settingsId !== undefined && settingsId !== null) menuIds.push(settingsId);
+    const id = GM_registerMenuCommand('YouTube: Custom Collection', () => openPanel('hub'));
+    if (id !== undefined && id !== null) menuIds.push(id);
   }
 
   drawMenu();
