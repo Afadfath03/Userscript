@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.5
+// @version      2.6
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -170,7 +170,7 @@
 
   const CSS = `
 #ytc-panel,#ytc-panel *{box-sizing:border-box}
-#ytc-backdrop{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)}
+#ytc-backdrop{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.68)}
 #ytc-panel{width:clamp(320px,88vw,420px);height:calc(100vh - 24px);height:min(76dvh,560px);overflow:auto;padding:0 0 10px;border-radius:14px;background:var(--yt-spec-base-background,#fff);color:var(--yt-spec-text-primary,#0f0f0f);box-shadow:0 16px 40px rgba(0,0,0,.45);font-family:Roboto,Arial,sans-serif;font-size:14px;scroll-padding-top:63px}
 #ytc-panel .ytc-header{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:6px 8px 6px 20px;background:var(--yt-spec-base-background,#fff);border-bottom:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3))}
 #ytc-panel .ytc-header.with-back{padding-left:8px}
@@ -336,7 +336,12 @@
       return;
     }
     const feature = featureById(panelState.feature);
-    if (!feature) return;
+    if (!feature) {
+      // Nothing valid to show: fall back to the hub rather than leaving stale rows
+      panel.textContent = '';
+      renderHub(panel);
+      return;
+    }
     panel.textContent = '';
 
     if (panelState.view === 'options') {
@@ -1151,13 +1156,11 @@
 
   {
     const enabled = () => get('quietOn', true) === true;
-    const rowDefault = (key) => {
-      for (const feature of FEATURES) {
-        for (const row of feature.rows) if (row.key === key) return row.def === true;
-      }
-      return false;
-    };
-    const flag = (key) => enabled() && get(key, rowDefault(key)) === true;
+    const DEFAULTS = new Map();
+    for (const feature of FEATURES) {
+      for (const row of feature.rows) DEFAULTS.set(row.key, row.def === true);
+    }
+    const flag = (key) => enabled() && get(key, DEFAULTS.get(key) === true) === true;
 
     // Lives outside the panel stylesheet: these rules act on the page, not the dialog
     const style = document.createElement('style');
@@ -1274,11 +1277,11 @@
     const settings = data && data.settings;
     if (!settings || typeof settings !== 'object') return 'That JSON has no settings object.';
     let applied = 0;
-    let skipped = 0;
+    const skipped = [];
     for (const [key, value] of Object.entries(settings)) {
       // Keys and values outside the current features are ignored, not trusted
       if (!validValue(key, value)) {
-        skipped++;
+        skipped.push(key);
         continue;
       }
       put(key, value);
@@ -1288,7 +1291,10 @@
       notifyChange();
       drawMenu();
     }
-    return `Imported ${applied} setting${applied === 1 ? '' : 's'}${skipped ? `, skipped ${skipped} unknown or invalid` : ''}.`;
+    if (!skipped.length) return `Imported ${applied} setting${applied === 1 ? '' : 's'}.`;
+    const shown = skipped.slice(0, 5).join(', ');
+    const rest = skipped.length > 5 ? ` and ${skipped.length - 5} more` : '';
+    return `Imported ${applied}, skipped ${skipped.length} unknown or invalid: ${shown}${rest}.`;
   }
 
   function renderBackup(panel) {
