@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.1
+// @version      2.2
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -133,22 +133,22 @@
         { key: 'quietPreviews', label: 'Stop thumbnail previews', type: 'toggle', def: true },
         { key: 'quietEndScreen', label: 'Hide end screen', type: 'toggle', def: true },
         { key: 'quietAmbient', label: 'Disable ambient mode', type: 'toggle', def: true },
-        { key: 'quietShorts', label: 'Hide Shorts shelves', type: 'toggle', def: true },
-        { key: 'quietComments', label: 'Hide comments', type: 'toggle', def: true },
-        { key: 'quietChat', label: 'Hide live chat', type: 'toggle', def: true },
-        { key: 'quietPromos', label: 'Hide promo banners', type: 'toggle', def: true },
-        { key: 'quietMerch', label: 'Hide merch shelf', type: 'toggle', def: true },
-        { key: 'quietShortsEntry', label: 'Hide Shorts sidebar entry', type: 'toggle', def: true },
-        { key: 'quietDonation', label: 'Hide donation shelves', type: 'toggle', def: true },
-        { key: 'quietChips', label: 'Hide filter chips', type: 'toggle', def: true },
-        { key: 'quietPosts', label: 'Hide community posts', type: 'toggle', def: true },
-        { key: 'quietClarification', label: 'Hide info panels', type: 'toggle', def: true },
-        { key: 'quietPlaylist', label: 'Hide playlist panel', type: 'toggle', def: true },
-        { key: 'quietNudges', label: 'Hide feed nudges', type: 'toggle', def: true },
-        { key: 'quietChannelVideo', label: 'Hide channel featured video', type: 'toggle', def: true },
-        { key: 'quietSuggested', label: 'Hide player suggestion bubble', type: 'toggle', def: true },
-        { key: 'quietInfoPanels', label: 'Hide large info panels', type: 'toggle', def: true },
-        { key: 'quietMiniplayer', label: 'Hide miniplayer', type: 'toggle', def: true },
+        { key: 'quietShorts', label: 'Hide Shorts shelves', type: 'toggle', def: false },
+        { key: 'quietComments', label: 'Hide comments', type: 'toggle', def: false },
+        { key: 'quietChat', label: 'Hide live chat', type: 'toggle', def: false },
+        { key: 'quietPromos', label: 'Hide promo banners', type: 'toggle', def: false },
+        { key: 'quietMerch', label: 'Hide merch shelf', type: 'toggle', def: false },
+        { key: 'quietShortsEntry', label: 'Hide Shorts sidebar entry', type: 'toggle', def: false },
+        { key: 'quietDonation', label: 'Hide donation shelves', type: 'toggle', def: false },
+        { key: 'quietChips', label: 'Hide filter chips', type: 'toggle', def: false },
+        { key: 'quietPosts', label: 'Hide community posts', type: 'toggle', def: false },
+        { key: 'quietClarification', label: 'Hide info panels', type: 'toggle', def: false },
+        { key: 'quietPlaylist', label: 'Hide playlist panel', type: 'toggle', def: false },
+        { key: 'quietNudges', label: 'Hide feed nudges', type: 'toggle', def: false },
+        { key: 'quietChannelVideo', label: 'Hide channel featured video', type: 'toggle', def: false },
+        { key: 'quietSuggested', label: 'Hide player suggestion bubble', type: 'toggle', def: false },
+        { key: 'quietInfoPanels', label: 'Hide large info panels', type: 'toggle', def: false },
+        { key: 'quietMiniplayer', label: 'Hide miniplayer', type: 'toggle', def: false },
       ],
     },
   ];
@@ -1109,7 +1109,13 @@
 
   {
     const enabled = () => get('quietOn', true) === true;
-    const flag = (key) => enabled() && get(key, true) === true;
+    const rowDefault = (key) => {
+      for (const feature of FEATURES) {
+        for (const row of feature.rows) if (row.key === key) return row.def === true;
+      }
+      return false;
+    };
+    const flag = (key) => enabled() && get(key, rowDefault(key)) === true;
 
     // Lives outside the panel stylesheet: these rules act on the page, not the dialog
     const style = document.createElement('style');
