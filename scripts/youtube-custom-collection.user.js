@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.2
+// @version      1.3
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -142,19 +142,24 @@
   }
 
   const CSS = `
-#ytc-backdrop{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)}
-#ytc-panel{width:340px;max-width:88vw;max-height:calc(100vh - 24px);overflow:auto;padding:18px 0 10px;border-radius:12px;background:var(--yt-spec-base-background,#fff);color:var(--yt-spec-text-primary,#0f0f0f);box-shadow:0 12px 32px rgba(0,0,0,.45);font-family:Roboto,Arial,sans-serif}
-#ytc-panel h2{margin:0;padding:0 20px;font-size:17px;font-weight:600;line-height:1.3}
-#ytc-panel .ytc-desc{margin:8px 0 0;padding:0 20px;font-size:13px;line-height:1.5;color:var(--yt-spec-text-secondary,#606060)}
-#ytc-panel hr{margin:16px 20px 20px;border:0;border-top:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3))}
-#ytc-panel .ytc-section{margin:0;padding:0 20px 4px;font-size:13px;font-weight:500;color:var(--yt-spec-text-secondary,#606060)}
-#ytc-panel button{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0 20px;border:0;background:none;color:inherit;font:inherit;font-size:14px;text-align:left;cursor:pointer}
+#ytc-panel,#ytc-panel *{box-sizing:border-box}
+#ytc-backdrop{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)}
+#ytc-panel{width:360px;max-width:92vw;max-height:calc(100vh - 24px);overflow:auto;padding:0 0 10px;border-radius:14px;background:var(--yt-spec-base-background,#fff);color:var(--yt-spec-text-primary,#0f0f0f);box-shadow:0 16px 40px rgba(0,0,0,.45);font-family:Roboto,Arial,sans-serif;scroll-padding-top:64px}
+#ytc-panel .ytc-header{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:6px 8px 6px 20px;background:var(--yt-spec-base-background,#fff);border-bottom:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3))}
+#ytc-panel h2{flex:1;margin:0;padding:0;font-size:16px;font-weight:600;line-height:1.3}
+#ytc-panel .ytc-close{width:44px;height:44px;min-height:44px;justify-content:center;padding:0;border-radius:50%;font-size:22px;line-height:1}
+#ytc-panel .ytc-desc{margin:12px 0 0;padding:0 20px;font-size:13px;line-height:1.5;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-panel hr{margin:14px 20px 16px;border:0;border-top:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3))}
+#ytc-panel .ytc-section{margin:0;padding:4px 20px 2px;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-panel button{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0 20px;border:0;background:none;color:inherit;font:inherit;font-size:14px;line-height:1.4;text-align:left;cursor:pointer}
 #ytc-panel button:hover{background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05))}
+#ytc-panel button:active{background:var(--yt-spec-10-percent-layer,rgba(0,0,0,.08))}
 #ytc-panel button:focus-visible{outline:2px solid var(--yt-spec-call-to-action,#065fd4);outline-offset:-2px}
 #ytc-panel .ytc-mark{flex:0 0 14px;font-size:14px;line-height:1;color:inherit}
 #ytc-panel .ytc-value{margin-left:auto;font-size:13px;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-panel .ytc-chevron{padding-left:10px;font-size:18px;line-height:1;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel button[aria-current="true"]{font-weight:500}
-#ytc-panel textarea{display:block;width:calc(100% - 40px);height:120px;margin:0 20px 10px;padding:8px 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3));border-radius:8px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
+#ytc-panel textarea{display:block;width:calc(100% - 40px);height:110px;margin:0 20px 10px;padding:8px 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3));border-radius:8px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
 #ytc-panel .ytc-status{margin:0;padding:8px 20px 12px;font-size:12px;line-height:1.4;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel .ytc-info{display:flex;gap:10px;align-items:baseline;padding:6px 20px;font-size:13px;line-height:1.4}
 `;
@@ -219,6 +224,29 @@
     return button;
   }
 
+  function panelHeader(titleText) {
+    const bar = document.createElement('div');
+    bar.className = 'ytc-header';
+    const title = document.createElement('h2');
+    title.textContent = titleText;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'ytc-close';
+    close.setAttribute('aria-label', 'Close');
+    close.textContent = '\u00d7';
+    close.addEventListener('click', closePanel);
+    bar.append(title, close);
+    return bar;
+  }
+
+  const chevron = () => {
+    const mark = document.createElement('span');
+    mark.className = 'ytc-chevron';
+    mark.setAttribute('aria-hidden', 'true');
+    mark.textContent = '\u203a';
+    return mark;
+  };
+
   function notifyChange() {
     document.dispatchEvent(new Event('ytc-change'));
   }
@@ -245,9 +273,7 @@
     if (panelState.view === 'options') {
       const row = feature.rows.find((r) => r.key === panelState.rowKey);
       if (!row) return;
-      const title = document.createElement('h2');
-      title.textContent = row.label;
-      panel.append(title);
+      panel.append(panelHeader(row.label));
 
       const back = document.createElement('button');
       back.type = 'button';
@@ -270,8 +296,7 @@
         );
       }
     } else {
-      const title = document.createElement('h2');
-      title.textContent = feature.title;
+      const bar = panelHeader(feature.title);
       const desc = document.createElement('p');
       desc.className = 'ytc-desc';
       desc.textContent = feature.desc;
@@ -279,28 +304,29 @@
       const section = document.createElement('p');
       section.className = 'ytc-section';
       section.textContent = 'Settings';
-      panel.append(title, desc, divider, section);
+      panel.append(bar, desc, divider, section);
 
       const rows = [{ key: `${feature.id}On`, label: 'Enabled', type: 'toggle', def: true }, ...feature.rows];
       for (const row of rows) {
-        panel.append(
-          settingRow(row.label, valueLabel(row), () => {
-            if (row.type === 'toggle') {
-              put(row.key, !read(row));
-              render();
-              notifyChange();
-              return;
-            }
-            panelState.view = 'options';
-            panelState.rowKey = row.key;
+        const button = settingRow(row.label, valueLabel(row), () => {
+          if (row.type === 'toggle') {
+            put(row.key, !read(row));
             render();
-          })
-        );
+            notifyChange();
+            return;
+          }
+          panelState.view = 'options';
+          panelState.rowKey = row.key;
+          render();
+        });
+        // The chevron marks rows that open a subview
+        if (row.type !== 'toggle') button.append(chevron());
+        panel.append(button);
       }
     }
 
     const active = panel.querySelector('[aria-current="true"]');
-    const first = panel.querySelector('button');
+    const first = panel.querySelector('button:not(.ytc-close)');
     (active || first)?.focus();
   }
 
@@ -1055,13 +1081,12 @@
   function renderBackup(panel) {
     panel.textContent = '';
 
-    const title = document.createElement('h2');
-    title.textContent = 'Settings Backup';
+    const bar = panelHeader('Settings Backup');
 
     const desc = document.createElement('p');
     desc.className = 'ytc-desc';
     desc.textContent = 'Copy every setting as JSON, or paste exported JSON and import it. Keys and values that do not match a setting are skipped.';
-    panel.append(title, desc, document.createElement('hr'));
+    panel.append(bar, desc, document.createElement('hr'));
 
     const copy = document.createElement('button');
     copy.type = 'button';
@@ -1099,7 +1124,7 @@
       status.textContent = importSettings(box.value);
     });
 
-    (panel.querySelector('button') || panel).focus();
+    (panel.querySelector('button:not(.ytc-close)') || panel).focus();
   }
 
   // ---------- overview and diagnostics ----------
@@ -1127,12 +1152,11 @@
   function renderOverview(panel) {
     panel.textContent = '';
 
-    const title = document.createElement('h2');
-    title.textContent = 'Features';
+    const bar = panelHeader('Features');
     const desc = document.createElement('p');
     desc.className = 'ytc-desc';
     desc.textContent = 'Every feature in one place. A switch here is the same switch as the one inside its own panel.';
-    panel.append(title, desc, document.createElement('hr'));
+    panel.append(bar, desc, document.createElement('hr'));
 
     for (const feature of FEATURES) {
       panel.append(
@@ -1164,7 +1188,7 @@
     });
 
     panel.append(document.createElement('hr'), reset);
-    (resetArmed ? reset : panel.querySelector('button')).focus();
+    (resetArmed ? reset : panel.querySelector('button:not(.ytc-close)')).focus();
   }
 
   function diagnosticsRows() {
@@ -1187,12 +1211,11 @@
   function renderDiagnostics(panel) {
     panel.textContent = '';
 
-    const title = document.createElement('h2');
-    title.textContent = 'Diagnostics';
+    const bar = panelHeader('Diagnostics');
     const desc = document.createElement('p');
     desc.className = 'ytc-desc';
     desc.textContent = 'What this copy of the script sees right now. Handy when a feature stays quiet on a page.';
-    panel.append(title, desc, document.createElement('hr'));
+    panel.append(bar, desc, document.createElement('hr'));
 
     for (const [label, value] of diagnosticsRows()) panel.append(infoRow(label, value));
 
