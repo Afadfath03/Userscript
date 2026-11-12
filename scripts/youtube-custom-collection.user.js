@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.8
+// @version      2.9
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -351,17 +351,13 @@
     if (panelState.view === 'options') {
       const row = feature.rows.find((r) => r.key === panelState.rowKey);
       if (!row) return;
-      panel.append(panelHeader(row.label));
+      panel.append(
+        panelHeader(row.label, () => {
+          panelState.view = 'settings';
+          render();
+        })
+      );
       panel.setAttribute('aria-label', row.label);
-
-      const back = document.createElement('button');
-      back.type = 'button';
-      back.textContent = '\u2190 Back';
-      back.addEventListener('click', () => {
-        panelState.view = 'settings';
-        render();
-      });
-      panel.append(back);
 
       const current = read(row);
       for (const [value, label] of row.options) {
@@ -555,6 +551,9 @@
       }
       if (queue.size && !raf) raf = requestAnimationFrame(flush);
     }).observe(document.documentElement, { childList: true, subtree: true });
+
+    // The shelf already on the page at document-idle never fires a mutation
+    if (enabled()) scanPage();
   }
 
   // ---------- hide members only ----------
@@ -918,7 +917,15 @@
 
     document.addEventListener('yt-navigate-finish', startSync);
     window.addEventListener('yt-page-data-updated', startSync);
-    document.addEventListener('ytc-change', startSync);
+    document.addEventListener('ytc-change', () => {
+      if (enabled()) {
+        startSync();
+        return;
+      }
+      // Managed modes switch autoplay off, so disabling the feature must switch it back on
+      cancelCountdown();
+      setAutoplay(true);
+    });
     startSync();
   }
 

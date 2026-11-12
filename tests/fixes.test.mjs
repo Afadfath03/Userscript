@@ -148,6 +148,66 @@ const inject = async (page) => {
   await ctx.close();
 }
 
+// 7. A people shelf already on the page is removed at load
+{
+  const { ctx, page } = await open();
+  await page.evaluate(() => {
+    const shelf = document.createElement('div');
+    shelf.id = 'peopleshelf';
+    shelf.textContent = 'These people are mentioned in the video';
+    document.body.append(shelf);
+  });
+  await inject(page);
+  await page.waitForTimeout(200);
+  const hidden = await page.evaluate(() => getComputedStyle(document.getElementById('peopleshelf')).display === 'none');
+  check('people shelf present at load is removed', hidden);
+  await ctx.close();
+}
+
+// 8. Turning Autoplay Control off hands autoplay back to YouTube
+{
+  const { ctx, page } = await open({ 'ytc.behavior': 'stop' });
+  await page.evaluate(() => {
+    const player = document.getElementById('movie_player');
+    const toggle = document.createElement('div');
+    toggle.className = 'ytp-autonav-toggle-button';
+    toggle.setAttribute('aria-checked', 'true');
+    toggle.addEventListener('click', () => {
+      toggle.setAttribute('aria-checked', toggle.getAttribute('aria-checked') === 'true' ? 'false' : 'true');
+    });
+    player.append(toggle);
+  });
+  await inject(page);
+  await page.waitForTimeout(400);
+  check('managed mode switches autoplay off', (await page.evaluate(() => document.querySelector('.ytp-autonav-toggle-button').getAttribute('aria-checked'))) === 'false');
+
+  await page.evaluate(() => {
+    window.__store['ytc.autoplayOn'] = false;
+    document.dispatchEvent(new Event('ytc-change'));
+  });
+  await page.waitForTimeout(200);
+  check('disabling the feature switches autoplay back on', (await page.evaluate(() => document.querySelector('.ytp-autonav-toggle-button').getAttribute('aria-checked'))) === 'true');
+  await ctx.close();
+}
+
+// 9. Every subview uses the header back button
+{
+  const { ctx, page } = await open();
+  await inject(page);
+  await page.evaluate(() => window.__menu[0].cb());
+  await page.waitForTimeout(80);
+  await page.getByRole('button', { name: 'Playback Defaults' }).click();
+  await page.waitForTimeout(80);
+  await page.getByRole('button', { name: /^Speed/ }).first().click();
+  await page.waitForTimeout(80);
+  check('options view has the header back button', (await page.getByRole('button', { name: 'Back', exact: true }).count()) === 1);
+  check('options view has no text back row', (await page.locator('#ytc-panel button', { hasText: '\u2190 Back' }).count()) === 0);
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await page.waitForTimeout(80);
+  check('header back returns to the feature settings', (await page.locator('#ytc-panel h2').first().textContent()) === 'YouTube: Playback Defaults');
+  await ctx.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} failure(s)` : '\nall checks passed');
