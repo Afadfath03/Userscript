@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.6
+// @version      1.7
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -123,6 +123,17 @@
       short: 'Dismiss Paused Prompt',
       desc: 'Answers the "Video paused. Continue watching?" and "Are you still watching?" prompts. Pick Yes to carry on playing, No to stay paused, or leave the prompt untouched. Only dialogs containing those phrases are affected.',
       rows: [{ key: 'answer', label: 'Answer', type: 'choice', def: 'yes', options: PROMPTS }],
+    },
+    {
+      id: 'quiet',
+      title: 'YouTube: Quiet Page',
+      short: 'Quiet Page',
+      desc: 'Stops work on the page that plays video you never asked for. Thumbnail previews are paused instead of playing, the end screen video wall is hidden, and the ambient mode glow is removed.',
+      rows: [
+        { key: 'quietPreviews', label: 'Stop thumbnail previews', type: 'toggle', def: true },
+        { key: 'quietEndScreen', label: 'Hide end screen', type: 'toggle', def: true },
+        { key: 'quietAmbient', label: 'Disable ambient mode', type: 'toggle', def: true },
+      ],
     },
   ];
 
@@ -1076,6 +1087,44 @@
     document.addEventListener('ytc-change', scan);
     // Content already present when the script runs never fires a mutation
     if (document.body) scan();
+  }
+
+  // ---------- quiet page ----------
+
+  {
+    const enabled = () => get('quietOn', true) === true;
+    const flag = (key) => enabled() && get(key, true) === true;
+
+    // Lives outside the panel stylesheet: these rules act on the page, not the dialog
+    const style = document.createElement('style');
+    style.id = 'ytc-quiet';
+    style.textContent =
+      'html.ytc-quiet-end .ytp-ce-element,html.ytc-quiet-end .ytp-videowall-still,html.ytc-quiet-end .ytp-endscreen-content{display:none!important}' +
+      'html.ytc-quiet-ambient #cinematics{display:none!important}';
+    document.documentElement.append(style);
+
+    function apply() {
+      const root = document.documentElement;
+      root.classList.toggle('ytc-quiet-end', flag('quietEndScreen'));
+      root.classList.toggle('ytc-quiet-ambient', flag('quietAmbient'));
+    }
+
+    // Pausing on the event catches previews wherever they start; the player and
+    // the Shorts page are not thumbnails, so they keep playing
+    document.addEventListener(
+      'playing',
+      (event) => {
+        if (!flag('quietPreviews')) return;
+        const video = event.target;
+        if (!(video instanceof HTMLVideoElement)) return;
+        if (!video.closest('ytd-thumbnail, yt-thumbnail-view-model, ytd-playlist-thumbnail')) return;
+        video.pause();
+      },
+      true
+    );
+
+    document.addEventListener('ytc-change', apply);
+    apply();
   }
 
   // ---------- settings backup ----------
