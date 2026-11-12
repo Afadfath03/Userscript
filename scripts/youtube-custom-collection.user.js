@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.2
+// @version      2.3
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -358,7 +358,9 @@
         const button = settingRow(row.label, valueLabel(row), () => {
           if (row.type === 'toggle') {
             put(row.key, !read(row));
-            render();
+            // Updating in place keeps the panel from rebuilding and scrolling to the top
+            const value = button.querySelector('.ytc-value');
+            if (value) value.textContent = valueLabel(row);
             notifyChange();
             return;
           }
@@ -1356,14 +1358,14 @@
     panel.append(bar, desc, document.createElement('hr'));
 
     for (const feature of FEATURES) {
-      panel.append(
-        settingRow(feature.short, isOn(feature) ? 'On' : 'Off', () => {
-          put(`${feature.id}On`, !isOn(feature));
-          notifyChange();
-          drawMenu();
-          render();
-        })
-      );
+      const button = settingRow(feature.short, isOn(feature) ? 'On' : 'Off', () => {
+        put(`${feature.id}On`, !isOn(feature));
+        const value = button.querySelector('.ytc-value');
+        if (value) value.textContent = isOn(feature) ? 'On' : 'Off';
+        notifyChange();
+        drawMenu();
+      });
+      panel.append(button);
     }
 
     const reset = document.createElement('button');
@@ -1372,7 +1374,7 @@
     reset.addEventListener('click', () => {
       if (!resetArmed) {
         resetArmed = true;
-        render();
+        reset.textContent = 'Press again to delete every setting';
         return;
       }
       resetArmed = false;
@@ -1385,7 +1387,7 @@
     });
 
     panel.append(document.createElement('hr'), reset);
-    (resetArmed ? reset : panel.querySelector('button:not(.ytc-close):not(.ytc-back)')).focus();
+    (panel.querySelector('button:not(.ytc-close):not(.ytc-back)') || panel).focus();
   }
 
   function diagnosticsRows() {
