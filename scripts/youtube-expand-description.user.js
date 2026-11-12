@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Auto Expand Description
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.4
+// @version      1.5
 // @description  Expand the watch page description automatically
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -16,6 +16,8 @@
 // ==/UserScript==
 
 (() => {
+  // Only the top document carries the shelf this script removes
+  if (window.self !== window.top) return;
   const MAX_TRIES = 5;
   let raf = 0;
   let tries = 0;

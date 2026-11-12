@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.6
+// @version      2.7
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -21,6 +21,8 @@
 // ==/UserScript==
 
 (() => {
+  // Embeds and live chat frames do not carry the page-level UI these features clean up
+  const isTop = window.self === window.top;
   const get = (key, fallback) => {
     const v = GM_getValue(`ytc.${key}`, fallback);
     return v === undefined || v === null ? fallback : v;
@@ -461,7 +463,7 @@
     const STOP_IDS = new Set(['below', 'primary', 'columns']);
     const squash = (s) => s.replace(/\s+/g, ' ').toLowerCase();
 
-    const enabled = () => get('peopleOn', true) === true;
+    const enabled = () => isTop && get('peopleOn', true) === true;
     const hidden = new Set();
 
     function hideShelf(start) {
@@ -549,7 +551,7 @@
       'yt-lockup-view-model',
     ].join(',');
 
-    const enabled = () => get('membersOn', true) === true;
+    const enabled = () => isTop && get('membersOn', true) === true;
     const hidden = new Map();
 
     function videoIdOf(card) {
@@ -645,7 +647,7 @@
     }).observe(document.documentElement, { childList: true, subtree: true });
 
     // Content already present when the script runs never fires a mutation
-    if (document.body) mark(document.body);
+    if (document.body && enabled()) mark(document.body);
   }
 
   // ---------- expand description ----------
@@ -657,7 +659,7 @@
     let url = '';
     let done = '';
 
-    const enabled = () => get('expandOn', true) === true;
+    const enabled = () => isTop && get('expandOn', true) === true;
 
     function scan() {
       raf = 0;
@@ -1155,7 +1157,7 @@
   // ---------- quiet page ----------
 
   {
-    const enabled = () => get('quietOn', true) === true;
+    const enabled = () => isTop && get('quietOn', true) === true;
     const DEFAULTS = new Map();
     for (const feature of FEATURES) {
       for (const row of feature.rows) DEFAULTS.set(row.key, row.def === true);

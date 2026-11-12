@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Hide "These people are mentioned in the video"
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.4
+// @version      1.5
 // @description  Hide the "These people are mentioned in the video" shelf on watch pages
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -16,6 +16,8 @@
 // ==/UserScript==
 
 (() => {
+  // Only the top document carries the shelf this script removes
+  if (window.self !== window.top) return;
   const squash = (s) => s.replace(/\s+/g, ' ').toLowerCase();
   // Add other UI languages here; case and spacing are normalized
   const PHRASES = [
