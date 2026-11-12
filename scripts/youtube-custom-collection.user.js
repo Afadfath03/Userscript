@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.7
+// @version      2.1
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -128,11 +128,27 @@
       id: 'quiet',
       title: 'YouTube: Quiet Page',
       short: 'Quiet Page',
-      desc: 'Stops work on the page that plays video you never asked for. Thumbnail previews are paused instead of playing, the end screen video wall is hidden, and the ambient mode glow is removed.',
+      desc: 'Stops work on the page that plays video you never asked for, and hides the sections that cost the most. Each switch below works on its own.',
       rows: [
         { key: 'quietPreviews', label: 'Stop thumbnail previews', type: 'toggle', def: true },
         { key: 'quietEndScreen', label: 'Hide end screen', type: 'toggle', def: true },
         { key: 'quietAmbient', label: 'Disable ambient mode', type: 'toggle', def: true },
+        { key: 'quietShorts', label: 'Hide Shorts shelves', type: 'toggle', def: true },
+        { key: 'quietComments', label: 'Hide comments', type: 'toggle', def: true },
+        { key: 'quietChat', label: 'Hide live chat', type: 'toggle', def: true },
+        { key: 'quietPromos', label: 'Hide promo banners', type: 'toggle', def: true },
+        { key: 'quietMerch', label: 'Hide merch shelf', type: 'toggle', def: true },
+        { key: 'quietShortsEntry', label: 'Hide Shorts sidebar entry', type: 'toggle', def: true },
+        { key: 'quietDonation', label: 'Hide donation shelves', type: 'toggle', def: true },
+        { key: 'quietChips', label: 'Hide filter chips', type: 'toggle', def: true },
+        { key: 'quietPosts', label: 'Hide community posts', type: 'toggle', def: true },
+        { key: 'quietClarification', label: 'Hide info panels', type: 'toggle', def: true },
+        { key: 'quietPlaylist', label: 'Hide playlist panel', type: 'toggle', def: true },
+        { key: 'quietNudges', label: 'Hide feed nudges', type: 'toggle', def: true },
+        { key: 'quietChannelVideo', label: 'Hide channel featured video', type: 'toggle', def: true },
+        { key: 'quietSuggested', label: 'Hide player suggestion bubble', type: 'toggle', def: true },
+        { key: 'quietInfoPanels', label: 'Hide large info panels', type: 'toggle', def: true },
+        { key: 'quietMiniplayer', label: 'Hide miniplayer', type: 'toggle', def: true },
       ],
     },
   ];
@@ -1100,13 +1116,51 @@
     style.id = 'ytc-quiet';
     style.textContent =
       'html.ytc-quiet-end .ytp-ce-element,html.ytc-quiet-end .ytp-videowall-still,html.ytc-quiet-end .ytp-endscreen-content{display:none!important}' +
-      'html.ytc-quiet-ambient #cinematics{display:none!important}';
+      'html.ytc-quiet-ambient #cinematics{display:none!important}' +
+      'html.ytc-quiet-shorts ytd-reel-shelf-renderer,' +
+      'html.ytc-quiet-shorts ytd-rich-section-renderer:has(ytd-reel-shelf-renderer),' +
+      'html.ytc-quiet-shorts ytd-rich-section-renderer:has(a[href*="/shorts/"]){display:none!important}' +
+      'html.ytc-quiet-comments ytd-comments#comments{display:none!important}' +
+      'html.ytc-quiet-chat ytd-live-chat-frame#chat{display:none!important}' +
+      'html.ytc-quiet-promos ytd-mealbar-promo-renderer,' +
+      'html.ytc-quiet-promos ytd-statement-banner-renderer,' +
+      'html.ytc-quiet-promos ytd-banner-promo-renderer{display:none!important}' +
+      'html.ytc-quiet-merch #merch-shelf,html.ytc-quiet-merch ytd-merch-shelf-renderer{display:none!important}' +
+      'html.ytc-quiet-shorts-entry ytd-guide-entry-renderer:has(a[href="/shorts/"]),' +
+      'html.ytc-quiet-shorts-entry ytd-mini-guide-entry-renderer:has(a[href="/shorts/"]){display:none!important}' +
+      'html.ytc-quiet-donation ytd-donation-shelf-renderer{display:none!important}' +
+      'html.ytc-quiet-chips ytd-feed-filter-chip-bar-renderer{display:none!important}' +
+      'html.ytc-quiet-posts ytd-post-renderer,' +
+      'html.ytc-quiet-posts ytd-rich-item-renderer:has(ytd-post-renderer){display:none!important}' +
+      'html.ytc-quiet-clarification ytd-clarification-renderer{display:none!important}' +
+      'html.ytc-quiet-playlist ytd-playlist-panel-renderer{display:none!important}' +
+      'html.ytc-quiet-nudges ytd-feed-nudge-renderer{display:none!important}' +
+      'html.ytc-quiet-channel-video ytd-channel-video-player-renderer{display:none!important}' +
+      'html.ytc-quiet-suggested ytp-suggested-action{display:none!important}' +
+      'html.ytc-quiet-info-panels ytd-info-panel-container-renderer{display:none!important}' +
+      'html.ytc-quiet-miniplayer ytd-miniplayer{display:none!important}';
     document.documentElement.append(style);
 
     function apply() {
       const root = document.documentElement;
       root.classList.toggle('ytc-quiet-end', flag('quietEndScreen'));
       root.classList.toggle('ytc-quiet-ambient', flag('quietAmbient'));
+      root.classList.toggle('ytc-quiet-shorts', flag('quietShorts'));
+      root.classList.toggle('ytc-quiet-comments', flag('quietComments'));
+      root.classList.toggle('ytc-quiet-chat', flag('quietChat'));
+      root.classList.toggle('ytc-quiet-promos', flag('quietPromos'));
+      root.classList.toggle('ytc-quiet-merch', flag('quietMerch'));
+      root.classList.toggle('ytc-quiet-shorts-entry', flag('quietShortsEntry'));
+      root.classList.toggle('ytc-quiet-donation', flag('quietDonation'));
+      root.classList.toggle('ytc-quiet-chips', flag('quietChips'));
+      root.classList.toggle('ytc-quiet-posts', flag('quietPosts'));
+      root.classList.toggle('ytc-quiet-clarification', flag('quietClarification'));
+      root.classList.toggle('ytc-quiet-playlist', flag('quietPlaylist'));
+      root.classList.toggle('ytc-quiet-nudges', flag('quietNudges'));
+      root.classList.toggle('ytc-quiet-channel-video', flag('quietChannelVideo'));
+      root.classList.toggle('ytc-quiet-suggested', flag('quietSuggested'));
+      root.classList.toggle('ytc-quiet-info-panels', flag('quietInfoPanels'));
+      root.classList.toggle('ytc-quiet-miniplayer', flag('quietMiniplayer'));
     }
 
     // Pausing on the event catches previews wherever they start; the player and
