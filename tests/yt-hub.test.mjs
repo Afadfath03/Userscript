@@ -87,9 +87,9 @@ check('reset button returns to its idle label', (await page.getByRole('button', 
 await page.getByRole('button', { name: 'Backup' }).click();
 await page.waitForTimeout(80);
 check('backup opens from the hub', (await title()) === 'Backup');
-await page.getByRole('button', { name: 'Copy settings JSON' }).click();
+await page.getByRole('button', { name: /^Copy settings JSON/ }).click();
 await page.waitForTimeout(80);
-const exported = JSON.parse(await page.locator('#ytc-panel textarea').inputValue());
+const exported = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
 check('backup exports an empty settings object after reset', Object.keys(exported.settings).length === 0);
 await back();
 

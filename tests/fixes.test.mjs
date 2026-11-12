@@ -20,6 +20,7 @@ const check = (name, ok) => {
 
 async function open(store = {}) {
   const ctx = await browser.newContext();
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => check(`no page error (${e.message})`, false));
   await page.addInitScript((initial) => {
@@ -89,9 +90,9 @@ const inject = async (page) => {
   await page.waitForTimeout(80);
   await page.getByRole('button', { name: 'Backup' }).click();
   await page.waitForTimeout(80);
-  await page.getByRole('button', { name: 'Copy settings JSON' }).click();
+  await page.getByRole('button', { name: /^Copy settings JSON/ }).click();
   await page.waitForTimeout(80);
-  const exported = JSON.parse(await page.locator('#ytc-panel textarea').inputValue());
+  const exported = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
   check('export includes unknown stored keys', JSON.stringify(exported.settings.futureKey) === '{"a":1}');
   check('export keeps known keys too', exported.settings.quality === 'hd1080');
   await ctx.close();

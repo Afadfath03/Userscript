@@ -51,16 +51,22 @@ await page.getByRole('button', { name: 'Backup' }).click();
 await page.waitForTimeout(100);
 check('panel opens on the backup view', (await page.locator('#ytc-panel h2').textContent()) === 'Backup');
 check('panel has a textarea', (await page.locator('#ytc-panel textarea').count()) === 1);
+check('the box starts empty', (await page.locator('#ytc-backup').inputValue()) === '');
+check('the import button starts disabled', await page.locator('#ytc-import').isDisabled());
 
-await page.getByRole('button', { name: 'Copy settings JSON' }).click();
+await page.getByRole('button', { name: /^Copy settings JSON/ }).click();
 await page.waitForTimeout(100);
-const exported = JSON.parse(await page.locator('#ytc-panel textarea').inputValue());
+const exported = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
+check('copy leaves the import box empty', (await page.locator('#ytc-backup').inputValue()) === '');
 check('export wraps settings', exported.script === 'youtube-custom-collection' && exported.format === 1);
 check('export includes known keys', exported.settings.speed === 1.5 && exported.settings.quality === 'hd1080' && exported.settings.peopleOn === false);
 check('export drops unknown keys', !('bogus' in exported.settings));
 const clip = await page.evaluate(() => navigator.clipboard.readText());
 check('clipboard holds the JSON', clip === JSON.stringify(exported, null, 2));
-check('status reports the copy', (await page.locator('#ytc-panel .ytc-status').textContent()) === 'Copied to clipboard.');
+check('copy button reports the copy', (await page.getByRole('button', { name: /^Copy settings JSON/ }).textContent()).includes('Copied'));
+check('copy leaves the status line empty', (await page.locator('#ytc-panel .ytc-status').textContent()) === '');
+await page.waitForTimeout(1700);
+check('the copy confirmation reverts to the key count', (await page.getByRole('button', { name: /^Copy settings JSON/ }).textContent()).includes('keys'));
 
 await page.evaluate(() => { window.__store = {}; });
 await page.locator('#ytc-panel textarea').fill(
@@ -70,12 +76,20 @@ await page.locator('#ytc-panel textarea').fill(
     settings: { speed: 2, peopleOn: true, quality: 'ultra', bogus: 5, jumpOn: 'yes' },
   })
 );
-await page.getByRole('button', { name: 'Import from the box' }).click();
+check('the panel is split into export and import sections', (await page.locator('#ytc-panel .ytc-section').allTextContents()).join(',') === 'Export,Import');
+check('the import button previews what it will apply', (await page.locator('#ytc-import').textContent()) === 'Import 2 settings');
+check('the preview warns about skipped keys', (await page.locator('#ytc-panel .ytc-status').textContent()) === '3 keys will be skipped.');
+await page.getByRole('button', { name: /^Import|^Nothing to import/ }).click();
+await page.waitForTimeout(80);
+check('the first click asks for confirmation', (await page.locator('#ytc-import').textContent()) === 'Press again to import 2 settings');
+check('nothing imported yet', (await page.evaluate(() => Object.keys(window.__store).length)) === 0);
+await page.getByRole('button', { name: /Press again to import/ }).click();
 await page.waitForTimeout(100);
 const store = await page.evaluate(() => window.__store);
 check('import applies valid keys', store['ytc.speed'] === 2 && store['ytc.peopleOn'] === true);
 check('import skips invalid values', store['ytc.quality'] === undefined);
 check('import skips unknown keys', store['ytc.bogus'] === undefined && store['ytc.jumpOn'] === undefined);
+check('the export count refreshes after import', (await page.getByRole('button', { name: /^Copy settings JSON/ }).textContent()).includes('2 keys'));
 check(
   'status names the applied count and the skipped keys',
   (await page.locator('#ytc-panel .ytc-status').textContent()) ===
@@ -83,18 +97,18 @@ check(
 );
 
 await page.locator('#ytc-panel textarea').fill('{ not json');
-await page.getByRole('button', { name: 'Import from the box' }).click();
+await page.getByRole('button', { name: /^Import|^Nothing to import/ }).click();
 await page.waitForTimeout(50);
 check('broken JSON is reported', (await page.locator('#ytc-panel .ytc-status').textContent()) === 'That is not valid JSON.');
 
 await page.locator('#ytc-panel textarea').fill('{"script":"x"}');
-await page.getByRole('button', { name: 'Import from the box' }).click();
+await page.getByRole('button', { name: /^Import|^Nothing to import/ }).click();
 await page.waitForTimeout(50);
 check('missing settings object is reported', (await page.locator('#ytc-panel .ytc-status').textContent()) === 'That JSON has no settings object.');
 
 await page.locator('#ytc-panel textarea').focus();
 await page.keyboard.press('Tab');
-check('Tab moves from the textarea to the import button', await page.evaluate(() => document.activeElement.textContent === 'Import from the box'));
+check('Tab moves from the textarea to the import button', await page.evaluate(() => document.activeElement.id === 'ytc-import'));
 
 await page.keyboard.press('Escape');
 await page.waitForTimeout(50);

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.10
+// @version      2.12
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -197,17 +197,19 @@
 #ytc-panel .ytc-close{font-size:22px}
 #ytc-panel .ytc-desc{margin:12px 0 0;padding:0 20px;font-size:13px;line-height:1.5;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel hr{margin:14px 20px 16px;border:0;border-top:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3))}
-#ytc-panel .ytc-section{margin:0;padding:4px 20px 2px;font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-panel .ytc-section{margin:0;padding:8px 20px 2px;font-size:12px;font-weight:500;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel button{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0 20px;border:0;background:none;color:inherit;font:inherit;font-size:14px;line-height:1.4;text-align:left;cursor:pointer}
 #ytc-panel button:hover{background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05))}
 #ytc-panel button:active{background:var(--yt-spec-10-percent-layer,rgba(0,0,0,.08))}
+#ytc-panel button:disabled{opacity:.45;cursor:not-allowed}
+#ytc-panel button:disabled:hover{background:none}
 #ytc-panel button:focus-visible{outline:2px solid var(--yt-spec-call-to-action,#065fd4);outline-offset:-2px}
 #ytc-panel .ytc-mark{flex:0 0 14px;font-size:14px;line-height:1;color:inherit}
 #ytc-panel .ytc-value{margin-left:auto;font-size:13px;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel .ytc-chevron{padding-left:10px;font-size:18px;line-height:1;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel button[aria-current="true"]{font-weight:500}
-#ytc-panel textarea{display:block;width:calc(100% - 40px);height:110px;margin:0 20px 10px;padding:8px 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3));border-radius:8px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
-#ytc-panel .ytc-status{margin:0;padding:8px 20px 12px;font-size:12px;line-height:1.4;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-panel textarea{display:block;width:calc(100% - 40px);height:140px;margin:0 20px 10px;padding:8px 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3));border-radius:8px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
+#ytc-panel .ytc-status{min-height:1.4em;margin:0;padding:8px 20px 12px;font-size:12px;line-height:1.4;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel .ytc-info{display:flex;gap:10px;align-items:baseline;padding:6px 20px;font-size:13px;line-height:1.4}
 #ytc-panel .ytc-label{display:block;padding:0 20px 6px;font-size:12px;line-height:1.4;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel .ytc-switch{position:relative;flex:0 0 34px;width:34px;height:20px;margin-left:auto;border-radius:10px;background:var(--yt-spec-10-percent-layer,rgba(128,128,128,.45));transition:background .15s}
@@ -245,7 +247,7 @@
     if (e.key !== 'Tab') return;
     const panel = document.getElementById('ytc-panel');
     if (!panel) return;
-    const items = [...panel.querySelectorAll('button, textarea')];
+    const items = [...panel.querySelectorAll('button:not(:disabled), textarea')];
     if (!items.length) return;
     const first = items[0];
     const last = items[items.length - 1];
@@ -1339,26 +1341,32 @@
     return JSON.stringify({ script: 'youtube-custom-collection', format: 1, settings }, null, 2);
   }
 
-  function importSettings(text) {
+  // The preview and the import read the same parse, so they cannot disagree
+  function parseExport(text) {
     let data;
     try {
       data = JSON.parse(text);
     } catch {
-      return 'That is not valid JSON.';
+      return { error: 'That is not valid JSON.' };
     }
     const settings = data && data.settings;
-    if (!settings || typeof settings !== 'object') return 'That JSON has no settings object.';
-    let applied = 0;
+    if (!settings || typeof settings !== 'object') return { error: 'That JSON has no settings object.' };
+    const valid = [];
     const skipped = [];
     for (const [key, value] of Object.entries(settings)) {
       // Keys and values outside the current features are ignored, not trusted
-      if (!validValue(key, value)) {
-        skipped.push(key);
-        continue;
-      }
-      put(key, value);
-      applied++;
+      if (validValue(key, value)) valid.push([key, value]);
+      else skipped.push(key);
     }
+    return { valid, skipped };
+  }
+
+  function importSettings(text) {
+    const parsed = parseExport(text);
+    if (parsed.error) return parsed.error;
+    for (const [key, value] of parsed.valid) put(key, value);
+    const applied = parsed.valid.length;
+    const skipped = parsed.skipped;
     if (applied) {
       notifyChange();
       drawMenu();
@@ -1373,54 +1381,124 @@
     panel.textContent = '';
 
     const bar = panelHeader('Backup', backToHub);
-
     const desc = document.createElement('p');
     desc.className = 'ytc-desc';
-    desc.textContent = 'Copy every setting as JSON, or paste exported JSON and import it. Keys and values that do not match a setting are skipped.';
+    desc.textContent = 'Exports every stored setting as JSON. Importing applies the keys it recognises and skips the rest.';
     panel.append(bar, desc, document.createElement('hr'));
     panel.setAttribute('aria-label', 'Backup');
 
-    const copy = document.createElement('button');
-    copy.type = 'button';
-    copy.textContent = 'Copy settings JSON';
-    panel.append(copy);
+    const countLabel = () => {
+      const n = Object.keys(JSON.parse(exportSettings()).settings || {}).length;
+      return n ? `${n} key${n === 1 ? '' : 's'}` : 'Defaults only';
+    };
 
-    const box = document.createElement('textarea');
-    box.id = 'ytc-backup';
-    box.spellcheck = false;
-    box.placeholder = 'Paste exported JSON here';
-    const boxLabel = document.createElement('label');
-    boxLabel.className = 'ytc-label';
-    boxLabel.setAttribute('for', 'ytc-backup');
-    boxLabel.textContent = 'Settings JSON';
-    panel.append(boxLabel, box);
-
-    const load = document.createElement('button');
-    load.type = 'button';
-    load.textContent = 'Import from the box';
-    panel.append(load);
+    const exportTitle = document.createElement('p');
+    exportTitle.className = 'ytc-section';
+    exportTitle.textContent = 'Export';
+    panel.append(exportTitle);
 
     const status = document.createElement('p');
     status.className = 'ytc-status';
     status.setAttribute('role', 'status');
-    panel.append(status);
 
-    copy.addEventListener('click', async () => {
-      box.value = exportSettings();
+    let revert = 0;
+    const copy = settingRow('Copy settings JSON', countLabel(), async () => {
+      const value = copy.querySelector('.ytc-value');
+      clearTimeout(revert);
       try {
-        await navigator.clipboard.writeText(box.value);
-        status.textContent = 'Copied to clipboard.';
+        await navigator.clipboard.writeText(exportSettings());
+        if (value) value.textContent = 'Copied';
+        status.textContent = '';
+        revert = setTimeout(() => {
+          if (value && value.isConnected) value.textContent = countLabel();
+        }, 1500);
       } catch {
+        // Clipboard blocked: put the JSON where the user can select it
+        box.value = exportSettings();
         box.select();
-        status.textContent = 'Clipboard blocked, the JSON is selected in the box.';
+        if (value) value.textContent = 'Selected';
+        status.textContent = 'Clipboard blocked, the JSON is selected in the box below.';
       }
     });
+    panel.append(copy);
+
+    panel.append(document.createElement('hr'));
+
+    const importTitle = document.createElement('p');
+    importTitle.className = 'ytc-section';
+    importTitle.textContent = 'Import';
+    panel.append(importTitle);
+
+    const boxLabel = document.createElement('label');
+    boxLabel.className = 'ytc-label';
+    boxLabel.setAttribute('for', 'ytc-backup');
+    boxLabel.textContent = 'Settings JSON';
+    panel.append(boxLabel);
+
+    const box = document.createElement('textarea');
+    box.id = 'ytc-backup';
+    box.spellcheck = false;
+    box.placeholder = 'Paste an export here';
+    panel.append(box);
+
+    const load = document.createElement('button');
+    load.id = 'ytc-import';
+    load.type = 'button';
+    load.textContent = 'Import settings';
+    load.disabled = true;
+    panel.append(load, status);
+
+    let armed = false;
+
+    const labelFor = (parsed) =>
+      parsed.error
+        ? 'Nothing to import'
+        : `Import ${parsed.valid.length} setting${parsed.valid.length === 1 ? '' : 's'}`;
+
+    // The button states what will happen before it is pressed
+    function preview() {
+      armed = false;
+      const text = box.value.trim();
+      load.disabled = !text;
+      if (!text) {
+        load.textContent = 'Import settings';
+        status.textContent = '';
+        return;
+      }
+      const parsed = parseExport(box.value);
+      load.textContent = labelFor(parsed);
+      if (parsed.error) {
+        status.textContent = parsed.error;
+        return;
+      }
+      status.textContent = parsed.skipped.length
+        ? `${parsed.skipped.length} key${parsed.skipped.length === 1 ? '' : 's'} will be skipped.`
+        : '';
+    }
+
+    box.addEventListener('input', preview);
 
     load.addEventListener('click', () => {
-      status.textContent = importSettings(box.value);
+      const text = box.value;
+      if (!text.trim()) return;
+      const parsed = parseExport(text);
+      if (parsed.error) {
+        status.textContent = parsed.error;
+        return;
+      }
+      if (!armed) {
+        armed = true;
+        load.textContent = `Press again to import ${parsed.valid.length} setting${parsed.valid.length === 1 ? '' : 's'}`;
+        return;
+      }
+      armed = false;
+      status.textContent = importSettings(text);
+      load.textContent = labelFor(parsed);
+      const value = copy.querySelector('.ytc-value');
+      if (value) value.textContent = countLabel();
     });
 
-    (panel.querySelector('button:not(.ytc-close):not(.ytc-back)') || panel).focus();
+    copy.focus();
   }
 
   // ---------- overview and diagnostics ----------
