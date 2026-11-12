@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.3
+// @version      1.4
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -147,7 +147,9 @@
 #ytc-panel{width:360px;max-width:92vw;max-height:calc(100vh - 24px);overflow:auto;padding:0 0 10px;border-radius:14px;background:var(--yt-spec-base-background,#fff);color:var(--yt-spec-text-primary,#0f0f0f);box-shadow:0 16px 40px rgba(0,0,0,.45);font-family:Roboto,Arial,sans-serif;scroll-padding-top:64px}
 #ytc-panel .ytc-header{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:6px 8px 6px 20px;background:var(--yt-spec-base-background,#fff);border-bottom:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3))}
 #ytc-panel h2{flex:1;margin:0;padding:0;font-size:16px;font-weight:600;line-height:1.3}
-#ytc-panel .ytc-close{width:44px;height:44px;min-height:44px;justify-content:center;padding:0;border-radius:50%;font-size:22px;line-height:1}
+#ytc-panel .ytc-header.with-back{padding-left:8px}
+#ytc-panel .ytc-close,#ytc-panel .ytc-back{width:44px;height:44px;min-height:44px;justify-content:center;padding:0;border-radius:50%;font-size:18px;line-height:1}
+#ytc-panel .ytc-close{font-size:22px}
 #ytc-panel .ytc-desc{margin:12px 0 0;padding:0 20px;font-size:13px;line-height:1.5;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel hr{margin:14px 20px 16px;border:0;border-top:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3))}
 #ytc-panel .ytc-section{margin:0;padding:4px 20px 2px;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--yt-spec-text-secondary,#606060)}
@@ -224,9 +226,18 @@
     return button;
   }
 
-  function panelHeader(titleText) {
+  function panelHeader(titleText, onBack) {
     const bar = document.createElement('div');
-    bar.className = 'ytc-header';
+    bar.className = onBack ? 'ytc-header with-back' : 'ytc-header';
+    if (onBack) {
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'ytc-back';
+      back.setAttribute('aria-label', 'Back');
+      back.textContent = '\u2190';
+      back.addEventListener('click', onBack);
+      bar.append(back);
+    }
     const title = document.createElement('h2');
     title.textContent = titleText;
     const close = document.createElement('button');
@@ -237,6 +248,11 @@
     close.addEventListener('click', closePanel);
     bar.append(title, close);
     return bar;
+  }
+
+  function backToHub() {
+    panelState.view = 'hub';
+    render();
   }
 
   const chevron = () => {
@@ -254,6 +270,10 @@
   function render() {
     const panel = document.getElementById('ytc-panel');
     if (!panel || !panelState) return;
+    if (panelState.view === 'hub') {
+      renderHub(panel);
+      return;
+    }
     if (panelState.view === 'overview') {
       renderOverview(panel);
       return;
@@ -326,7 +346,7 @@
     }
 
     const active = panel.querySelector('[aria-current="true"]');
-    const first = panel.querySelector('button:not(.ytc-close)');
+    const first = panel.querySelector('button:not(.ytc-close):not(.ytc-back)');
     (active || first)?.focus();
   }
 
@@ -1081,7 +1101,7 @@
   function renderBackup(panel) {
     panel.textContent = '';
 
-    const bar = panelHeader('Settings Backup');
+    const bar = panelHeader('Backup', backToHub);
 
     const desc = document.createElement('p');
     desc.className = 'ytc-desc';
@@ -1124,7 +1144,7 @@
       status.textContent = importSettings(box.value);
     });
 
-    (panel.querySelector('button:not(.ytc-close)') || panel).focus();
+    (panel.querySelector('button:not(.ytc-close):not(.ytc-back)') || panel).focus();
   }
 
   // ---------- overview and diagnostics ----------
@@ -1147,12 +1167,38 @@
 
   const isOn = (feature) => get(`${feature.id}On`, true) === true;
 
+  function renderHub(panel) {
+    panel.textContent = '';
+
+    const bar = panelHeader('Settings');
+    const desc = document.createElement('p');
+    desc.className = 'ytc-desc';
+    desc.textContent = 'Everything this script keeps, in one place.';
+    panel.append(bar, desc, document.createElement('hr'));
+
+    const entries = [
+      ['Features', `${FEATURES.filter(isOn).length} of ${FEATURES.length} on`, 'overview'],
+      ['Backup', 'JSON', 'backup'],
+      ['Diagnostics', version(), 'diagnostics'],
+    ];
+    for (const [label, value, view] of entries) {
+      const button = settingRow(label, value, () => {
+        panelState.view = view;
+        render();
+      });
+      button.append(chevron());
+      panel.append(button);
+    }
+
+    (panel.querySelector('button:not(.ytc-close):not(.ytc-back)') || panel).focus();
+  }
+
   let resetArmed = false;
 
   function renderOverview(panel) {
     panel.textContent = '';
 
-    const bar = panelHeader('Features');
+    const bar = panelHeader('Features', backToHub);
     const desc = document.createElement('p');
     desc.className = 'ytc-desc';
     desc.textContent = 'Every feature in one place. A switch here is the same switch as the one inside its own panel.';
@@ -1188,7 +1234,7 @@
     });
 
     panel.append(document.createElement('hr'), reset);
-    (resetArmed ? reset : panel.querySelector('button:not(.ytc-close)')).focus();
+    (resetArmed ? reset : panel.querySelector('button:not(.ytc-close):not(.ytc-back)')).focus();
   }
 
   function diagnosticsRows() {
@@ -1211,7 +1257,7 @@
   function renderDiagnostics(panel) {
     panel.textContent = '';
 
-    const bar = panelHeader('Diagnostics');
+    const bar = panelHeader('Diagnostics', backToHub);
     const desc = document.createElement('p');
     desc.className = 'ytc-desc';
     desc.textContent = 'What this copy of the script sees right now. Handy when a feature stays quiet on a page.';
@@ -1250,15 +1296,8 @@
       const id = GM_registerMenuCommand(feature.short, () => openPanel(feature.id));
       if (id !== undefined && id !== null) menuIds.push(id);
     }
-    const extra = [
-      ['Features', 'overview'],
-      ['Settings Backup', 'backup'],
-      ['Diagnostics', 'diagnostics'],
-    ];
-    for (const [label, view] of extra) {
-      const id = GM_registerMenuCommand(label, () => openPanel(view));
-      if (id !== undefined && id !== null) menuIds.push(id);
-    }
+    const settingsId = GM_registerMenuCommand('Settings', () => openPanel('hub'));
+    if (settingsId !== undefined && settingsId !== null) menuIds.push(settingsId);
   }
 
   drawMenu();
