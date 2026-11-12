@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.9
+// @version      2.10
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -66,6 +66,7 @@
   const FEATURES = [
     {
       id: 'people',
+      def: true,
       title: 'YouTube: Hide "These people are mentioned in the video"',
       short: 'Hide People Mentioned',
       desc: 'Removes the shelf under the player that lists people mentioned in the video. YouTube rebuilds that shelf on every page, so the removal runs again each time it appears.',
@@ -73,6 +74,7 @@
     },
     {
       id: 'members',
+      def: true,
       title: 'YouTube: Hide Members Only and Premium',
       short: 'Hide Members Only',
       desc: 'Hides videos marked Members only or Premium across feeds, search results, sidebars and playlists. The badge text is what gets matched, so the removal survives markup changes.',
@@ -80,6 +82,7 @@
     },
     {
       id: 'expand',
+      def: true,
       title: 'YouTube: Auto Expand Description',
       short: 'Expand Description',
       desc: 'Clicks the description expander on the watch page, so chapters and links are visible without the extra click. It retries a few times, then stops.',
@@ -87,6 +90,7 @@
     },
     {
       id: 'resolution',
+      def: true,
       title: 'YouTube: Preferred Resolution',
       short: 'Preferred Resolution',
       desc: 'Starts each video at the quality you pick. When the video does not offer that level, the highest level below it is used instead.',
@@ -94,6 +98,7 @@
     },
     {
       id: 'autoplay',
+      def: true,
       title: 'YouTube: Autoplay Control',
       short: 'Autoplay Control',
       desc: 'Decides what happens when a video ends: advance, wait, stop or loop. The limit counts how many videos this tab has advanced through.',
@@ -107,6 +112,7 @@
     },
     {
       id: 'playback',
+      def: true,
       title: 'YouTube: Playback Defaults',
       short: 'Playback Defaults',
       desc: 'Sets speed, theater mode, volume, subtitles and audio track for every video. Optional hotkeys change speed with [ and ], and auto-pause stops playback while the tab is hidden.',
@@ -123,6 +129,7 @@
     },
     {
       id: 'paused',
+      def: true,
       title: 'YouTube: Dismiss "Video paused. Continue watching?"',
       short: 'Dismiss Paused Prompt',
       desc: 'Answers the "Video paused. Continue watching?" and "Are you still watching?" prompts. Pick Yes to carry on playing, No to stay paused, or leave the prompt untouched. Only dialogs containing those phrases are affected.',
@@ -130,6 +137,7 @@
     },
     {
       id: 'quiet',
+      def: true,
       title: 'YouTube: Quiet Page',
       short: 'Quiet Page',
       desc: 'Stops work on the page that plays video you never asked for, and hides the sections that cost the most. Each switch below works on its own.',
@@ -158,6 +166,12 @@
   ];
 
   const featureById = (id) => FEATURES.find((f) => f.id === id);
+
+  // One place decides what a feature does when no value is stored yet
+  const featureOn = (id) => {
+    const feature = featureById(id);
+    return get(`${id}On`, feature ? feature.def : true) === true;
+  };
 
   function read(row) {
     const v = get(row.key, row.def);
@@ -381,10 +395,11 @@
       section.className = 'ytc-section';
       section.textContent = 'Settings';
       panel.append(bar, desc, divider);
-      if (!grouped) panel.append(section);
+      // A feature with no rows is just one switch, so a Settings heading would be noise
+      if (!grouped && feature.rows.length) panel.append(section);
       panel.setAttribute('aria-label', feature.title);
 
-      const rows = [{ key: `${feature.id}On`, label: 'Enabled', type: 'toggle', def: true }, ...feature.rows];
+      const rows = [{ key: `${feature.id}On`, label: 'Enabled', type: 'toggle', def: feature.def }, ...feature.rows];
       let group = null;
       for (const row of rows) {
         if (row.group && row.group !== group) {
@@ -435,7 +450,8 @@
         drawMenu();
         render();
       });
-      panel.append(document.createElement('hr'), reset);
+      if (feature.rows.length) panel.append(document.createElement('hr'));
+      panel.append(reset);
     }
 
     const active = panel.querySelector('[aria-current="true"]');
@@ -481,7 +497,7 @@
     const STOP_IDS = new Set(['below', 'primary', 'columns']);
     const squash = (s) => s.replace(/\s+/g, ' ').toLowerCase();
 
-    const enabled = () => isTop && get('peopleOn', true) === true;
+    const enabled = () => isTop && featureOn('people');
     const hidden = new Set();
 
     function hideShelf(start) {
@@ -519,6 +535,8 @@
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
       let node;
       while ((node = walker.nextNode())) {
+        // The panel's own title names the phrase, so never match inside it
+        if (node.parentElement && node.parentElement.closest('#ytc-backdrop')) continue;
         if (PHRASES.some((p) => squash(node.nodeValue || '').includes(p))) return node.parentElement;
       }
       return null;
@@ -572,7 +590,7 @@
       'yt-lockup-view-model',
     ].join(',');
 
-    const enabled = () => isTop && get('membersOn', true) === true;
+    const enabled = () => isTop && featureOn('members');
     const hidden = new Map();
 
     function videoIdOf(card) {
@@ -674,13 +692,14 @@
   // ---------- expand description ----------
 
   {
+    // One click is all the expander needs; five tries covers a slow description render
     const MAX_TRIES = 5;
     let raf = 0;
     let tries = 0;
     let url = '';
     let done = '';
 
-    const enabled = () => isTop && get('expandOn', true) === true;
+    const enabled = () => isTop && featureOn('expand');
 
     function scan() {
       raf = 0;
@@ -723,7 +742,7 @@
 
   {
     const ORDER = ['highres', 'hd2880', 'hd2160', 'hd1440', 'hd1080', 'hd720', 'large', 'medium', 'small', 'tiny'];
-    const enabled = () => get('resolutionOn', true) === true;
+    const enabled = () => featureOn('resolution');
     const quality = () => {
       const value = get('quality', 'auto');
       return ORDER.includes(value) || value === 'auto' || value === 'highest' ? value : 'auto';
@@ -756,6 +775,7 @@
       if (typeof el.setPlaybackQuality === 'function') el.setPlaybackQuality(code);
     }
 
+    // 30 tries at 400ms covers a slow manifest and a full ad break
     const MAX_TRIES = 30;
     let timer = 0;
     let tries = 0;
@@ -787,8 +807,9 @@
   // ---------- autoplay control ----------
 
   {
+    // Per tab on purpose: the limit is about this session, not the account
     const COUNT_KEY = 'ytc.count';
-    const enabled = () => get('autoplayOn', true) === true;
+    const enabled = () => featureOn('autoplay');
     const behavior = () => {
       const value = get('behavior', 'leave');
       return BEHAVIORS.some(([v]) => v === value) ? value : 'leave';
@@ -932,7 +953,7 @@
   // ---------- playback defaults ----------
 
   {
-    const enabled = () => get('playbackOn', true) === true;
+    const enabled = () => featureOn('playback');
     const speed = () => {
       const value = get('speed', 'leave');
       return SPEEDS.some(([v]) => v === value) ? value : 'leave';
@@ -1139,7 +1160,7 @@
     const DIALOG = 'yt-confirm-dialog-renderer, yt-confirm-dialog-view-model, tp-yt-paper-dialog';
     const BUTTON = 'yt-button-renderer, button, tp-yt-paper-button';
 
-    const enabled = () => get('pausedOn', true) === true;
+    const enabled = () => featureOn('paused');
     const answerMode = () => {
       const value = get('answer', 'yes');
       return PROMPTS.some(([v]) => v === value) ? value : 'yes';
@@ -1160,6 +1181,7 @@
     }
 
     function scan() {
+      // The paused dialog only exists on the watch page, so there is no retry budget here
       if (!enabled() || location.pathname !== '/watch') return;
       for (const dialog of document.querySelectorAll(DIALOG)) answer(dialog);
     }
@@ -1195,7 +1217,7 @@
   // ---------- quiet page ----------
 
   {
-    const enabled = () => isTop && get('quietOn', true) === true;
+    const enabled = () => isTop && featureOn('quiet');
     const DEFAULTS = new Map();
     for (const feature of FEATURES) {
       for (const row of feature.rows) DEFAULTS.set(row.key, row.def === true);
@@ -1419,7 +1441,7 @@
     return row;
   }
 
-  const isOn = (feature) => get(`${feature.id}On`, true) === true;
+  const isOn = (feature) => get(`${feature.id}On`, feature.def) === true;
 
   let resetArmed = false;
   let armedFeature = null;
@@ -1509,12 +1531,18 @@
     (panel.querySelector('button:not(.ytc-close):not(.ytc-back)') || panel).focus();
   }
 
+  const quietOn = () => {
+    const quiet = featureById('quiet');
+    return quiet.rows.filter((row) => get(row.key, row.def === true) === true).length;
+  };
+
   function diagnosticsRows() {
     const stored = [...settingKeys()].filter((key) => GM_getValue(`ytc.${key}`) !== undefined);
     return [
       ['Script', 'youtube-custom-collection'],
       ['Version', version()],
       ['Enabled features', `${FEATURES.filter(isOn).length} of ${FEATURES.length}`],
+      ['Quiet switches', `${quietOn()} on`],
       ['Stored settings', `${stored.length} of ${settingKeys().size} keys`],
       ['Settings size', `${exportSettings().length} bytes`],
       ['Page', location.pathname],

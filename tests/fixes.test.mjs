@@ -208,6 +208,37 @@ const inject = async (page) => {
   await ctx.close();
 }
 
+// 10. A feature without rows is presented as a single switch
+{
+  const { ctx, page } = await open();
+  await inject(page);
+  await page.evaluate(() => window.__menu[0].cb());
+  await page.waitForTimeout(80);
+  await page.getByRole('button', { name: 'Hide People Mentioned' }).click();
+  await page.waitForTimeout(80);
+  check('row-less panel has no section heading', (await page.locator('#ytc-panel .ytc-section').count()) === 0);
+  check('the panel does not hide itself', await page.evaluate(() => {
+    const panel = document.getElementById('ytc-panel');
+    const backdrop = document.getElementById('ytc-backdrop');
+    return panel.getBoundingClientRect().height > 100 && getComputedStyle(backdrop).display !== 'none';
+  }));
+  check('row-less panel still offers a reset', (await page.getByRole('button', { name: 'Reset this feature' }).count()) === 1);
+  await ctx.close();
+}
+
+// 11. Diagnostics reports how many Quiet switches are on
+{
+  const { ctx, page } = await open({ 'ytc.quietComments': true });
+  await inject(page);
+  await page.evaluate(() => window.__menu[0].cb());
+  await page.waitForTimeout(80);
+  await page.getByRole('button', { name: 'Diagnostics' }).click();
+  await page.waitForTimeout(80);
+  const info = await page.locator('#ytc-panel .ytc-info').allTextContents();
+  check('diagnostics counts the quiet switches', info.some((t) => t.includes('Quiet switches') && t.includes('4 on')));
+  await ctx.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} failure(s)` : '\nall checks passed');
