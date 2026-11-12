@@ -21,6 +21,16 @@ Every script here is written with AI assistance: the code is generated or drafte
 
 The **Install** links point at the raw `.user.js`; most userscript managers (Tampermonkey, Violentmonkey, ScriptCat, Safari Userscripts) pick it up and offer to install. The **Script** links open the source on GitHub.
 
+## Tests
+
+The suites in `tests/` drive headless Chromium through Playwright:
+
+```bash
+node tests/run.mjs
+```
+
+Playwright is resolved from the repo if present, otherwise from the global npm root, so no `package.json` or build step is involved. Each suite starts its own local HTTP fixture and loads the script under test into it.
+
 ## Install
 
 Click **Install** in the table above. To add a script by hand:
