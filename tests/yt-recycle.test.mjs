@@ -13,6 +13,8 @@ const FIXTURE = `<!doctype html><html><body><div id="feed">
   <ytd-rich-item-renderer id="b"><a href="/watch?v=bbb">B</a><yt-badge-shape>4K</yt-badge-shape></ytd-rich-item-renderer>
   <ytd-rich-item-renderer id="c"><a href="/watch?v=ccc">C</a><yt-badge-shape>Members only</yt-badge-shape><yt-badge-shape>4K</yt-badge-shape></ytd-rich-item-renderer>
   <ytd-rich-item-renderer id="d"><yt-badge-shape>Members only</yt-badge-shape><span>no link</span></ytd-rich-item-renderer>
+  <ytd-rich-item-renderer id="e"><a href="/watch?v=eee">E</a><yt-badge-shape>YouTube featured</yt-badge-shape></ytd-rich-item-renderer>
+  <ytd-rich-item-renderer id="f"><a href="/watch?v=fff">F</a><yt-badge-shape>Featured</yt-badge-shape></ytd-rich-item-renderer>
 </div></body></html>`;
 
 const server = http.createServer((req, res) => {
@@ -60,7 +62,7 @@ for (const spec of SCRIPTS) {
           attr: el.getAttribute(attr),
         };
       };
-      return { a: read('a'), b: read('b'), c: read('c'), d: read('d') };
+      return { a: read('a'), b: read('b'), c: read('c'), d: read('d'), e: read('e'), f: read('f') };
     }, spec.attr);
 
   let s = await state();
@@ -68,6 +70,8 @@ for (const spec of SCRIPTS) {
   check(`${spec.file}: ordinary badge card kept`, s.b.hidden === false);
   check(`${spec.file}: two-badge members card hidden`, s.c.hidden && s.c.attr === 'ccc');
   check(`${spec.file}: card without a link still hidden`, s.d.hidden && s.d.attr === '');
+  check(`${spec.file}: youtube featured promo hidden`, s.e.hidden);
+  check(`${spec.file}: other featured badge kept`, s.f.hidden === false);
 
   // Recycle: the hidden card now holds an unrelated, free video
   await page.evaluate(() => {

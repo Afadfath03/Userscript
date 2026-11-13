@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         YouTube: Hide Members Only and Premium
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.3
-// @description  Hide videos marked Members only or Premium in feeds, search results, sidebars and playlists
+// @version      1.4
+// @description  Hide videos marked Members only or Premium, plus YouTube featured promos, in feeds, search results, sidebars and playlists
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
 // @supportURL   https://github.com/Afadfath03/Userscript/issues
@@ -19,8 +19,9 @@
   // Only the top document carries the shelf this script removes
   if (window.self !== window.top) return;
   const squash = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase();
-  // Add other UI languages here; case and spacing are normalized
-  const LABELS = new Set(['members only', 'premium', 'khusus anggota']);
+  // Add other UI languages here; case and spacing are normalized.
+  // "YouTube featured" marks an in-feed promo card, not a membership video
+  const LABELS = new Set(['members only', 'premium', 'khusus anggota', 'youtube featured']);
   const BADGE = 'yt-badge-shape, badge-shape, ytd-badge-supported-renderer';
   const CARD = [
     'ytd-rich-item-renderer',

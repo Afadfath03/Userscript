@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.12
+// @version      2.13
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -77,7 +77,7 @@
       def: true,
       title: 'YouTube: Hide Members Only and Premium',
       short: 'Hide Members Only',
-      desc: 'Hides videos marked Members only or Premium across feeds, search results, sidebars and playlists. The badge text is what gets matched, so the removal survives markup changes.',
+      desc: 'Hides videos marked Members only or Premium across feeds, search results, sidebars and playlists, and the YouTube featured promo cards. The badge text is what gets matched, so the removal survives markup changes.',
       rows: [],
     },
     {
@@ -580,7 +580,7 @@
 
   {
     const squash = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase();
-    const LABELS = new Set(['members only', 'premium', 'khusus anggota']);
+    const LABELS = new Set(['members only', 'premium', 'khusus anggota', 'youtube featured']);
     const BADGE = 'yt-badge-shape, badge-shape, ytd-badge-supported-renderer';
     const CARD = [
       'ytd-rich-item-renderer',
