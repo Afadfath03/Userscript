@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      3.3
+// @version      3.4
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -321,9 +321,9 @@
   }
 
   function panelKey(e) {
+    // The add dialog owns every key while it is open, including Tab and Escape
+    if (document.getElementById('ytc-dialog')) return;
     if (e.key === 'Escape') {
-      // The add dialog owns Escape while it is open, so the event must keep bubbling to it
-      if (document.getElementById('ytc-dialog')) return;
       e.stopPropagation();
       if (panelState && panelState.view === 'edit') {
         panelState.view = 'list';
@@ -347,7 +347,7 @@
     if (e.key !== 'Tab') return;
     const panel = document.getElementById('ytc-panel');
     if (!panel) return;
-    const items = [...panel.querySelectorAll('button:not(:disabled), textarea')];
+    const items = [...panel.querySelectorAll('button:not(:disabled), input, textarea')];
     if (!items.length) return;
     const first = items[0];
     const last = items[items.length - 1];
@@ -1657,7 +1657,7 @@
   const chapterLines = (id) => {
     const hours = marksHourMode(id);
     return sortedMarks(id)
-      .map((mark) => `${clock(mark.t, hours)} ${mark.n}`)
+      .map((mark) => `${clock(mark.t, hours)} ${mark.n.replace(/\s+/g, ' ').trim()}`)
       .join('\n');
   };
 
@@ -1756,6 +1756,12 @@
     return row;
   }
 
+  function refreshMarkList() {
+    if (!document.getElementById('ytc-panel')) return;
+    if (!panelState || panelState.feature !== 'bookmarks' || panelState.view !== 'list') return;
+    render();
+  }
+
   function renderMarkList(panel) {
     panel.textContent = '';
     const id = videoIdFromUrl();
@@ -1773,6 +1779,15 @@
       count.className = 'ytc-status';
       count.textContent = `${list.length} mark${list.length === 1 ? '' : 's'} on this video`;
       panel.append(count);
+    }
+
+    if (!id) {
+      const away = document.createElement('p');
+      away.className = 'ytc-empty';
+      away.textContent = 'Open a video page to see and add its bookmarks.';
+      panel.append(away);
+      panel.querySelector('button:not(.ytc-close):not(.ytc-back)')?.focus();
+      return;
     }
 
     const add = document.createElement('button');
@@ -2039,7 +2054,8 @@
     panel.textContent = '';
     panel.append(
       panelHeader('Bookmarks backup', () => {
-        panelState.view = 'list';
+        // Opened from the feature settings, so Back returns there, same as Escape
+        panelState.view = 'settings';
         render();
       })
     );
@@ -2173,15 +2189,18 @@
 `;
 
   let dialogWePaused = false;
+  let dialogVideo = null;
   let dialogReturnFocus = null;
 
   function closeMarkDialog() {
     document.getElementById('ytc-dialog')?.remove();
     document.getElementById('ytc-dialog-style')?.remove();
-    const video = currentVideo();
-    // Resume only when this dialog was the reason playback stopped
-    if (dialogWePaused && video && video.paused) video.play();
+    // Resume only the same element this dialog paused, and only if nothing restarted it
+    if (dialogWePaused && dialogVideo && dialogVideo === currentVideo() && dialogVideo.paused) {
+      dialogVideo.play();
+    }
     dialogWePaused = false;
+    dialogVideo = null;
     if (dialogReturnFocus && dialogReturnFocus.isConnected) dialogReturnFocus.focus();
     dialogReturnFocus = null;
     syncPlayButtons();
@@ -2194,6 +2213,7 @@
     const video = currentVideo();
     const at = Math.floor(video ? video.currentTime : 0);
     const hours = marksHourMode(id);
+    dialogVideo = video;
     dialogWePaused = !!video && !video.paused;
     if (dialogWePaused) video.pause();
     dialogReturnFocus = document.activeElement;
@@ -2294,6 +2314,7 @@
       writeMarks(id, [...list, { t: seconds, n: label, at: Date.now() }]);
       closeMarkDialog();
       notifyChange();
+      refreshMarkList();
     };
 
     cancel.addEventListener('click', closeMarkDialog);
@@ -2433,6 +2454,10 @@
 
   document.addEventListener('yt-navigate-finish', () => {
     if (!isTop) return;
+    // The old video is gone, so an open dialog no longer has a target
+    if (document.getElementById('ytc-dialog')) closeMarkDialog();
+    armedMark = null;
+    editMarkAt = null;
     // The control bar is rebuilt once metadata arrives, so check again shortly after
     syncPlayButtons();
     drawMenu();
@@ -2631,4 +2656,6 @@
 
   drawMenu();
   syncPlayButtons();
+  // The player sometimes builds its control bar after the first paint
+  setTimeout(syncPlayButtons, 1500);
 })();

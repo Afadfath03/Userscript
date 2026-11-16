@@ -227,6 +227,17 @@ await page.getByRole('button', { name: /^Copy bookmarks JSON/ }).click();
 await page.waitForTimeout(80);
 const exported = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
 check('the feature export names its feature', exported.feature === 'bookmarks' && exported.format === 1);
+
+await page.getByRole('button', { name: 'Back', exact: true }).click();
+await page.waitForTimeout(60);
+check('back from the feature backup returns to the feature settings', (await page.locator('#ytc-panel h2').textContent()) === 'YouTube: Bookmark Timestamp');
+await page.getByRole('button', { name: /^Backup/ }).click();
+await page.waitForTimeout(60);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(60);
+check('Escape from the feature backup agrees with Back', (await page.locator('#ytc-panel h2').textContent()) === 'YouTube: Bookmark Timestamp');
+await page.getByRole('button', { name: /^Backup/ }).click();
+await page.waitForTimeout(60);
 check('the feature export carries the map', Object.keys(exported.marks).join(',') === 'dQw4w9WgXcQ');
 await page.locator('#ytc-marks-backup').fill(
   JSON.stringify({
@@ -337,6 +348,69 @@ await setMarks([
 ]);
 check('a long video copies with hours', (await copyChapters()) === 'Copied as chapter lines.');
 check('hour lines keep the same format as the list', (await page.evaluate(() => navigator.clipboard.readText())) === '0:00:00 Intro\n1:00:00 Hour\n1:01:40 Late');
+
+// Regressions found after the first release of the feature
+await page.evaluate(() => {
+  window.__store['ytc.bookmarks'] = {};
+  window.__video.t = 100;
+  document.dispatchEvent(new Event('ytc-change'));
+});
+await page.evaluate(() => window.__menu.find((m) => m.name.startsWith('Show bookmarks')).cb());
+await page.waitForTimeout(80);
+check('the list starts empty for this check', (await page.locator('#ytc-panel .ytc-row').count()) === 0);
+await page.getByRole('button', { name: 'Add video bookmark' }).click();
+await page.waitForTimeout(80);
+await page.locator('.ytc-dialog .ytc-primary').click();
+await page.waitForTimeout(120);
+check('adding from the panel refreshes the list behind it', (await page.locator('#ytc-panel .ytc-row').count()) === 1);
+
+await page.keyboard.press('b');
+await page.waitForTimeout(80);
+const tabInside = [];
+for (let i = 0; i < 6; i++) {
+  await page.keyboard.press('Tab');
+  tabInside.push(await page.evaluate(() => !!document.activeElement.closest('.ytc-dialog')));
+}
+check('the dialog keeps Tab while the panel is open', tabInside.every(Boolean));
+await page.keyboard.press('Escape');
+await page.waitForTimeout(80);
+
+await page.locator('#ytc-panel .ytc-icon').first().click();
+await page.waitForTimeout(80);
+await page.locator('#ytc-edit-name').focus();
+await page.keyboard.press('Tab');
+check('Tab from the name field reaches Save', await page.evaluate(() => document.activeElement.textContent === 'Save changes'));
+await page.keyboard.press('Escape');
+await page.waitForTimeout(80);
+
+await page.evaluate(() => {
+  history.pushState({}, '', '/feed');
+  document.dispatchEvent(new Event('yt-navigate-finish'));
+});
+await page.waitForTimeout(120);
+await page.evaluate(() => window.__menu.find((m) => m.name.startsWith('Show bookmarks')).cb());
+await page.waitForTimeout(80);
+check('a page without a video explains instead of offering a dead button', await page.evaluate(() => {
+  const panel = document.getElementById('ytc-panel');
+  return panel.innerText.includes('Open a video page') && !panel.innerText.includes('Add video bookmark');
+}));
+
+await page.evaluate(() => {
+  history.pushState({}, '', '/watch?v=dQw4w9WgXcQ');
+  document.dispatchEvent(new Event('yt-navigate-finish'));
+});
+await page.waitForTimeout(120);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(60);
+await page.keyboard.press('b');
+await page.waitForTimeout(80);
+check('the dialog opens before navigating', (await page.locator('#ytc-dialog').count()) === 1);
+await page.evaluate(() => {
+  history.pushState({}, '', '/watch?v=BBBBBBBBBBB');
+  document.dispatchEvent(new Event('yt-navigate-finish'));
+});
+await page.waitForTimeout(120);
+check('navigating away closes the dialog', (await page.locator('#ytc-dialog').count()) === 0);
 
 await browser.close();
 server.close();
