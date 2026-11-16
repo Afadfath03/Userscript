@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      3.6
+// @version      3.7
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -212,6 +212,14 @@
       title: 'YouTube: Playlist Length',
       short: 'Playlist Length',
       desc: 'Shows how long the playlist is and how much is left from the video you are watching. The numbers are read from the durations YouTube already prints on each item.',
+      rows: [],
+    },
+    {
+      id: 'shorts',
+      def: false,
+      title: 'YouTube: Shorts to Watch',
+      short: 'Shorts to Watch',
+      desc: 'Opens Shorts in the normal watch player by rewriting /shorts/ links to /watch. Off by default, so Shorts stay untouched until you turn it on.',
       rows: [],
     },
     {
@@ -1655,6 +1663,29 @@
     });
 
     copy.focus();
+  }
+
+  // ---------- shorts to watch ----------
+
+  {
+    const SHORTS = /^\/shorts\/([A-Za-z0-9_-]{6,})/;
+    const enabled = () => isTop && featureOn('shorts');
+
+    function rewrite() {
+      if (!enabled()) return;
+      const match = SHORTS.exec(location.pathname);
+      if (!match) return;
+      const url = new URL(`/watch?v=${match[1]}`, location.origin);
+      // A shared Short can carry a start time, so keep it
+      const time = new URLSearchParams(location.search).get('t');
+      if (time) url.searchParams.set('t', time);
+      // replace() keeps the entry count stable, so Back does not bounce between the two pages
+      location.replace(url.toString());
+    }
+
+    document.addEventListener('yt-navigate-finish', rewrite);
+    document.addEventListener('ytc-change', rewrite);
+    rewrite();
   }
 
   // ---------- playlist length ----------
