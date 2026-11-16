@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      3.5
+// @version      3.6
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -205,6 +205,14 @@
       short: 'Bookmarks',
       desc: 'Saves time markers on the video you are watching and jumps back to them. The clock pauses while the add dialog is open, and each marker can be retimed or renamed later.',
       rows: [{ key: 'bookmarks', type: 'list', def: {} }],
+    },
+    {
+      id: 'playlist',
+      def: true,
+      title: 'YouTube: Playlist Length',
+      short: 'Playlist Length',
+      desc: 'Shows how long the playlist is and how much is left from the video you are watching. The numbers are read from the durations YouTube already prints on each item.',
+      rows: [],
     },
     {
       id: 'quiet',
@@ -1647,6 +1655,123 @@
     });
 
     copy.focus();
+  }
+
+  // ---------- playlist length ----------
+
+  {
+    const LINE_ID = 'ytc-playlist-length';
+    const STYLE_ID = 'ytc-playlist-style';
+    const TIME = /^\d{1,2}:\d{2}(?::\d{2})?$/;
+    const CSS = `#ytc-playlist-length{padding:8px 16px;font:500 12px/1.4 Roboto,Arial,sans-serif;color:var(--yt-spec-text-secondary,#606060);border-bottom:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.2))}`;
+
+    const enabled = () => isTop && featureOn('playlist');
+
+    // YouTube prints each duration as text, so matching the shape survives markup changes
+    function durationOf(item) {
+      for (const node of item.querySelectorAll('span, div')) {
+        const text = node.textContent.trim();
+        if (text.length <= 8 && TIME.test(text)) return parseClock(text);
+      }
+      return null;
+    }
+
+    function totals() {
+      const panel = document.querySelector('ytd-playlist-panel-renderer');
+      if (!panel) return null;
+      const items = [...panel.querySelectorAll('ytd-playlist-panel-video-renderer')];
+      if (items.length < 2) return null;
+      const selected = items.findIndex(
+        (item) => item.hasAttribute('selected') || item.getAttribute('aria-current') === 'true'
+      );
+      let total = 0;
+      let left = 0;
+      let unknown = 0;
+      items.forEach((item, index) => {
+        const seconds = durationOf(item);
+        if (seconds === null) {
+          unknown++;
+          return;
+        }
+        total += seconds;
+        // With no selected item the whole playlist still lies ahead
+        if (selected === -1 || index >= selected) left += seconds;
+      });
+      return { panel, count: items.length, total, left, unknown };
+    }
+
+    const label = (seconds) => clock(seconds, seconds >= 3600);
+
+    function remove() {
+      document.getElementById(LINE_ID)?.remove();
+      document.getElementById(STYLE_ID)?.remove();
+    }
+
+    function draw() {
+      if (!enabled()) {
+        remove();
+        return;
+      }
+      const data = totals();
+      if (!data) {
+        remove();
+        return;
+      }
+      const text =
+        `${data.count} videos · ${label(data.total)}` +
+        (data.unknown ? ` (+${data.unknown} unknown)` : '') +
+        ` · ${label(data.left)} left`;
+      let line = document.getElementById(LINE_ID);
+      if (line && line.isConnected && line.textContent === text) return;
+      if (!line) {
+        const style = document.createElement('style');
+        style.id = STYLE_ID;
+        style.textContent = CSS;
+        document.head.append(style);
+        line = document.createElement('div');
+        line.id = LINE_ID;
+      }
+      line.textContent = text;
+      const container = data.panel.querySelector('#container') || data.panel;
+      const contents = container.querySelector('#contents');
+      if (contents) contents.before(line);
+      else container.append(line);
+    }
+
+    let observer = null;
+    let timer = 0;
+
+    function schedule() {
+      clearTimeout(timer);
+      timer = setTimeout(draw, 300);
+    }
+
+    function observe() {
+      if (observer) observer.disconnect();
+      const panel = document.querySelector('ytd-playlist-panel-renderer');
+      if (!panel) return;
+      observer = new MutationObserver(schedule);
+      observer.observe(panel, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['selected', 'aria-current'],
+      });
+    }
+
+    function start() {
+      schedule();
+      observe();
+      // The panel is often built after the navigation event
+      setTimeout(() => {
+        observe();
+        schedule();
+      }, 1200);
+    }
+
+    document.addEventListener('yt-navigate-finish', start);
+    document.addEventListener('ytc-change', schedule);
+    start();
   }
 
   // ---------- bookmarks ----------
