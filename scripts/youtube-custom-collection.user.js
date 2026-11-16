@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      3.4
+// @version      3.5
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -961,7 +961,27 @@
       (el.closest('button') || el).click();
     }
 
+    // Inside a playlist the next item wins, so the run stays inside the list
+    function nextInPlaylist() {
+      const items = [...document.querySelectorAll('ytd-playlist-panel-video-renderer')];
+      if (!items.length) return null;
+      const selected = items.find(
+        (item) => item.hasAttribute('selected') || item.getAttribute('aria-current') === 'true'
+      );
+      if (!selected) return null;
+      for (const item of items.slice(items.indexOf(selected) + 1)) {
+        if (item.hasAttribute('data-ytc-off')) continue;
+        const link = item.querySelector('a#wc-endpoint, a[href*="/watch?v="]');
+        if (!link || !link.href) continue;
+        if (skipShorts() && link.href.includes('/shorts/')) continue;
+        return link;
+      }
+      return null;
+    }
+
     function pickNext() {
+      const playlist = nextInPlaylist();
+      if (playlist) return playlist;
       const cards = document.querySelectorAll('#movie_player .ytp-videowall-still, #movie_player .ytp-ce-video');
       const related = document.querySelectorAll(
         'ytd-watch-next-secondary-results-renderer yt-lockup-view-model a[href*="/watch?v="], ' +

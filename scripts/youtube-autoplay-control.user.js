@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Autoplay Control
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.3
+// @version      1.4
 // @description  Decide what happens when a video ends: next, wait, stop, loop, with a per-session limit
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -55,8 +55,27 @@
     (el.closest('button') || el).click();
   }
 
-  // The end screen card is preferred; the first related video is the fallback
+  // Inside a playlist the next item wins, so the run stays inside the list
+  function nextInPlaylist() {
+    const items = [...document.querySelectorAll('ytd-playlist-panel-video-renderer')];
+    if (!items.length) return null;
+    const selected = items.find(
+      (item) => item.hasAttribute('selected') || item.getAttribute('aria-current') === 'true'
+    );
+    if (!selected) return null;
+    for (const item of items.slice(items.indexOf(selected) + 1)) {
+      const link = item.querySelector('a#wc-endpoint, a[href*="/watch?v="]');
+      if (!link || !link.href) continue;
+      if (flag('skipShorts') && link.href.includes('/shorts/')) continue;
+      return link;
+    }
+    return null;
+  }
+
+  // The next playlist item is preferred; the end screen card and the first related video are the fallback
   function pickNext() {
+    const playlist = nextInPlaylist();
+    if (playlist) return playlist;
     const skipShorts = flag('skipShorts');
     const cards = document.querySelectorAll('#movie_player .ytp-videowall-still, #movie_player .ytp-ce-video');
     const related = document.querySelectorAll(
