@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      3.2
+// @version      3.3
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -322,9 +322,9 @@
 
   function panelKey(e) {
     if (e.key === 'Escape') {
-      e.stopPropagation();
-      // The add dialog handles its own Escape while it is open
+      // The add dialog owns Escape while it is open, so the event must keep bubbling to it
       if (document.getElementById('ytc-dialog')) return;
+      e.stopPropagation();
       if (panelState && panelState.view === 'edit') {
         panelState.view = 'list';
         render();
@@ -1775,14 +1775,13 @@
       panel.append(count);
     }
 
-    const video = currentVideo();
     const add = document.createElement('button');
     add.type = 'button';
     const plus = document.createElement('span');
     plus.className = 'ytc-mark';
     plus.setAttribute('aria-hidden', 'true');
     plus.append(markIcon('plus'));
-    add.append(plus, document.createTextNode(`Add at ${clock(video ? video.currentTime : 0, marksHourMode(id))}`));
+    add.append(plus, document.createTextNode('Add video bookmark'));
     add.addEventListener('click', () => openMarkDialog());
     panel.append(add);
 

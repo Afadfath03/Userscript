@@ -155,6 +155,18 @@ check('icon buttons are named after their mark', await page.evaluate(() =>
   [...document.querySelectorAll('#ytc-panel .ytc-icon')].map((b) => b.getAttribute('aria-label')).join(',')
 ) === 'Edit 1:00,Delete 1:00,Edit Chorus,Delete Chorus');
 check('row names keep a full-text tooltip', (await page.locator('#ytc-panel .ytc-name').first().getAttribute('title')) === '1:00');
+check('the add row names the action and nothing else', await page.evaluate(() => {
+  const row = [...document.querySelectorAll('#ytc-panel > button')].find((b) => b.textContent.startsWith('Add video bookmark'));
+  return !!row && row.textContent === 'Add video bookmark' && !row.querySelector('.ytc-value');
+}));
+check('the dialog still opens on the playhead', await (async () => {
+  await page.getByRole('button', { name: 'Add video bookmark' }).click();
+  await page.waitForTimeout(60);
+  const value = await page.locator('#ytc-dialog-time').inputValue();
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(60);
+  return value === '3:21';
+})());
 
 await page.getByRole('button', { name: 'Edit Chorus' }).click();
 await page.waitForTimeout(80);
