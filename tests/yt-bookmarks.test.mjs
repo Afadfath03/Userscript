@@ -274,6 +274,58 @@ await page.evaluate(() => window.dispatchEvent(new Event('yt-navigate-finish')))
 await page.waitForTimeout(80);
 check('navigating keeps one pair of buttons', (await page.locator('#ytc-play-add').count()) === 1 && (await page.locator('#ytc-play-list').count()) === 1);
 
+// Chapters: YouTube only accepts a description block that follows its rules
+const setMarks = async (list) => {
+  await page.evaluate((marks) => {
+    window.__store['ytc.bookmarks'] = { dQw4w9WgXcQ: marks };
+    document.dispatchEvent(new Event('ytc-change'));
+  }, list);
+};
+const copyChapters = async () => {
+  await page.evaluate(() => window.__menu.find((m) => m.name.startsWith('Show bookmarks')).cb());
+  await page.waitForTimeout(80);
+  await page.getByRole('button', { name: /^Copy as chapters/ }).click();
+  await page.waitForTimeout(80);
+  return page.locator('#ytc-panel .ytc-status[role="status"]').textContent();
+};
+
+await setMarks([
+  { t: 0, n: 'Intro', at: 1 },
+  { t: 60, n: 'Topic', at: 2 },
+  { t: 120, n: 'End', at: 3 },
+]);
+check('a valid set copies as chapter lines', (await copyChapters()) === 'Copied as chapter lines.');
+check('the copied block is what YouTube expects', (await page.evaluate(() => navigator.clipboard.readText())) === '0:00 Intro\n1:00 Topic\n2:00 End');
+
+await setMarks([
+  { t: 30, n: 'A', at: 1 },
+  { t: 90, n: 'B', at: 2 },
+  { t: 150, n: 'C', at: 3 },
+]);
+check('a block that does not start at zero is refused', (await copyChapters()) === 'The first chapter must be at 0:00. Add a mark at the start of the video.');
+
+await setMarks([
+  { t: 0, n: 'A', at: 1 },
+  { t: 60, n: 'B', at: 2 },
+]);
+check('fewer than three marks is refused', (await copyChapters()) === 'YouTube needs at least 3 chapters.');
+
+await setMarks([
+  { t: 0, n: 'A', at: 1 },
+  { t: 5, n: 'B', at: 2 },
+  { t: 60, n: 'C', at: 3 },
+]);
+check('chapters closer than ten seconds are refused', (await copyChapters()) === '0:05 is less than 10 seconds after 0:00.');
+
+await page.evaluate(() => { window.__video.duration = 7200; });
+await setMarks([
+  { t: 0, n: 'Intro', at: 1 },
+  { t: 3600, n: 'Hour', at: 2 },
+  { t: 3700, n: 'Late', at: 3 },
+]);
+check('a long video copies with hours', (await copyChapters()) === 'Copied as chapter lines.');
+check('hour lines keep the same format as the list', (await page.evaluate(() => navigator.clipboard.readText())) === '0:00:00 Intro\n1:00:00 Hour\n1:01:40 Late');
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} failure(s)` : '\nall checks passed');

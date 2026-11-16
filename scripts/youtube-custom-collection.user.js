@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      3.1
+// @version      3.2
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -1654,6 +1654,32 @@
   const marksHourMode = (id) => marksFor(id).some((mark) => mark.t >= 3600);
   const sortedMarks = (id) => marksFor(id).slice().sort((a, b) => a.t - b.t);
 
+  const chapterLines = (id) => {
+    const hours = marksHourMode(id);
+    return sortedMarks(id)
+      .map((mark) => `${clock(mark.t, hours)} ${mark.n}`)
+      .join('\n');
+  };
+
+  // YouTube only treats a description block as chapters when these rules hold
+  function chapterIssue(id) {
+    const list = sortedMarks(id);
+    const hours = marksHourMode(id);
+    if (list.length < 3) return 'YouTube needs at least 3 chapters.';
+    if (list[0].t !== 0) return 'The first chapter must be at 0:00. Add a mark at the start of the video.';
+    for (let i = 1; i < list.length; i++) {
+      if (list[i].t - list[i - 1].t < 10) {
+        return `${clock(list[i].t, hours)} is less than 10 seconds after ${clock(list[i - 1].t, hours)}.`;
+      }
+    }
+    const video = currentVideo();
+    const duration = video && Number.isFinite(video.duration) ? video.duration : 0;
+    if (duration && duration - list[list.length - 1].t < 10) {
+      return 'The last chapter needs 10 seconds of video after it.';
+    }
+    return '';
+  }
+
   let armedMark = null;
   let editMarkAt = null;
 
@@ -1770,6 +1796,35 @@
     }
 
     for (const mark of list) panel.append(markRowElement(mark, id));
+
+    panel.append(document.createElement('hr'));
+    const chapterStatus = document.createElement('p');
+    chapterStatus.className = 'ytc-status';
+    chapterStatus.setAttribute('role', 'status');
+    const copy = settingRow('Copy as chapters', `${list.length} line${list.length === 1 ? '' : 's'}`, async () => {
+      const issue = chapterIssue(id);
+      if (issue) {
+        chapterStatus.textContent = issue;
+        return;
+      }
+      const text = chapterLines(id);
+      try {
+        await navigator.clipboard.writeText(text);
+        chapterStatus.textContent = 'Copied as chapter lines.';
+      } catch {
+        // Clipboard blocked: the same text goes into a box the user can select
+        document.getElementById('ytc-chapters')?.remove();
+        const box = document.createElement('textarea');
+        box.id = 'ytc-chapters';
+        box.spellcheck = false;
+        box.value = text;
+        panel.insertBefore(box, copy);
+        box.select();
+        chapterStatus.textContent = 'Clipboard blocked, the lines are selected below.';
+      }
+    });
+    panel.append(copy, chapterStatus);
+
     const first = panel.querySelector('button:not(.ytc-close):not(.ytc-back)');
     first?.focus();
   }
