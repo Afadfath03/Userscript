@@ -53,6 +53,26 @@ await page.waitForTimeout(100);
 check('hub opens from its entry', (await title()) === 'YouTube: Custom Collection');
 check('hub button count is nine features plus backup, diagnostics, reset and close', (await page.locator('#ytc-panel button').count()) === 13);
 check('hub rows carry chevrons', (await page.locator('#ytc-panel .ytc-chevron').count()) === 11);
+const hubLabels = () => page.evaluate(() =>
+  [...document.querySelectorAll('#ytc-panel > button')]
+    .filter((button) => button.querySelector('.ytc-value'))
+    .map((button) => button.querySelector('span').textContent)
+);
+check('hub features read A to Z', await page.evaluate(() => {
+  const labels = [...document.querySelectorAll('#ytc-panel > button')]
+    .filter((button) => button.querySelector('.ytc-value'))
+    .map((button) => button.querySelector('span').textContent)
+    .slice(0, 9);
+  const sorted = [...labels].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+  return JSON.stringify(labels) === JSON.stringify(sorted);
+}));
+check('utility rows stay below the features', await page.evaluate(() => {
+  const labels = [...document.querySelectorAll('#ytc-panel > button')]
+    .filter((button) => button.querySelector('.ytc-value'))
+    .map((button) => button.querySelector('span').textContent);
+  return labels[9] === 'Backup' && labels[10] === 'Diagnostics';
+}));
+check('the bookmark feature sorts under B', (await hubLabels())[1] === 'Bookmarks');
 check('hub has no back button', (await page.getByRole('button', { name: 'Back', exact: true }).count()) === 0);
 check('backdrop uses a solid scrim, no blur', await page.evaluate(() =>
   getComputedStyle(document.getElementById('ytc-backdrop')).backdropFilter === 'none'

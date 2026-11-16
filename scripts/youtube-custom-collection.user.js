@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      3.0
+// @version      3.1
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -2454,7 +2454,9 @@
     panel.setAttribute('aria-label', 'YouTube: Custom Collection');
 
     const rows = [];
-    for (const feature of FEATURES) {
+    // Alphabetical by the label shown here, so a new feature lands in place on its own
+    const ordered = [...FEATURES].sort((a, b) => a.short.localeCompare(b.short, 'en', { sensitivity: 'base' }));
+    for (const feature of ordered) {
       const button = settingRow(feature.short, isOn(feature) ? featureSummary(feature) : 'Off', () => {
         panelState.feature = feature.id;
         panelState.view = 'settings';
