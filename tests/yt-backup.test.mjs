@@ -43,7 +43,7 @@ await page.addScriptTag({ content: SCRIPT });
 await page.waitForTimeout(150);
 
 const menuNames = await page.evaluate(() => window.__menu.map((m) => m.name));
-check('menu has a single entry', menuNames.length === 1);
+check('menu has the hub entry and the bookmark shortcut', menuNames.length === 2);
 
 await page.evaluate(() => window.__menu[0].cb());
 await page.waitForTimeout(100);

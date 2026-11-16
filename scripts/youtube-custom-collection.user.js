@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.13
+// @version      3.0
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -31,6 +31,69 @@
   const put = (key, value) => GM_setValue(`ytc.${key}`, value);
   const currentVideo = () => document.querySelector('#movie_player video');
   const playerEl = () => document.getElementById('movie_player');
+
+  const videoIdFromUrl = () => (location.pathname === '/watch' ? new URLSearchParams(location.search).get('v') || '' : '');
+  const onWatchPage = () => !!videoIdFromUrl();
+  const MARK_LIMIT = 50;
+
+  // Seconds are what gets stored; hours only change how the label reads
+  function clock(seconds, withHours) {
+    const total = Math.max(0, Math.floor(seconds));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    return h || withHours ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+  }
+
+  function parseClock(text) {
+    const value = String(text).trim();
+    if (/^\d+$/.test(value)) {
+      const seconds = Number(value);
+      return seconds <= 86400 ? seconds : null;
+    }
+    const match = /^(?:(\d+):)?([0-5]?\d):([0-5]\d)$/.exec(value);
+    if (!match) return null;
+    const hours = match[1] ? Number(match[1]) : 0;
+    const seconds = hours * 3600 + Number(match[2]) * 60 + Number(match[3]);
+    return seconds <= 86400 ? seconds : null;
+  }
+
+  const VIDEO_ID = /^[A-Za-z0-9_-]{6,}$/;
+
+  const isMark = (mark) =>
+    !!mark &&
+    typeof mark === 'object' &&
+    Number.isInteger(mark.t) &&
+    mark.t >= 0 &&
+    mark.t <= 86400 &&
+    typeof mark.n === 'string' &&
+    mark.n.length <= 60 &&
+    Number.isFinite(mark.at);
+
+  const markMap = () => {
+    const raw = get('bookmarks', {});
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  };
+
+  const marksFor = (id) => {
+    const list = markMap()[id];
+    return Array.isArray(list) ? list.filter(isMark) : [];
+  };
+
+  const isMarkMap = (value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return Object.entries(value).every(
+      ([id, list]) => VIDEO_ID.test(id) && Array.isArray(list) && list.length <= MARK_LIMIT && list.every(isMark)
+    );
+  };
+
+  function writeMarks(id, list) {
+    const all = { ...markMap() };
+    if (list.length) all[id] = list.slice().sort((a, b) => a.t - b.t);
+    else delete all[id];
+    put('bookmarks', all);
+  }
 
   const QUALITY = [
     ['auto', 'Auto (YouTube default)'],
@@ -136,6 +199,14 @@
       rows: [{ key: 'answer', label: 'Answer', type: 'choice', def: 'yes', options: PROMPTS }],
     },
     {
+      id: 'bookmarks',
+      def: false,
+      title: 'YouTube: Bookmark Timestamp',
+      short: 'Bookmarks',
+      desc: 'Saves time markers on the video you are watching and jumps back to them. The clock pauses while the add dialog is open, and each marker can be retimed or renamed later.',
+      rows: [{ key: 'bookmarks', type: 'list', def: {} }],
+    },
+    {
       id: 'quiet',
       def: true,
       title: 'YouTube: Quiet Page',
@@ -176,12 +247,18 @@
   function read(row) {
     const v = get(row.key, row.def);
     if (row.type === 'toggle') return v === true;
+    if (row.type === 'list') return v && typeof v === 'object' && !Array.isArray(v) ? v : row.def;
     return row.options.some(([value]) => value === v) ? v : row.def;
   }
 
   function valueLabel(row) {
     const value = read(row);
     if (row.type === 'toggle') return value ? 'On' : 'Off';
+    if (row.type === 'list') {
+      const id = videoIdFromUrl();
+      const count = id ? marksFor(id).length : 0;
+      return count ? `${count} mark${count === 1 ? '' : 's'}` : 'None';
+    }
     const hit = row.options.find(([v]) => v === value);
     return hit ? hit[1] : String(value);
   }
@@ -197,7 +274,7 @@
 #ytc-panel .ytc-close{font-size:22px}
 #ytc-panel .ytc-desc{margin:12px 0 0;padding:0 20px;font-size:13px;line-height:1.5;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel hr{margin:14px 20px 16px;border:0;border-top:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3))}
-#ytc-panel .ytc-section{margin:0;padding:8px 20px 2px;font-size:12px;font-weight:500;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-panel .ytc-section{display:block;margin:0;padding:8px 20px 2px;font-size:12px;font-weight:500;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel button{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0 20px;border:0;background:none;color:inherit;font:inherit;font-size:14px;line-height:1.4;text-align:left;cursor:pointer}
 #ytc-panel button:hover{background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05))}
 #ytc-panel button:active{background:var(--yt-spec-10-percent-layer,rgba(0,0,0,.08))}
@@ -216,6 +293,17 @@
 #ytc-panel .ytc-switch::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
 #ytc-panel button[aria-pressed="true"] .ytc-switch{background:var(--yt-spec-call-to-action,#065fd4)}
 #ytc-panel button[aria-pressed="true"] .ytc-switch::after{transform:translateX(14px)}
+#ytc-panel .ytc-row{display:flex;align-items:center;padding-right:6px}
+#ytc-panel .ytc-row .ytc-main{flex:1;min-width:0;padding-right:4px}
+#ytc-panel .ytc-row .ytc-time{flex:0 0 60px;font-variant-numeric:tabular-nums;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-panel .ytc-row .ytc-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ytc-panel .ytc-icon{flex:0 0 44px;width:44px;height:44px;min-height:44px;padding:0;justify-content:center;border-radius:50%;font-size:18px;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-panel .ytc-armed .ytc-name{font-weight:600;color:var(--yt-spec-text-primary,#0f0f0f)}
+#ytc-panel svg{display:block;width:1em;height:1em;fill:currentColor}
+#ytc-panel input{display:block;width:calc(100% - 40px);min-height:44px;margin:0 20px 8px;padding:0 12px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.45));border-radius:8px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:inherit;font-size:14px}
+#ytc-panel input:focus-visible{outline:2px solid var(--yt-spec-call-to-action,#065fd4);outline-offset:-2px}
+#ytc-panel .ytc-empty{margin:0;padding:10px 20px 16px;font-size:13px;line-height:1.5;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-panel .ytc-error{margin:0;padding:0 20px 8px;font-size:12px;line-height:1.4;color:#c00}
 @media (prefers-reduced-motion:reduce){#ytc-panel .ytc-switch,#ytc-panel .ytc-switch::after{transition:none}}
 `;
 
@@ -235,6 +323,18 @@
   function panelKey(e) {
     if (e.key === 'Escape') {
       e.stopPropagation();
+      // The add dialog handles its own Escape while it is open
+      if (document.getElementById('ytc-dialog')) return;
+      if (panelState && panelState.view === 'edit') {
+        panelState.view = 'list';
+        render();
+        return;
+      }
+      if (panelState && panelState.view === 'featureBackup') {
+        panelState.view = 'settings';
+        render();
+        return;
+      }
       const box = document.getElementById('ytc-backup');
       // A pasted export is worth one keystroke of protection
       if (box && document.activeElement === box && box.value.trim()) {
@@ -355,6 +455,18 @@
       renderBackup(panel);
       return;
     }
+    if (panelState.view === 'list') {
+      renderMarkList(panel);
+      return;
+    }
+    if (panelState.view === 'edit') {
+      renderMarkEditor(panel);
+      return;
+    }
+    if (panelState.view === 'featureBackup') {
+      renderFeatureBackup(panel);
+      return;
+    }
     const feature = featureById(panelState.feature);
     if (!feature) {
       // Nothing valid to show: fall back to the hub rather than leaving stale rows
@@ -423,6 +535,11 @@
               notifyChange();
               return;
             }
+            if (row.type === 'list') {
+              panelState.view = 'list';
+              render();
+              return;
+            }
             panelState.view = 'options';
             panelState.rowKey = row.key;
             render();
@@ -432,6 +549,16 @@
         // The chevron marks rows that open a subview
         if (!isToggle) button.append(chevron());
         panel.append(button);
+      }
+
+      // Bookmarks carry their own data, so the feature gets a scoped backup next to its list
+      if (feature.id === 'bookmarks') {
+        const backup = settingRow('Backup', 'JSON', () => {
+          panelState.view = 'featureBackup';
+          render();
+        });
+        backup.append(chevron());
+        panel.append(backup);
       }
 
       const reset = document.createElement('button');
@@ -461,7 +588,7 @@
     (active || first)?.focus();
   }
 
-  function openPanel(featureId) {
+  function openPanel(featureId, view) {
     if (document.getElementById('ytc-backdrop')) closePanel();
     lastFocus = document.activeElement;
     const style = document.createElement('style');
@@ -484,7 +611,7 @@
     backdrop.append(panel);
     document.body.append(backdrop);
     document.addEventListener('keydown', panelKey, true);
-    panelState = { feature: featureId, view: featureById(featureId) ? 'settings' : featureId, rowKey: null };
+    panelState = { feature: featureId, view: view || (featureById(featureId) ? 'settings' : featureId), rowKey: null };
     render();
   }
 
@@ -1322,6 +1449,7 @@
 
   function validValue(key, value) {
     if (key.endsWith('On')) return typeof value === 'boolean';
+    if (key === 'bookmarks') return isMarkMap(value);
     const row = rowOf(key);
     if (!row) return false;
     if (row.type === 'toggle') return typeof value === 'boolean';
@@ -1501,6 +1629,768 @@
     copy.focus();
   }
 
+  // ---------- bookmarks ----------
+
+  const MARK_ICONS = {
+    pencil: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z',
+    trash: 'M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
+    plus: 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
+  };
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  function markIcon(name) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', MARK_ICONS[name]);
+    path.setAttribute('fill', 'currentColor');
+    svg.append(path);
+    return svg;
+  }
+
+  const marksHourMode = (id) => marksFor(id).some((mark) => mark.t >= 3600);
+  const sortedMarks = (id) => marksFor(id).slice().sort((a, b) => a.t - b.t);
+
+  let armedMark = null;
+  let editMarkAt = null;
+
+  function seekTo(seconds) {
+    const video = currentVideo();
+    if (!video) return;
+    const limit = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : seconds;
+    video.currentTime = Math.max(0, Math.min(seconds, Math.floor(limit)));
+  }
+
+  function markRowElement(mark, id) {
+    const hours = marksHourMode(id);
+    const row = document.createElement('div');
+    row.className = armedMark === mark.at ? 'ytc-row ytc-armed' : 'ytc-row';
+
+    const main = document.createElement('button');
+    main.type = 'button';
+    main.className = 'ytc-main';
+    const time = document.createElement('span');
+    time.className = 'ytc-time';
+    time.textContent = clock(mark.t, hours);
+    const name = document.createElement('span');
+    name.className = 'ytc-name';
+    name.textContent = armedMark === mark.at ? 'Press again' : mark.n;
+    name.title = mark.n;
+    main.append(time, name);
+    main.addEventListener('click', () => {
+      // An armed row is waiting for a second click elsewhere, so this only disarms it
+      if (armedMark === mark.at) {
+        armedMark = null;
+        render();
+        return;
+      }
+      seekTo(mark.t);
+      closePanel();
+    });
+
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'ytc-icon';
+    edit.setAttribute('aria-label', `Edit ${mark.n}`);
+    edit.title = `Edit ${mark.n}`;
+    edit.append(markIcon('pencil'));
+    edit.addEventListener('click', () => {
+      armedMark = null;
+      editMarkAt = mark.at;
+      panelState.view = 'edit';
+      render();
+    });
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'ytc-icon';
+    remove.setAttribute('aria-label', `Delete ${mark.n}`);
+    remove.title = `Delete ${mark.n}`;
+    remove.append(markIcon('trash'));
+    remove.addEventListener('click', () => {
+      if (armedMark !== mark.at) {
+        armedMark = mark.at;
+        render();
+        return;
+      }
+      armedMark = null;
+      writeMarks(
+        id,
+        marksFor(id).filter((m) => m.at !== mark.at)
+      );
+      notifyChange();
+      drawMenu();
+      render();
+    });
+
+    row.append(main, edit, remove);
+    return row;
+  }
+
+  function renderMarkList(panel) {
+    panel.textContent = '';
+    const id = videoIdFromUrl();
+    const list = sortedMarks(id);
+    panel.append(
+      panelHeader('Bookmarks', () => {
+        panelState.view = 'settings';
+        render();
+      })
+    );
+    panel.setAttribute('aria-label', 'Bookmarks');
+
+    if (list.length) {
+      const count = document.createElement('p');
+      count.className = 'ytc-status';
+      count.textContent = `${list.length} mark${list.length === 1 ? '' : 's'} on this video`;
+      panel.append(count);
+    }
+
+    const video = currentVideo();
+    const add = document.createElement('button');
+    add.type = 'button';
+    const plus = document.createElement('span');
+    plus.className = 'ytc-mark';
+    plus.setAttribute('aria-hidden', 'true');
+    plus.append(markIcon('plus'));
+    add.append(plus, document.createTextNode(`Add at ${clock(video ? video.currentTime : 0, marksHourMode(id))}`));
+    add.addEventListener('click', () => openMarkDialog());
+    panel.append(add);
+
+    if (!list.length) {
+      const empty = document.createElement('p');
+      empty.className = 'ytc-empty';
+      empty.textContent = 'No bookmarks yet. Press b on the watch page, or use the button above.';
+      panel.append(empty);
+      add.focus();
+      return;
+    }
+
+    for (const mark of list) panel.append(markRowElement(mark, id));
+    const first = panel.querySelector('button:not(.ytc-close):not(.ytc-back)');
+    first?.focus();
+  }
+
+  function textInput(id, value, label) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = id;
+    input.value = value;
+    input.setAttribute('aria-label', label);
+    input.setAttribute('spellcheck', 'false');
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('autocapitalize', 'off');
+    return input;
+  }
+
+  function fieldLabel(text, targetId) {
+    const label = document.createElement('label');
+    label.className = 'ytc-section';
+    label.htmlFor = targetId;
+    label.textContent = text;
+    return label;
+  }
+
+  function renderMarkEditor(panel) {
+    panel.textContent = '';
+    const id = videoIdFromUrl();
+    const mark = marksFor(id).find((m) => m.at === editMarkAt);
+    if (!mark) {
+      panelState.view = 'list';
+      render();
+      return;
+    }
+    const hours = marksHourMode(id);
+    const back = () => {
+      armedMark = null;
+      panelState.view = 'list';
+      render();
+    };
+    panel.append(panelHeader('Edit bookmark', back));
+    panel.setAttribute('aria-label', 'Edit bookmark');
+
+    const timeInput = textInput('ytc-edit-time', clock(mark.t, hours), 'Time, mm:ss or seconds');
+    timeInput.setAttribute('aria-describedby', 'ytc-edit-hint ytc-edit-error');
+    const nameInput = textInput('ytc-edit-name', mark.n, 'Name');
+    nameInput.maxLength = 60;
+
+    const error = document.createElement('p');
+    error.className = 'ytc-error';
+    error.id = 'ytc-edit-error';
+    error.setAttribute('role', 'alert');
+    error.hidden = true;
+
+    const hint = document.createElement('p');
+    hint.className = 'ytc-label';
+    hint.id = 'ytc-edit-hint';
+    hint.textContent = 'Enter to save, Escape to cancel';
+
+    const fail = (text) => {
+      error.textContent = text;
+      error.hidden = false;
+    };
+
+    const apply = () => {
+      const t = parseClock(timeInput.value);
+      if (t === null) {
+        fail('Use mm:ss, h:mm:ss, or seconds.');
+        return;
+      }
+      const clash = marksFor(id).find((m) => m.t === t && m.at !== mark.at);
+      if (clash) {
+        fail(`${clock(t, hours)} is already saved as "${clash.n}". Pick another time.`);
+        return;
+      }
+      const label = nameInput.value.trim().slice(0, 60) || clock(t, hours);
+      writeMarks(
+        id,
+        marksFor(id).map((m) => (m.at === mark.at ? { ...m, t, n: label } : m))
+      );
+      editMarkAt = null;
+      armedMark = null;
+      panelState.view = 'list';
+      render();
+      notifyChange();
+      drawMenu();
+    };
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', back);
+
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.textContent = 'Save changes';
+    save.addEventListener('click', apply);
+
+    for (const input of [timeInput, nameInput]) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          apply();
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          back();
+        }
+      });
+    }
+
+    panel.append(
+      fieldLabel('Time', 'ytc-edit-time'),
+      timeInput,
+      fieldLabel('Name', 'ytc-edit-name'),
+      nameInput,
+      error,
+      hint,
+      document.createElement('hr'),
+      save,
+      cancel
+    );
+    timeInput.focus();
+    timeInput.select();
+  }
+
+  const marksExport = () =>
+    JSON.stringify({ script: 'youtube-custom-collection', feature: 'bookmarks', format: 1, marks: markMap() }, null, 2);
+
+  const markCount = () =>
+    Object.values(markMap()).reduce((total, list) => total + (Array.isArray(list) ? list.length : 0), 0);
+
+  function parseMarksExport(text) {
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return { error: 'That is not valid JSON.' };
+    }
+    if (!data || typeof data !== 'object' || data.feature !== 'bookmarks') {
+      return { error: 'That JSON is not a bookmark export.' };
+    }
+    const marks = data.marks;
+    if (!marks || typeof marks !== 'object' || Array.isArray(marks)) {
+      return { error: 'That JSON has no marks object.' };
+    }
+    const incoming = {};
+    let skipped = 0;
+    for (const [id, list] of Object.entries(marks)) {
+      if (!VIDEO_ID.test(id) || !Array.isArray(list)) {
+        skipped++;
+        continue;
+      }
+      for (const mark of list) {
+        if (!isMark(mark)) {
+          skipped++;
+          continue;
+        }
+        const bucket = incoming[id] || (incoming[id] = []);
+        if (bucket.some((m) => m.t === mark.t)) {
+          skipped++;
+          continue;
+        }
+        bucket.push({ t: mark.t, n: mark.n, at: mark.at });
+      }
+    }
+    return { incoming, skipped };
+  }
+
+  function mergePreview(parsed) {
+    let fresh = 0;
+    let same = 0;
+    let full = 0;
+    for (const [id, list] of Object.entries(parsed.incoming)) {
+      const existing = marksFor(id);
+      let room = MARK_LIMIT - existing.length;
+      for (const mark of list) {
+        if (existing.some((m) => m.t === mark.t)) {
+          same++;
+        } else if (room > 0) {
+          room--;
+          fresh++;
+        } else {
+          full++;
+        }
+      }
+    }
+    return { fresh, same, full };
+  }
+
+  function mergeMarks(parsed) {
+    for (const [id, list] of Object.entries(parsed.incoming)) {
+      const current = marksFor(id).slice().sort((a, b) => a.t - b.t);
+      for (const mark of list) {
+        if (current.some((m) => m.t === mark.t)) continue;
+        if (current.length >= MARK_LIMIT) continue;
+        current.push(mark);
+      }
+      writeMarks(id, current);
+    }
+  }
+
+  function statusLine(panel) {
+    const status = document.createElement('p');
+    status.className = 'ytc-status';
+    status.setAttribute('role', 'status');
+    panel.append(status);
+    return status;
+  }
+
+  function renderFeatureBackup(panel) {
+    panel.textContent = '';
+    panel.append(
+      panelHeader('Bookmarks backup', () => {
+        panelState.view = 'list';
+        render();
+      })
+    );
+    panel.setAttribute('aria-label', 'Bookmarks backup');
+
+    const desc = document.createElement('p');
+    desc.className = 'ytc-desc';
+    desc.textContent = 'Exports only the bookmarks, not the settings. Importing merges the file with what is already stored.';
+    const exportTitle = document.createElement('p');
+    exportTitle.className = 'ytc-section';
+    exportTitle.textContent = 'Export';
+    panel.append(desc, document.createElement('hr'), exportTitle);
+
+    const countLabel = () => {
+      const videos = Object.keys(markMap()).length;
+      const marks = markCount();
+      return marks ? `${marks} mark${marks === 1 ? '' : 's'} in ${videos} video${videos === 1 ? '' : 's'}` : 'No bookmarks';
+    };
+
+    const exportStatus = statusLine(panel);
+    let revert = 0;
+    const copy = settingRow('Copy bookmarks JSON', countLabel(), async () => {
+      const value = copy.querySelector('.ytc-value');
+      clearTimeout(revert);
+      try {
+        await navigator.clipboard.writeText(marksExport());
+        if (value) value.textContent = 'Copied';
+        exportStatus.textContent = '';
+        revert = setTimeout(() => {
+          if (value && value.isConnected) value.textContent = countLabel();
+        }, 1500);
+      } catch {
+        // Clipboard blocked: the JSON goes where the user can select it
+        box.value = marksExport();
+        box.select();
+        if (value) value.textContent = 'Selected';
+        exportStatus.textContent = 'Clipboard blocked, the JSON is selected in the box below.';
+      }
+    });
+    panel.append(copy, document.createElement('hr'));
+
+    const importTitle = document.createElement('p');
+    importTitle.className = 'ytc-section';
+    importTitle.textContent = 'Import';
+    const boxLabel = document.createElement('label');
+    boxLabel.className = 'ytc-label';
+    boxLabel.setAttribute('for', 'ytc-marks-backup');
+    boxLabel.textContent = 'Bookmarks JSON';
+    const box = document.createElement('textarea');
+    box.id = 'ytc-marks-backup';
+    box.spellcheck = false;
+    box.placeholder = 'Paste a bookmark export here';
+    const load = document.createElement('button');
+    load.id = 'ytc-marks-import';
+    load.type = 'button';
+    load.textContent = 'Import bookmarks';
+    load.disabled = true;
+    const importStatus = statusLine(panel);
+    panel.append(importTitle, boxLabel, box, load, importStatus);
+
+    let armed = false;
+
+    function preview() {
+      armed = false;
+      const text = box.value.trim();
+      load.disabled = !text;
+      if (!text) {
+        load.textContent = 'Import bookmarks';
+        importStatus.textContent = '';
+        return;
+      }
+      const parsed = parseMarksExport(text);
+      if (parsed.error) {
+        load.textContent = 'Nothing to import';
+        importStatus.textContent = parsed.error;
+        return;
+      }
+      const previewCounts = mergePreview(parsed);
+      load.textContent = `Import ${previewCounts.fresh} bookmark${previewCounts.fresh === 1 ? '' : 's'}`;
+      const parts = [`${previewCounts.fresh} new`, `${previewCounts.same} already saved`];
+      if (previewCounts.full) parts.push(`${previewCounts.full} over the limit`);
+      if (parsed.skipped) parts.push(`${parsed.skipped} skipped`);
+      importStatus.textContent = `${parts.join(', ')}.`;
+    }
+
+    box.addEventListener('input', preview);
+
+    load.addEventListener('click', () => {
+      const text = box.value;
+      if (!text.trim()) return;
+      const parsed = parseMarksExport(text);
+      if (parsed.error) {
+        importStatus.textContent = parsed.error;
+        return;
+      }
+      const previewCounts = mergePreview(parsed);
+      if (!armed) {
+        armed = true;
+        load.textContent = `Press again to import ${previewCounts.fresh} bookmark${previewCounts.fresh === 1 ? '' : 's'}`;
+        return;
+      }
+      armed = false;
+      mergeMarks(parsed);
+      const value = copy.querySelector('.ytc-value');
+      if (value) value.textContent = countLabel();
+      load.textContent = 'Import bookmarks';
+      importStatus.textContent = `Imported ${previewCounts.fresh}, skipped ${previewCounts.same + parsed.skipped}.`;
+      notifyChange();
+      drawMenu();
+    });
+
+    copy.focus();
+  }
+
+  const DIALOG_CSS = `
+#ytc-dialog{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.68)}
+#ytc-dialog .ytc-dialog,#ytc-dialog .ytc-dialog *{box-sizing:border-box}
+#ytc-dialog .ytc-dialog{width:clamp(280px,84vw,360px);border-radius:14px;background:var(--yt-spec-base-background,#fff);color:var(--yt-spec-text-primary,#0f0f0f);box-shadow:0 16px 40px rgba(0,0,0,.45);font-family:Roboto,Arial,sans-serif;font-size:14px;line-height:1.4}
+#ytc-dialog h2{margin:0;padding:16px 20px 6px;font-size:16px;font-weight:600}
+#ytc-dialog .ytc-dialog-body{margin:0;padding:0 20px 10px;font-size:13px;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-dialog label{display:block;padding:0 20px 6px;font-size:12px;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-dialog input{display:block;width:calc(100% - 40px);min-height:44px;margin:0 20px 10px;padding:0 12px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.45));border-radius:8px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:inherit;font-size:14px}
+#ytc-dialog input:focus-visible{outline:2px solid var(--yt-spec-call-to-action,#065fd4);outline-offset:-2px}
+#ytc-dialog .ytc-hint{margin:0;padding:0 20px 10px;font-size:12px;line-height:1.4;color:var(--yt-spec-text-secondary,#606060)}
+#ytc-dialog .ytc-error{margin:0;padding:0 20px 10px;font-size:12px;line-height:1.4;color:#c00}
+#ytc-dialog .ytc-actions{display:flex;gap:8px;padding:4px 20px 8px}
+#ytc-dialog .ytc-actions button{flex:1;display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;border:0;border-radius:22px;font:inherit;font-size:14px;cursor:pointer}
+#ytc-dialog .ytc-primary{background:var(--yt-spec-call-to-action,#065fd4);color:#fff;font-weight:500}
+#ytc-dialog .ytc-actions button:focus-visible{outline:2px solid var(--yt-spec-call-to-action,#065fd4);outline-offset:2px}
+#ytc-dialog .ytc-secondary{background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:var(--yt-spec-text-primary,#0f0f0f)}
+`;
+
+  let dialogWePaused = false;
+  let dialogReturnFocus = null;
+
+  function closeMarkDialog() {
+    document.getElementById('ytc-dialog')?.remove();
+    document.getElementById('ytc-dialog-style')?.remove();
+    const video = currentVideo();
+    // Resume only when this dialog was the reason playback stopped
+    if (dialogWePaused && video && video.paused) video.play();
+    dialogWePaused = false;
+    if (dialogReturnFocus && dialogReturnFocus.isConnected) dialogReturnFocus.focus();
+    dialogReturnFocus = null;
+    syncPlayButtons();
+    drawMenu();
+  }
+
+  function openMarkDialog() {
+    const id = videoIdFromUrl();
+    if (!id || document.getElementById('ytc-dialog')) return;
+    const video = currentVideo();
+    const at = Math.floor(video ? video.currentTime : 0);
+    const hours = marksHourMode(id);
+    dialogWePaused = !!video && !video.paused;
+    if (dialogWePaused) video.pause();
+    dialogReturnFocus = document.activeElement;
+
+    const style = document.createElement('style');
+    style.id = 'ytc-dialog-style';
+    style.textContent = DIALOG_CSS;
+    document.head.append(style);
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'ytc-dialog';
+    const box = document.createElement('div');
+    box.className = 'ytc-dialog';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-labelledby', 'ytc-dialog-title');
+    box.setAttribute('aria-describedby', 'ytc-dialog-body');
+
+    const title = document.createElement('h2');
+    title.id = 'ytc-dialog-title';
+    title.textContent = 'Add bookmark?';
+    const body = document.createElement('p');
+    body.className = 'ytc-dialog-body';
+    body.id = 'ytc-dialog-body';
+    body.textContent = 'The video is paused. Adjust the time or the name before saving.';
+
+    const timeLabel = document.createElement('label');
+    timeLabel.htmlFor = 'ytc-dialog-time';
+    timeLabel.textContent = 'Time';
+    const timeInput = textInput('ytc-dialog-time', clock(at, hours), 'Time, mm:ss or seconds');
+    timeInput.setAttribute('aria-describedby', 'ytc-dialog-hint ytc-dialog-error');
+
+    const hint = document.createElement('p');
+    hint.className = 'ytc-hint';
+    hint.id = 'ytc-dialog-hint';
+    hint.setAttribute('aria-live', 'polite');
+    hint.hidden = true;
+
+    const nameLabel = document.createElement('label');
+    nameLabel.htmlFor = 'ytc-dialog-name';
+    nameLabel.textContent = 'Name';
+    const nameInput = textInput('ytc-dialog-name', clock(at, hours), 'Name');
+    nameInput.maxLength = 60;
+
+    const error = document.createElement('p');
+    error.className = 'ytc-error';
+    error.id = 'ytc-dialog-error';
+    error.setAttribute('role', 'alert');
+    error.hidden = true;
+
+    const actions = document.createElement('div');
+    actions.className = 'ytc-actions';
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'ytc-secondary';
+    cancel.textContent = 'Cancel';
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'ytc-primary';
+    save.textContent = 'Add bookmark';
+    actions.append(cancel, save);
+
+    const fail = (text) => {
+      error.textContent = text;
+      error.hidden = false;
+    };
+
+    let synced = clock(at, hours);
+    timeInput.addEventListener('input', () => {
+      const parsed = parseClock(timeInput.value);
+      if (parsed === null) return;
+      if (nameInput.value === synced || nameInput.value === '') {
+        synced = clock(parsed, marksHourMode(id));
+        nameInput.value = synced;
+      }
+      const away = Math.abs(parsed - at);
+      hint.hidden = away <= 30;
+      if (!hint.hidden) hint.textContent = `This is ${clock(away)} away from the player.`;
+    });
+
+    const submit = () => {
+      const seconds = parseClock(timeInput.value);
+      if (seconds === null) {
+        fail('Use mm:ss, h:mm:ss, or seconds.');
+        return;
+      }
+      const list = marksFor(id);
+      const clash = list.find((mark) => mark.t === seconds);
+      if (clash) {
+        fail(`${clock(seconds, hours)} is already saved as "${clash.n}". Pick another time.`);
+        return;
+      }
+      if (list.length >= MARK_LIMIT) {
+        fail(`This video already holds ${MARK_LIMIT} bookmarks.`);
+        return;
+      }
+      const label = nameInput.value.trim().slice(0, 60) || clock(seconds, marksHourMode(id));
+      writeMarks(id, [...list, { t: seconds, n: label, at: Date.now() }]);
+      closeMarkDialog();
+      notifyChange();
+    };
+
+    cancel.addEventListener('click', closeMarkDialog);
+    save.addEventListener('click', submit);
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeMarkDialog();
+        return;
+      }
+      if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+        e.preventDefault();
+        submit();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const items = [...box.querySelectorAll('button:not(:disabled), input')];
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+
+    box.append(title, body, timeLabel, timeInput, hint, nameLabel, nameInput, error, actions);
+    backdrop.append(box);
+    (document.fullscreenElement || document.body).append(backdrop);
+    timeInput.focus();
+    timeInput.select();
+  }
+
+  const PLAY_CSS = `
+#ytc-play-add,#ytc-play-list{position:relative;display:flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;border:0;border-radius:2px;background:none;color:#fff;cursor:pointer;opacity:.92;font-family:Roboto,Arial,sans-serif}
+#ytc-play-add::after,#ytc-play-list::after{content:'';position:absolute;inset:-2px}
+#ytc-play-add:hover,#ytc-play-list:hover{background:rgba(255,255,255,.15);opacity:1}
+#ytc-play-add:focus-visible,#ytc-play-list:focus-visible{outline:2px solid #fff;outline-offset:-2px;box-shadow:0 0 0 2px rgba(0,0,0,.65)}
+#ytc-play-add svg,#ytc-play-list svg{display:block;width:24px;height:24px;fill:currentColor}
+#ytc-play-add .ytc-play-plus{position:absolute;top:2px;right:3px;font-size:13px;font-weight:700;line-height:1}
+#ytc-play-list .ytc-play-badge{box-sizing:border-box;position:absolute;top:3px;right:2px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:#fff;color:#0f0f0f;font-size:11px;line-height:16px;text-align:center;font-weight:600}
+#ytc-play-list .ytc-play-badge[hidden]{display:none}
+`;
+
+  function playIcon(filled) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const shape = document.createElementNS(SVG_NS, 'path');
+    shape.setAttribute('d', 'M17 3H7a2 2 0 0 0-2 2v16l7-4 7 4V5a2 2 0 0 0-2-2z');
+    if (filled) shape.setAttribute('fill', 'currentColor');
+    else {
+      shape.setAttribute('fill', 'none');
+      shape.setAttribute('stroke', 'currentColor');
+      shape.setAttribute('stroke-width', '2');
+    }
+    svg.append(shape);
+    return svg;
+  }
+
+  function syncPlayButtons() {
+    const wanted = isTop && featureOn('bookmarks') && onWatchPage();
+    if (!wanted) {
+      document.getElementById('ytc-play-add')?.remove();
+      document.getElementById('ytc-play-list')?.remove();
+      document.getElementById('ytc-play-style')?.remove();
+      return;
+    }
+    const controls = document.querySelector('#movie_player .ytp-right-controls');
+    if (!controls) return;
+    if (!document.getElementById('ytc-play-style')) {
+      const style = document.createElement('style');
+      style.id = 'ytc-play-style';
+      style.textContent = PLAY_CSS;
+      document.head.append(style);
+    }
+
+    let add = document.getElementById('ytc-play-add');
+    if (!add) {
+      add = document.createElement('button');
+      add.type = 'button';
+      add.id = 'ytc-play-add';
+      add.append(playIcon(false));
+      const plus = document.createElement('span');
+      plus.className = 'ytc-play-plus';
+      plus.setAttribute('aria-hidden', 'true');
+      plus.textContent = '+';
+      add.append(plus);
+      add.addEventListener('click', () => openMarkDialog());
+    }
+    let list = document.getElementById('ytc-play-list');
+    if (!list) {
+      list = document.createElement('button');
+      list.type = 'button';
+      list.id = 'ytc-play-list';
+      list.append(playIcon(true));
+      const badge = document.createElement('span');
+      badge.className = 'ytc-play-badge';
+      list.append(badge);
+      list.addEventListener('click', () => openPanel('bookmarks', 'list'));
+    }
+    if (add.parentElement !== controls || list.parentElement !== controls) controls.prepend(add, list);
+
+    const id = videoIdFromUrl();
+    const count = marksFor(id).length;
+    const badge = list.querySelector('.ytc-play-badge');
+    if (badge) {
+      badge.textContent = String(count);
+      badge.hidden = count === 0;
+    }
+    list.setAttribute('aria-label', count ? `Bookmarks, ${count} saved` : 'Bookmarks, no saves yet');
+    list.title = count ? `Bookmarks (${count})` : 'Bookmarks';
+    const video = currentVideo();
+    const at = clock(video ? video.currentTime : 0, marksHourMode(id));
+    add.setAttribute('aria-label', `Add bookmark at ${at}`);
+    add.title = `Add bookmark at ${at}`;
+  }
+
+  const isTyping = (target) =>
+    !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if (e.key !== 'b' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      if (isTyping(e.target)) return;
+      if (!isTop || !featureOn('bookmarks') || !onWatchPage()) return;
+      e.preventDefault();
+      openMarkDialog();
+    },
+    true
+  );
+
+  document.addEventListener('yt-navigate-finish', () => {
+    if (!isTop) return;
+    // The control bar is rebuilt once metadata arrives, so check again shortly after
+    syncPlayButtons();
+    drawMenu();
+    setTimeout(syncPlayButtons, 1000);
+  });
+
+  document.addEventListener('ytc-change', () => {
+    if (!isTop) return;
+    syncPlayButtons();
+    drawMenu();
+  });
+
   // ---------- overview and diagnostics ----------
 
   const version = () =>
@@ -1525,6 +2415,11 @@
   let armedFeature = null;
 
   function featureSummary(feature) {
+    if (feature.id === 'bookmarks') {
+      const id = videoIdFromUrl();
+      const count = id ? marksFor(id).length : 0;
+      return count ? `${count} mark${count === 1 ? '' : 's'}` : 'None';
+    }
     if (feature.id === 'resolution') {
       const hit = QUALITY.find(([value]) => value === get('quality', 'auto'));
       return hit ? hit[1] : 'Auto';
@@ -1673,7 +2568,11 @@
     }
     const id = GM_registerMenuCommand('YouTube: Custom Collection', () => openPanel('hub'));
     if (id !== undefined && id !== null) menuIds.push(id);
+    const count = videoIdFromUrl() ? marksFor(videoIdFromUrl()).length : 0;
+    const marks = GM_registerMenuCommand(`Show bookmarks${count ? ` (${count})` : ''}`, () => openPanel('bookmarks', 'list'));
+    if (marks !== undefined && marks !== null) menuIds.push(marks);
   }
 
   drawMenu();
+  syncPlayButtons();
 })();
