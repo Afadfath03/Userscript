@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Timer Tamer
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.0
+// @version      1.1
 // @description  Batches the page's timers onto the next animation frame to cut idle CPU; install it alone, a second timer tamer would stack delays
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -29,12 +29,12 @@
     clearInterval: window.clearInterval.bind(window),
   };
 
-  const FRAME_GRACE = 250;   // no frame for this long means no repaint is coming, so run directly
+  const FRAME_GRACE = 250;   // a frame that has not arrived by now counts as missing
   const VIDEO_GRACE = 1500;  // align only while a video has ticked recently
   const MAX_QUEUE = 200;
 
   let frame = 0;
-  let lastFrame = 0;
+  let watchdog = 0;
   let lastTick = 0;
   const queue = [];
   const ran = new Set();
@@ -52,20 +52,15 @@
     }
   }
 
-  function direct() {
-    const now = performance.now();
-    return document.hidden ||
-      now - lastFrame > FRAME_GRACE ||
-      now - lastTick > VIDEO_GRACE ||
-      queue.length >= MAX_QUEUE;
-  }
-
   function flush() {
+    if (watchdog) {
+      native.clearTimeout(watchdog);
+      watchdog = 0;
+    }
     if (frame) {
       window.cancelAnimationFrame(frame);
       frame = 0;
     }
-    lastFrame = performance.now();
     ran.clear();
     for (const task of queue.splice(0)) {
       if (dropped.delete(task.id)) continue;
@@ -76,13 +71,23 @@
     dropped.clear();
   }
 
+  function requestFrame() {
+    if (frame) return;
+    frame = window.requestAnimationFrame(flush);
+    // A hidden or stalled page stops painting, so a timer drains the queue instead
+    watchdog = native.setTimeout(() => {
+      watchdog = 0;
+      flush();
+    }, FRAME_GRACE);
+  }
+
   function enqueue(id, fn, args) {
-    if (direct()) {
+    if (document.hidden || queue.length >= MAX_QUEUE || performance.now() - lastTick > VIDEO_GRACE) {
       fire(fn, args);
       return;
     }
     queue.push({ id, fn, args });
-    if (!frame) frame = window.requestAnimationFrame(flush);
+    requestFrame();
   }
 
   // Ids stay native, so clearTimeout and clearInterval work even for callers holding a real id
