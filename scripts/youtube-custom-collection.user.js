@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      3.7
+// @version      3.8
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -1059,7 +1059,10 @@
       }
       if (hiddenPause() && document.hidden) return;
       clearTimeout(endTimer);
+      // The page can move on by itself while the wait runs; this pins the video that ended
+      const ended = videoIdFromUrl();
       endTimer = setTimeout(() => {
+        if (videoIdFromUrl() !== ended) return;
         cancelCountdown();
         const target = pickNext();
         if (!target) {

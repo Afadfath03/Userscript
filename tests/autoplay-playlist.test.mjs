@@ -33,7 +33,7 @@ const check = (name, ok) => {
   if (!ok) failures++;
 };
 
-async function run({ which, items, selected, store, wait = 120 }) {
+async function run({ which, items, selected, store, wait = 120, advance = null }) {
   const html = PAGE(items, selected);
   const server = http.createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/html' });
@@ -80,6 +80,17 @@ async function run({ which, items, selected, store, wait = 120 }) {
   await page.addScriptTag({ content: scripts[which] });
   await page.waitForTimeout(200);
   await page.evaluate(() => document.querySelector('#movie_player video').dispatchEvent(new Event('ended')));
+  if (advance !== null) {
+    // YouTube's own advance: the panel selection moves and the URL follows
+    await page.waitForTimeout(150);
+    await page.evaluate((index) => {
+      const rows = [...document.querySelectorAll('ytd-playlist-panel-video-renderer')];
+      rows.forEach((row, i) => row.toggleAttribute('selected', i === index));
+      const id = rows[index].querySelector('a').getAttribute('href').split('/watch?v=')[1].split('&')[0];
+      history.pushState({}, '', `/watch?v=${id}&list=PLtest`);
+      document.dispatchEvent(new Event('yt-navigate-finish'));
+    }, advance);
+  }
   await page.waitForTimeout(wait);
   const clicked = await page.evaluate(() => window.__clicked);
   await ctx.close();
@@ -118,6 +129,28 @@ const waitMode = await run({
   wait: 3500,
 });
 check('wait mode still targets the playlist item', waitMode.includes('/watch?v=AAA3'));
+
+const four = [{ id: 'AAA1' }, { id: 'AAA2' }, { id: 'AAA3' }, { id: 'AAA4' }];
+
+const staleWait = await run({
+  which: 'collection',
+  items: four,
+  selected: 1,
+  store: { 'ytc.behavior': 'wait', 'ytc.delay': 3 },
+  advance: 2,
+  wait: 3500,
+});
+check('collection drops a wait the page already overtook', staleWait === '');
+
+const staleWaitStandalone = await run({
+  which: 'standalone',
+  items: four,
+  selected: 1,
+  store: { 'ytac.behavior': 'wait', 'ytac.delay': 3 },
+  advance: 2,
+  wait: 3500,
+});
+check('standalone drops a wait the page already overtook', staleWaitStandalone === '');
 
 await browser.close();
 console.log(failures ? `\n${failures} failure(s)` : '\nall checks passed');
