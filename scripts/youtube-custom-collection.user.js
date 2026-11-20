@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      3.9
+// @version      4.0
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -19,6 +19,7 @@
 // @grant        GM_deleteValue
 // @grant        GM_info
 // @grant        GM_listValues
+// @grant        GM_setClipboard
 // ==/UserScript==
 
 (() => {
@@ -32,6 +33,8 @@
   const currentVideo = () => document.querySelector('#movie_player video');
   const playerEl = () => document.getElementById('movie_player');
 
+  // Set by the clean share link block, called from the menu
+  let shareCopyAtTime = () => {};
   const videoIdFromUrl = () => (location.pathname === '/watch' ? new URLSearchParams(location.search).get('v') || '' : '');
   const onWatchPage = () => !!videoIdFromUrl();
   const MARK_LIMIT = 50;
@@ -213,6 +216,14 @@
       short: 'Playlist Length',
       desc: 'Shows how long the playlist is and how much is left from the video you are watching. The numbers are read from the durations YouTube already prints on each item.',
       rows: [],
+    },
+    {
+      id: 'share',
+      def: true,
+      title: 'YouTube: Clean Share Link',
+      short: 'Clean Share Link',
+      desc: 'Removes si, pp and other tracking parameters from links copied out of the share panel. The address bar can be cleaned too, and the menu copies a link at the current time.',
+      rows: [{ key: 'shareAddress', label: 'Clean address bar', type: 'toggle', def: false }],
     },
     {
       id: 'shorts',
@@ -1408,6 +1419,149 @@
     document.addEventListener('ytc-change', scan);
     // Content already present when the script runs never fires a mutation
     if (document.body) scan();
+  }
+
+  // ---------- clean share link ----------
+
+  {
+    const enabled = () => isTop && featureOn('share');
+    // Only parameters that identify the sharer or the click path; v, t, list and index stay
+    const TRACKING = ['si', 'pp', 'feature', 'ab_channel', 'source_ve_path', 'embeds_referring_euri', 'embeds_referring_origin'];
+    const HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be']);
+    const INPUT = 'yt-copy-link-renderer #share-url, #share-url';
+    const COPY = 'yt-copy-link-renderer #copy-button, yt-copy-link-renderer button';
+
+    function stripTracking(url) {
+      let changed = false;
+      for (const key of TRACKING) {
+        if (!url.searchParams.has(key)) continue;
+        url.searchParams.delete(key);
+        changed = true;
+      }
+      return changed;
+    }
+
+    function cleanUrl(raw) {
+      let url;
+      try {
+        url = new URL(raw);
+      } catch {
+        return raw;
+      }
+      if (!HOSTS.has(url.hostname)) return raw;
+      // An untouched link keeps its exact spelling
+      return stripTracking(url) ? url.toString() : raw;
+    }
+
+    const linkAt = (id, seconds) => {
+      const t = Math.floor(seconds);
+      return t > 0 ? `https://youtu.be/${id}?t=${t}` : `https://youtu.be/${id}`;
+    };
+
+    async function copyText(text) {
+      try {
+        if (typeof GM_setClipboard === 'function') {
+          GM_setClipboard(text, 'text');
+          return true;
+        }
+      } catch {
+        // fall through to the page clipboard
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    let toastTimer = 0;
+    function toast(text) {
+      document.getElementById('ytc-share-toast')?.remove();
+      clearTimeout(toastTimer);
+      const box = document.createElement('div');
+      box.id = 'ytc-share-toast';
+      box.setAttribute('role', 'status');
+      box.textContent = text;
+      box.style.cssText =
+        'position:fixed;left:24px;bottom:24px;z-index:2147483647;padding:12px 16px;border-radius:8px;background:#0f0f0f;color:#fff;font:14px Roboto,Arial,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.35)';
+      document.body.append(box);
+      toastTimer = setTimeout(() => box.remove(), 2000);
+    }
+
+    function cleanInputs() {
+      if (!enabled()) return;
+      for (const input of document.querySelectorAll(INPUT)) {
+        const clean = cleanUrl(input.value);
+        if (clean !== input.value) input.value = clean;
+      }
+    }
+
+    function cleanAddress() {
+      if (!enabled() || get('shareAddress', false) !== true) return;
+      // The page is YouTube by @match, so only the parameters need checking here
+      const url = new URL(location.href);
+      // replaceState keeps the entry count and YouTube's own state object
+      if (stripTracking(url)) history.replaceState(history.state, '', url.toString());
+    }
+
+    // Read by the menu, which is drawn after this block
+    shareCopyAtTime = async () => {
+      const id = videoIdFromUrl();
+      if (!enabled() || !id) return;
+      const video = document.querySelector('#movie_player video') || document.querySelector('video');
+      const ok = await copyText(linkAt(id, video ? video.currentTime : 0));
+      toast(ok ? 'Link copied' : 'Clipboard blocked');
+    };
+
+    if (isTop) {
+      // YouTube's own copy reads its data model, not the input, so the click is answered here instead
+      document.addEventListener(
+        'click',
+        async (e) => {
+          if (!enabled()) return;
+          const button = e.target instanceof Element ? e.target.closest(COPY) : null;
+          if (!button) return;
+          const renderer = button.closest('yt-copy-link-renderer');
+          const input = renderer && renderer.querySelector('#share-url, input');
+          if (!input) return;
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          input.value = cleanUrl(input.value);
+          if (await copyText(input.value)) {
+            toast('Link copied');
+            return;
+          }
+          // Clipboard blocked: leave the clean link selected for a manual copy
+          input.focus();
+          input.select();
+        },
+        true
+      );
+
+      let raf = 0;
+      new MutationObserver((list) => {
+        if (!enabled() || raf) return;
+        if (!list.some((m) => m.addedNodes.length)) return;
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          cleanInputs();
+        });
+      }).observe(document.documentElement, { childList: true, subtree: true });
+
+      // "Start at" rewrites the input through its property, which no observer sees
+      setInterval(() => {
+        if (enabled() && document.querySelector(INPUT)) cleanInputs();
+      }, 250);
+    }
+
+    const sync = () => {
+      cleanAddress();
+      cleanInputs();
+    };
+    document.addEventListener('yt-navigate-finish', sync);
+    document.addEventListener('ytc-change', sync);
+    sync();
   }
 
   // ---------- quiet page ----------
@@ -2914,7 +3068,14 @@
     const count = videoIdFromUrl() ? marksFor(videoIdFromUrl()).length : 0;
     const marks = GM_registerMenuCommand(`Show bookmarks${count ? ` (${count})` : ''}`, () => openPanel('bookmarks', 'list'));
     if (marks !== undefined && marks !== null) menuIds.push(marks);
+    if (featureOn('share')) {
+      const share = GM_registerMenuCommand('Copy link at current time', () => shareCopyAtTime());
+      if (share !== undefined && share !== null) menuIds.push(share);
+    }
   }
+
+  // The share entry follows its feature switch
+  document.addEventListener('ytc-change', drawMenu);
 
   drawMenu();
   syncPlayButtons();
