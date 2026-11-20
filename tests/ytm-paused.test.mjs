@@ -89,7 +89,7 @@ check('still listening variant answered', await until(page, () => window.__yes =
 await page.evaluate(() => { window.pausePlayer(); window.showPrompt('Apakah Anda masih mendengarkan?', 'Ya'); });
 check('Indonesian variant answered', await until(page, () => window.__yes === 3));
 
-await page.evaluate(() => { window.pausePlayer(); window.showPrompt('Weiter hören?', 'Weiter'); });
+await page.evaluate(() => { window.pausePlayer(); window.showPrompt('Weiter h\u00f6ren?', 'Weiter'); });
 check('unknown label inside you-there clicks its only button', await until(page, () => window.__yes === 4));
 
 await page.waitForTimeout(1500);
