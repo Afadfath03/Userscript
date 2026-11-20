@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Autoplay Control
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.5
+// @version      1.6
 // @description  Decide what happens when a video ends: next, wait, stop, loop, with a per-session limit
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -136,6 +136,8 @@
     // The page can move on by itself while the wait runs; this pins the video that ended
     const ended = videoIdFromUrl();
     endTimer = setTimeout(() => {
+      const currentMode = behavior();
+      if (currentMode === 'leave' || currentMode === 'stop') return;
       if (videoIdFromUrl() !== ended) return;
       cancelCountdown();
       const target = pickNext();
@@ -166,13 +168,16 @@
   }
 
   let syncTries = 0;
+  let syncTimer = 0;
 
   function syncWithRetry() {
+    clearTimeout(syncTimer);
+    syncTimer = 0;
     syncTries = 0;
     const tick = () => {
       sync();
       if (toggleEl() || ++syncTries > 20) return;
-      setTimeout(tick, 250);
+      syncTimer = setTimeout(tick, 250);
     };
     tick();
   }

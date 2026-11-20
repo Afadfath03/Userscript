@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      3.8
+// @version      3.9
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -332,6 +332,9 @@
     document.getElementById('ytc-backdrop')?.remove();
     document.getElementById('ytc-style')?.remove();
     panelState = null;
+    armedFeature = null;
+    resetArmed = false;
+    armedMark = null;
     if (lastFocus && lastFocus.isConnected) lastFocus.focus();
     lastFocus = null;
   }
@@ -440,6 +443,9 @@
   }
 
   function backToHub() {
+    armedFeature = null;
+    resetArmed = false;
+    armedMark = null;
     panelState.view = 'hub';
     render();
   }
@@ -490,11 +496,14 @@
       renderHub(panel);
       return;
     }
-    panel.textContent = '';
-
     if (panelState.view === 'options') {
       const row = feature.rows.find((r) => r.key === panelState.rowKey);
-      if (!row) return;
+      if (!row) {
+        panelState.view = 'settings';
+        render();
+        return;
+      }
+      panel.textContent = '';
       panel.append(
         panelHeader(row.label, () => {
           panelState.view = 'settings';
@@ -515,6 +524,7 @@
         );
       }
     } else {
+      panel.textContent = '';
       const bar = panelHeader(feature.title, backToHub);
       const desc = document.createElement('p');
       desc.className = 'ytc-desc';
@@ -848,7 +858,13 @@
 
     function scan() {
       raf = 0;
-      if (!enabled() || location.pathname !== '/watch') return;
+      if (!enabled()) return;
+      if (location.pathname !== '/watch') {
+        url = '';
+        done = '';
+        tries = 0;
+        return;
+      }
       if (location.search !== url) {
         url = location.search;
         tries = 0;
@@ -1062,6 +1078,8 @@
       // The page can move on by itself while the wait runs; this pins the video that ended
       const ended = videoIdFromUrl();
       endTimer = setTimeout(() => {
+        const currentMode = behavior();
+        if (!enabled() || currentMode === 'leave' || currentMode === 'stop') return;
         if (videoIdFromUrl() !== ended) return;
         cancelCountdown();
         const target = pickNext();
@@ -1093,13 +1111,16 @@
     }
 
     let syncTries = 0;
+    let syncTimer = 0;
 
     function startSync() {
+      clearTimeout(syncTimer);
+      syncTimer = 0;
       syncTries = 0;
       const tick = () => {
         sync();
         if (document.querySelector('.ytp-autonav-toggle-button') || ++syncTries > 20) return;
-        setTimeout(tick, 250);
+        syncTimer = setTimeout(tick, 250);
       };
       tick();
     }
@@ -1227,12 +1248,19 @@
     }
 
     let tries = 0;
+    let syncTimer = 0;
 
     function pass() {
-      return applyVideo() && applyTheater() && applySubtitles() && applyAudio();
+      const videoDone = applyVideo();
+      const theaterDone = applyTheater();
+      const subtitlesDone = applySubtitles();
+      const audioDone = applyAudio();
+      return videoDone && theaterDone && subtitlesDone && audioDone;
     }
 
     function startSync() {
+      clearTimeout(syncTimer);
+      syncTimer = 0;
       tries = 0;
       theaterClicks = 0;
       if (!enabled()) return;
@@ -1240,7 +1268,7 @@
       audioClicks = 0;
       const tick = () => {
         if (pass() || ++tries > 16) return;
-        setTimeout(tick, 250);
+        syncTimer = setTimeout(tick, 250);
       };
       tick();
     }
@@ -1417,7 +1445,7 @@
       'html.ytc-quiet-playlist ytd-playlist-panel-renderer{display:none!important}' +
       'html.ytc-quiet-nudges ytd-feed-nudge-renderer{display:none!important}' +
       'html.ytc-quiet-channel-video ytd-channel-video-player-renderer{display:none!important}' +
-      'html.ytc-quiet-suggested ytp-suggested-action{display:none!important}' +
+      'html.ytc-quiet-suggested .ytp-suggested-action{display:none!important}' +
       'html.ytc-quiet-info-panels ytd-info-panel-container-renderer{display:none!important}' +
       'html.ytc-quiet-miniplayer ytd-miniplayer{display:none!important}';
     document.documentElement.append(style);
@@ -1517,7 +1545,9 @@
       return { error: 'That is not valid JSON.' };
     }
     const settings = data && data.settings;
-    if (!settings || typeof settings !== 'object') return { error: 'That JSON has no settings object.' };
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+      return { error: 'That JSON has no settings object.' };
+    }
     const valid = [];
     const skipped = [];
     for (const [key, value] of Object.entries(settings)) {
@@ -1674,21 +1704,74 @@
     const SHORTS = /^\/shorts\/([A-Za-z0-9_-]{6,})/;
     const enabled = () => isTop && featureOn('shorts');
 
+    function toWatchUrl(raw) {
+      let url;
+      try {
+        url = new URL(raw, location.origin);
+      } catch {
+        return null;
+      }
+      if (url.origin !== location.origin) return null;
+      const match = SHORTS.exec(url.pathname);
+      if (!match) return null;
+      const next = new URL(`/watch?v=${match[1]}`, location.origin);
+      // A shared Short can carry a start time, so keep it
+      const time = url.searchParams.get('t');
+      if (time) next.searchParams.set('t', time);
+      return next;
+    }
+
+    function rewriteLinks(root = document) {
+      if (!enabled() || !root || typeof root.querySelectorAll !== 'function') return;
+      const links = root.matches && root.matches('a[href*="/shorts/"]')
+        ? [root, ...root.querySelectorAll('a[href*="/shorts/"]')]
+        : root.querySelectorAll('a[href*="/shorts/"]');
+      for (const link of links) {
+        const next = toWatchUrl(link.getAttribute('href') || '');
+        if (next) link.setAttribute('href', next.pathname + next.search);
+      }
+    }
+
     function rewrite() {
       if (!enabled()) return;
       const match = SHORTS.exec(location.pathname);
       if (!match) return;
-      const url = new URL(`/watch?v=${match[1]}`, location.origin);
-      // A shared Short can carry a start time, so keep it
-      const time = new URLSearchParams(location.search).get('t');
-      if (time) url.searchParams.set('t', time);
+      const url = toWatchUrl(location.pathname + location.search);
+      if (!url) return;
       // replace() keeps the entry count stable, so Back does not bounce between the two pages
       location.replace(url.toString());
     }
 
-    document.addEventListener('yt-navigate-finish', rewrite);
-    document.addEventListener('ytc-change', rewrite);
-    rewrite();
+    function syncShorts() {
+      rewrite();
+      rewriteLinks();
+    }
+
+    if (isTop) {
+      let linkRaf = 0;
+      const linkQueue = new Set();
+      const flushLinks = () => {
+        linkRaf = 0;
+        const batch = [...linkQueue];
+        linkQueue.clear();
+        for (const node of batch) rewriteLinks(node);
+      };
+      new MutationObserver((list) => {
+        if (!enabled()) return;
+        for (const m of list) {
+          for (const n of m.addedNodes) {
+            if (n.nodeType === 1) linkQueue.add(n);
+          }
+        }
+        if (linkQueue.size && !linkRaf) linkRaf = requestAnimationFrame(flushLinks);
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    }
+
+    document.addEventListener('yt-navigate-start', rewrite);
+    document.addEventListener('yt-navigate-finish', syncShorts);
+    window.addEventListener('popstate', syncShorts);
+    document.addEventListener('ytc-change', syncShorts);
+    syncShorts();
   }
 
   // ---------- playlist length ----------

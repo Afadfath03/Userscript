@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Playback Defaults
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.3
+// @version      1.4
 // @description  Set a default speed, theater mode, volume, subtitles and audio track for every video
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -39,6 +39,7 @@
     subtitles: 'Subtitles',
     audio: 'Audio track',
     pauseHidden: 'Pause when hidden',
+    pauseBlur: 'Pause when window loses focus',
   };
 
   const get = (key, fallback) => {
@@ -55,6 +56,7 @@
   const audio = () => setting('audio', 'leave');
   const hotkeys = () => get('hotkeys', false) === true;
   const pauseHidden = () => get('pauseHidden', false) === true;
+  const pauseBlur = () => get('pauseBlur', false) === true;
 
   const currentVideo = () => document.querySelector('#movie_player video');
   const player = () => document.getElementById('movie_player');
@@ -142,6 +144,7 @@
   }
 
   let tries = 0;
+  let syncTimer = 0;
 
   function syncPass() {
     const videoDone = applyVideo();
@@ -152,13 +155,15 @@
   }
 
   function startSync() {
+    clearTimeout(syncTimer);
+    syncTimer = 0;
     tries = 0;
     theaterClicks = 0;
     subtitleClicks = 0;
     audioClicks = 0;
     const tick = () => {
       if (syncPass() || ++tries > 16) return;
-      setTimeout(tick, 250);
+      syncTimer = setTimeout(tick, 250);
     };
     tick();
   }
@@ -195,6 +200,12 @@
   );
 
   let pausedByUs = false;
+
+  window.addEventListener('blur', () => {
+    if (!pauseBlur()) return;
+    const video = currentVideo();
+    if (video && !video.paused) video.pause();
+  });
 
   document.addEventListener('visibilitychange', () => {
     if (!pauseHidden()) return;
@@ -302,6 +313,7 @@
   function valueLabel(key) {
     if (key === 'hotkeys') return hotkeys() ? 'On' : 'Off';
     if (key === 'pauseHidden') return pauseHidden() ? 'On' : 'Off';
+    if (key === 'pauseBlur') return pauseBlur() ? 'On' : 'Off';
     const v = currentValue(key);
     if (v === 'leave') return 'Default';
     if (key === 'speed') return `${v}x`;
@@ -327,10 +339,10 @@
     if (view.kind === 'settings') {
       title.textContent = 'Playback';
       panel.append(title);
-      for (const key of ['speed', 'hotkeys', 'theater', 'volume', 'subtitles', 'audio', 'pauseHidden']) {
+      for (const key of ['speed', 'hotkeys', 'theater', 'volume', 'subtitles', 'audio', 'pauseHidden', 'pauseBlur']) {
         panel.append(
           settingRow(TITLES[key], valueLabel(key), () => {
-            if (key === 'hotkeys' || key === 'pauseHidden') {
+            if (key === 'hotkeys' || key === 'pauseHidden' || key === 'pauseBlur') {
               put(key, !get(key, false));
               render();
               return;

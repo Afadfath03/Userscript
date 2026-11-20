@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Preferred Resolution
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.5
+// @version      1.6
 // @description  Start every video at a preferred quality, falling back to the next best available
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -75,7 +75,8 @@
     if (typeof el.setPlaybackQuality === 'function') el.setPlaybackQuality(code);
   }
 
-  // Runs for a few seconds after each video opens, then stops
+  // 30 tries at 400ms covers a slow manifest and a full ad break
+  const MAX_TRIES = 30;
   let timer = 0;
   let tries = 0;
   function startWatchdog() {
@@ -89,8 +90,10 @@
         clearInterval(timer);
         return;
       }
+      // Ads lock the level, so waiting on one must not burn the attempts
+      if (el && el.classList.contains('ad-showing')) return;
       apply();
-      if (++tries >= 12) clearInterval(timer);
+      if (++tries >= MAX_TRIES) clearInterval(timer);
     }, 400);
   }
 

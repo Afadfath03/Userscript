@@ -23,7 +23,7 @@ const FIXTURE = `<!doctype html><html><body>
   <ytd-playlist-panel-renderer id="playlist">playlist</ytd-playlist-panel-renderer>
   <ytd-feed-nudge-renderer id="nudge">nudge</ytd-feed-nudge-renderer>
   <ytd-channel-video-player-renderer id="chvideo">featured</ytd-channel-video-player-renderer>
-  <ytp-suggested-action id="suggested">bubble</ytp-suggested-action>
+  <div class="ytp-suggested-action" id="suggested">bubble</div>
   <ytd-info-panel-container-renderer id="bigpanel">panel</ytd-info-panel-container-renderer>
   <ytd-miniplayer id="miniplayer">mini</ytd-miniplayer>
 </body></html>`;

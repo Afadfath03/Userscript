@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Timer Tamer
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.1
+// @version      1.2
 // @description  Batches the page's timers onto the next animation frame to cut idle CPU; install it alone, a second timer tamer would stack delays
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -35,7 +35,7 @@
 
   let frame = 0;
   let watchdog = 0;
-  let lastTick = 0;
+  let lastTick = -VIDEO_GRACE;
   const queue = [];
   const ran = new Set();
   const dropped = new Set();

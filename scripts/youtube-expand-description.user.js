@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Auto Expand Description
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.5
+// @version      1.6
 // @description  Expand the watch page description automatically
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -26,7 +26,12 @@
 
   function scan() {
     raf = 0;
-    if (location.pathname !== '/watch') return;
+    if (location.pathname !== '/watch') {
+      url = '';
+      done = '';
+      tries = 0;
+      return;
+    }
     if (location.search !== url) {
       url = location.search;
       tries = 0;
