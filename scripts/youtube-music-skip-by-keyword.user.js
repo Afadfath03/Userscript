@@ -77,7 +77,9 @@
   const trackKey = (track) => `${track.title} | ${track.byline}`.toLowerCase();
 
   let lastKey = '';
-  let lastSkippedKey = '';
+  // Recent skips, so Previous can walk back over several of them
+  const skipped = new Set();
+  const MAX_REMEMBERED = 20;
   let streak = 0;
 
   function tick() {
@@ -94,13 +96,14 @@
       return;
     }
     // A track the user went back to after a skip is one they chose to hear
-    if (key === lastSkippedKey || streak >= MAX_STREAK) return;
+    if (skipped.has(key) || streak >= MAX_STREAK) return;
     const next = document.querySelector(NEXT);
     if (!next) {
       lastKey = '';
       return;
     }
-    lastSkippedKey = key;
+    skipped.add(key);
+  if (skipped.size > MAX_REMEMBERED) skipped.delete(skipped.values().next().value);
     streak++;
     next.click();
   }

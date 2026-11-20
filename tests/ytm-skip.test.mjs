@@ -114,6 +114,15 @@ await page.waitForTimeout(TICKS(3));
 check('going back keeps the skipped track', (await nexts(page)) === 1 && (await page.evaluate(() => window.title())) === 'X (Live)');
 await page.close();
 
+page = await open({ 'ytsk.words': ['live'] }, [['A (Live)', 'x'], ['B (Live)', 'y'], ['C', 'z']]);
+check('two matches in a row are skipped', await until(page, () => window.__next === 2));
+await page.evaluate(() => document.querySelector('.previous-button').click());
+await page.waitForTimeout(TICKS(2));
+await page.evaluate(() => document.querySelector('.previous-button').click());
+await page.waitForTimeout(TICKS(3));
+check('going back two skipped tracks reaches the first', (await nexts(page)) === 2 && (await page.evaluate(() => window.title())) === 'A (Live)');
+await page.close();
+
 page = await open({}, [['Live', 'A'], ['B', 'B']]);
 await page.waitForTimeout(TICKS(2));
 check('empty list never skips', (await nexts(page)) === 0);
