@@ -36,6 +36,28 @@
   const version = () =>
     typeof GM_info === 'object' && GM_info && GM_info.script ? GM_info.script.version || 'unknown' : 'unknown';
 
+  const MAX_WORDS = 100;
+  const MAX_WORD_LENGTH = 100;
+  const squashSpace = (s) => s.replace(/\s+/g, ' ').trim();
+
+  // Trimmed, deduplicated without regard to case, and capped, so a stored list stays small
+  function cleanWords(list) {
+    const seen = new Set();
+    const out = [];
+    for (const item of list) {
+      if (typeof item !== 'string') continue;
+      const word = squashSpace(item).slice(0, MAX_WORD_LENGTH);
+      const folded = word.toLowerCase();
+      if (!word || seen.has(folded)) continue;
+      seen.add(folded);
+      out.push(word);
+      if (out.length === MAX_WORDS) break;
+    }
+    return out;
+  }
+
+  const parseWords = (text) => cleanWords(String(text).split(/[\n,]/));
+
   const FEATURES = [
     {
       id: 'song',
@@ -64,6 +86,17 @@
       desc: 'Answers Yes to the "Video paused. Continue watching?" and "Are you still listening?" prompts, on every page, so playback carries on. Other dialogs are left alone.',
       rows: [],
     },
+    {
+      id: 'skip',
+      def: false,
+      title: 'YouTube Music: Skip by Keyword',
+      short: 'Skip by Keyword',
+      desc: "Presses Next when the playing track's title contains a word from your list. Whole words only, so live does not catch Alive. After five skips in a row it waits for a track that does not match.",
+      rows: [
+        { key: 'skipWords', label: 'Keywords, one per line', type: 'words', def: [] },
+        { key: 'skipArtist', label: 'Match artist too', type: 'toggle', def: false },
+      ],
+    },
   ];
 
   const featureById = (id) => FEATURES.find((f) => f.id === id);
@@ -83,9 +116,12 @@
     return null;
   };
 
-  // Every row this bundle stores is a switch, so reading one is a single comparison
   function read(row) {
     if (!row) return false;
+    if (row.type === 'words') {
+      const stored = get(row.key, row.def);
+      return Array.isArray(stored) ? cleanWords(stored) : row.def;
+    }
     return get(row.key, row.def) === true;
   }
 
@@ -95,6 +131,10 @@
     if (feature.id === 'song') return read(rowOf('hideToggle')) ? 'Song only' : 'Toggle shown';
     // A feature without rows is a single switch, and "0 of 0" would read as broken
     if (!feature.rows.length) return 'On';
+    if (feature.id === 'skip') {
+      const n = read(rowOf('skipWords')).length;
+      return n ? `${n} keyword${n === 1 ? '' : 's'}` : 'No keywords';
+    }
     const on = feature.rows.filter((row) => read(row)).length;
     return `${on} of ${feature.rows.length}`;
   }
@@ -164,6 +204,12 @@ html[dark] #ytmc-panel textarea:focus-visible{outline-color:#3ea6ff}
         document.querySelector('#ytmc-panel .ytmc-close')?.focus();
         return;
       }
+      // Unsaved keywords get the same one keystroke of protection
+      const words = document.getElementById('ytmc-words');
+      if (words && document.activeElement === words && !sameWords(words)) {
+        document.querySelector('#ytmc-panel .ytmc-close')?.focus();
+        return;
+      }
       if (panelState && panelState.view !== 'hub') {
         backToHub();
         return;
@@ -188,6 +234,40 @@ html[dark] #ytmc-panel textarea:focus-visible{outline-color:#3ea6ff}
       e.preventDefault();
       first.focus();
     }
+  }
+
+  function sameWords(box) {
+    const row = rowOf(box.dataset.key);
+    return JSON.stringify(parseWords(box.value)) === JSON.stringify(read(row));
+  }
+
+  function wordsEditor(row) {
+    const wrap = document.createDocumentFragment();
+    const label = document.createElement('label');
+    label.className = 'ytmc-label';
+    label.setAttribute('for', 'ytmc-words');
+    label.textContent = row.label;
+    const box = document.createElement('textarea');
+    box.id = 'ytmc-words';
+    box.dataset.key = row.key;
+    box.spellcheck = false;
+    box.placeholder = 'live\nremix\nsped up';
+    box.value = read(row).join('\n');
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.textContent = 'Save keywords';
+    const status = document.createElement('p');
+    status.className = 'ytmc-status';
+    status.setAttribute('role', 'status');
+    save.addEventListener('click', () => {
+      const list = parseWords(box.value);
+      put(row.key, list);
+      box.value = list.join('\n');
+      status.textContent = `Saved ${list.length} keyword${list.length === 1 ? '' : 's'}.`;
+      notifyChange();
+    });
+    wrap.append(label, box, save, status);
+    return wrap;
   }
 
   function settingRow(label, value, onClick, pressed) {
@@ -305,6 +385,10 @@ html[dark] #ytmc-panel textarea:focus-visible{outline-color:#3ea6ff}
 
     const rows = [{ key: `${feature.id}On`, label: 'Enabled', type: 'toggle', def: feature.def }, ...feature.rows];
     for (const row of rows) {
+      if (row.type === 'words') {
+        panel.append(wordsEditor(row));
+        continue;
+      }
       const button = settingRow(
         row.label,
         valueLabel(row),
@@ -453,7 +537,15 @@ html[dark] #ytmc-panel textarea:focus-visible{outline-color:#3ea6ff}
   function validValue(key, value) {
     if (key.endsWith('On')) return typeof value === 'boolean';
     const row = rowOf(key);
-    return !!row && typeof value === 'boolean';
+    if (!row) return false;
+    if (row.type === 'words') {
+      return (
+        Array.isArray(value) &&
+        value.length <= MAX_WORDS &&
+        value.every((w) => typeof w === 'string' && w.length <= MAX_WORD_LENGTH)
+      );
+    }
+    return typeof value === 'boolean';
   }
 
   function exportSettings() {
@@ -863,6 +955,73 @@ html[dark] #ytmc-panel textarea:focus-visible{outline-color:#3ea6ff}
     setInterval(scan, TICK);
     // Content already present at document-idle never fires a mutation
     if (document.body) scan();
+  }
+
+  // ---------- skip by keyword ----------
+
+  {
+    // A queue where every track matches would otherwise be skipped to the end
+    const MAX_STREAK = 5;
+    const TICK = 1000;
+    const NEXT = 'ytmusic-player-bar .next-button';
+    const WORDS = rowOf('skipWords');
+    const ARTIST = rowOf('skipArtist');
+
+    // Whole words only, bounded by any letter or digit, so live leaves Alive and Deliver alone
+    function matcher(list) {
+      if (!list.length) return null;
+      const parts = list.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'));
+      const pattern = new RegExp(`(?:^|[^\\p{L}\\p{N}])(?:${parts.join('|')})(?:$|[^\\p{L}\\p{N}])`, 'iu');
+      return (text) => pattern.test(text);
+    }
+
+    function readTrack() {
+      const bar = document.querySelector('ytmusic-player-bar');
+      if (!bar) return null;
+      const title = squashSpace(bar.querySelector('.title')?.textContent || '');
+      if (!title) return null;
+      return { title, byline: squashSpace(bar.querySelector('.byline')?.textContent || '') };
+    }
+
+    const trackKey = (track) => `${track.title} | ${track.byline}`.toLowerCase();
+
+    let lastKey = '';
+    let lastSkippedKey = '';
+    let streak = 0;
+
+    function tick() {
+      if (!featureOn('skip')) return;
+      const track = readTrack();
+      if (!track) return;
+      const key = trackKey(track);
+      if (key === lastKey) return;
+      lastKey = key;
+      const test = matcher(read(WORDS));
+      const hit = !!test && (test(track.title) || (read(ARTIST) && test(track.byline)));
+      if (!hit) {
+        streak = 0;
+        return;
+      }
+      // A track the user went back to after a skip is one they chose to hear
+      if (key === lastSkippedKey || streak >= MAX_STREAK) return;
+      const next = document.querySelector(NEXT);
+      if (!next) {
+        lastKey = '';
+        return;
+      }
+      lastSkippedKey = key;
+      streak++;
+      next.click();
+    }
+
+    // A changed setting applies to the track that is playing now
+    document.addEventListener('ytmc-change', () => {
+      lastKey = '';
+      tick();
+    });
+    // One tick per second costs less than watching every text change in the player bar
+    setInterval(tick, TICK);
+    tick();
   }
 
   // ---------- menu ----------
