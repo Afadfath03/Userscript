@@ -137,19 +137,14 @@
     toast(ok ? 'Link copied' : 'Clipboard blocked');
   }
 
-  const queue = new Set();
+  // Nothing is collected per node: a background tab runs no frames, and a queue would grow until it did
   let raf = 0;
   new MutationObserver((list) => {
-    for (const mutation of list) {
-      for (const node of mutation.addedNodes) if (node.nodeType === 1) queue.add(node);
-    }
-    if (queue.size && !raf) {
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        queue.clear();
-        cleanInputs();
-      });
-    }
+    if (raf || !list.some((m) => m.addedNodes.length)) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      cleanInputs();
+    });
   }).observe(document.documentElement, { childList: true, subtree: true });
 
   // "Start at" rewrites the input through its property, which no observer sees
