@@ -31,6 +31,17 @@ Every script here is written with AI assistance: the code is generated or drafte
 
 The **Install** links point at the raw `.user.js`; most userscript managers (Tampermonkey, Violentmonkey, ScriptCat, Safari Userscripts) pick it up and offer to install. The **Script** links open the source on GitHub.
 
+## Preview
+
+`preview/` holds an interactive preview page ([preview/index.html](preview/index.html)) that loads all 11 scripts directly from `scripts/`, along with captured UI screenshots in `preview/screenshots/`.
+
+- Open [preview/index.html](preview/index.html) directly in a browser (or over a local HTTP server) to try every script's menu commands, settings panels, dark/light themes, and live stages.
+- Regenerate all screenshots with Playwright:
+
+```bash
+node preview/capture.mjs
+```
+
 ## Tests
 
 The suites in `tests/` drive headless Chromium through Playwright:
