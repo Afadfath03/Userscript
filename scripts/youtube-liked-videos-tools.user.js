@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Liked Videos Tools
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.0
+// @version      1.1
 // @description  Bulk unlike, search and filter, total duration calculator, export with optional title lookup, and copy to playlist on YouTube Liked Videos (/playlist?list=LL)
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -43,12 +43,23 @@
   const SCROLL_WAIT_MS = 650;
 
   const DEFAULTS = {
+    clearMode: 'unavailable-only',
     watchedThreshold: 80,
     exportFormat: 'md',
     resolveTitles: false,
     showDuration: true,
     showFilterBar: true,
   };
+
+  const CLEAR_MODES = [
+    ['unavailable-only', 'Unlike unavailable only'],
+    ['unavailable-deleted', 'Unlike deleted only'],
+    ['unavailable-private', 'Unlike private only'],
+    ['skip-unavailable', 'Skip unavailable (unlike available)'],
+    ['skip-deleted', 'Skip deleted'],
+    ['skip-private', 'Skip private'],
+    ['none', 'Unlike all'],
+  ];
 
   const get = (key) => {
     const v = GM_getValue(`ytlt.${key}`, DEFAULTS[key]);
@@ -65,7 +76,7 @@
   const resolvedTitleCache = new Map();
   let activeTask = null;
   let lastTrigger = null;
-  let filterState = { query: '', chip: 'all' };
+  let filterState = { query: '', chip: 'all', target: 'both' };
   let pageObserver = null;
   let mountTimer = 0;
 
@@ -247,6 +258,48 @@
     return null;
   }
 
+  function hasUnavailableHiddenBanner() {
+    const banners = document.querySelectorAll(
+      'ytd-alert-with-button-renderer, ytd-message-renderer, #alerts, .ytd-playlist-video-list-renderer'
+    );
+    for (const el of banners) {
+      const t = cleanText(el.textContent).toLowerCase();
+      if (t.includes('unavailable videos are hidden') || t.includes('video yang tidak tersedia disembunyikan')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function selectClearTargets(items, mode) {
+    const targets = [];
+    let skipped = 0;
+    for (const it of items) {
+      let remove = false;
+      if (mode === 'unavailable-only') remove = it.status !== 'available';
+      else if (mode === 'unavailable-deleted') remove = it.status === 'deleted';
+      else if (mode === 'unavailable-private') remove = it.status === 'private';
+      else if (mode === 'skip-unavailable') remove = it.status === 'available';
+      else if (mode === 'skip-deleted') remove = it.status !== 'deleted';
+      else if (mode === 'skip-private') remove = it.status !== 'private';
+      else if (mode === 'none') remove = true;
+      if (remove) targets.push(it);
+      else skipped++;
+    }
+    return { targets, skipped };
+  }
+
+  function matchKeywordItem(item, query, target) {
+    const q = query.trim().toLowerCase();
+    if (!q) return false;
+    if (item.status !== 'available') return false;
+    const t = item.title.toLowerCase();
+    const c = item.channel.toLowerCase();
+    if (target === 'title') return t.includes(q);
+    if (target === 'channel') return c.includes(q);
+    return t.includes(q) || c.includes(q);
+  }
+
   // ---------- InnerTube API (Unlike & Copy to Playlist) ----------
 
   function getYtCfg() {
@@ -421,6 +474,8 @@ html[dark] #${DIALOG_ID} .ytlt-btn.primary:hover{background:#d9d9d9}
 html[dark] #${DIALOG_ID} .ytlt-btn.danger{background:#d93025;color:#fff}
 #${DIALOG_ID} .ytlt-note{font-size:12px;color:#606060;margin:0}
 html[dark] #${DIALOG_ID} .ytlt-note{color:#aaa}
+#${DIALOG_ID} .ytlt-warn{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:10px;background:rgba(217,119,6,.14);color:#92400e;font-size:12px;line-height:1.45}
+html[dark] #${DIALOG_ID} .ytlt-warn{background:rgba(251,191,36,.14);color:#fde68a}
 #${DIALOG_ID} .ytlt-check{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:inherit}
 #${DIALOG_ID} .ytlt-confirm-box{display:flex;flex-direction:column;gap:14px;padding:4px 0}
 #${DIALOG_ID} .ytlt-confirm-head{display:flex;align-items:center;gap:10px;color:#c00;font-size:15px;font-weight:600}
@@ -526,8 +581,64 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
 
   // ---------- Bulk Unlike ----------
 
+  async function unlikeViaDomFallback(row) {
+    if (!row || !row.isConnected) return { ok: false, readOnly: false };
+    const menuBtn = row.querySelector(
+      'ytd-menu-renderer button, #menu button, yt-lockup-metadata-view-model button[aria-label], button[aria-label*="Action menu" i], button[aria-label*="More actions" i]'
+    );
+    if (!menuBtn) return { ok: false, readOnly: true };
+    menuBtn.click();
+    let items = [];
+    for (let i = 0; i < 15; i++) {
+      items = [
+        ...document.querySelectorAll(
+          'ytd-menu-popup-renderer ytd-menu-service-item-renderer, ytd-menu-popup-renderer yt-list-item-view-model, tp-yt-iron-dropdown yt-list-item-view-model'
+        ),
+      ];
+      if (items.length) break;
+      await sleep(50);
+    }
+    if (!items.length) return { ok: false, readOnly: true };
+    let target = items.find((el) => {
+      const d = el.data || el.__data?.data;
+      if (d?.serviceEndpoint?.likeEndpoint?.status === 'INDIFFERENT') return true;
+      const acts = d?.serviceEndpoint?.playlistEditEndpoint?.actions;
+      return Array.isArray(acts) && acts.some((a) => String(a?.action || '').includes('REMOVE_VIDEO'));
+    });
+    if (!target) {
+      target = items.find((el) =>
+        /remove from liked videos|hapus dari video yang disukai|unlike/i.test(cleanText(el.textContent))
+      );
+    }
+    if (!target) {
+      document.body.click();
+      return { ok: false, readOnly: true };
+    }
+    target.click();
+    for (let i = 0; i < 30; i++) {
+      if (!row.isConnected) return { ok: true };
+      await sleep(100);
+    }
+    return { ok: !row.isConnected, readOnly: false };
+  }
+
+  async function unlikeSingleItem(item) {
+    let apiAuthError = false;
+    if (item.videoId) {
+      const res = await unlikeVideo(item.videoId);
+      if (res.ok) {
+        item.row.remove();
+        return { ok: true, authError: false };
+      }
+      apiAuthError = !!res.authError;
+    }
+    const fb = await unlikeViaDomFallback(item.row);
+    if (fb.ok) return { ok: true, authError: false };
+    return { ok: false, authError: apiAuthError };
+  }
+
   async function runBulkUnlike(items, label) {
-    const valid = items.filter((i) => i.videoId);
+    const valid = items.filter((i) => i.videoId || i.row?.isConnected);
     if (!valid.length) {
       showToast({ text: `No matching liked videos found for ${label}.`, actions: [{ label: 'Close', onClick: clearToast }] });
       return;
@@ -549,10 +660,9 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
         progress: Math.round(((i + 1) / total) * 100),
         actions: [{ label: 'Stop', onClick: () => { task.stopped = true; } }],
       });
-      const res = await unlikeVideo(item.videoId);
+      const res = await unlikeSingleItem(item);
       if (res.ok) {
         done++;
-        item.row.remove();
       } else if (res.authError) {
         authBlocked = true;
         break;
@@ -708,6 +818,8 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
     const date = new Date().toISOString().slice(0, 10);
     const ext = format === 'txt' ? 'txt' : 'md';
     const filename = `youtube-liked-videos-${scope}-${date}.${ext}`;
+    const unavailableItems = items.filter((i) => i.status !== 'available' && i.videoId);
+    const withTitles = shouldResolve && format === 'md' && unavailableItems.length > 0;
     let content = '';
     if (format === 'txt') {
       content = items
@@ -715,24 +827,58 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
         .map((i) => (i.isShort ? `https://www.youtube.com/shorts/${i.videoId}` : `https://www.youtube.com/watch?v=${i.videoId}`))
         .join('\n');
     } else {
+      const groups = {
+        available: items.filter((i) => i.status === 'available'),
+        deleted: items.filter((i) => i.status === 'deleted'),
+        private: items.filter((i) => i.status === 'private'),
+        unavailable: items.filter((i) => i.status !== 'available' && i.status !== 'deleted' && i.status !== 'private'),
+      };
       const lines = [
         '# YouTube Liked Videos Export',
         '',
-        `- Exported: ${date}`,
+        `- Date: ${date}`,
         `- Scope: ${scope}`,
-        `- Count: ${items.length}`,
+        `- Total: ${items.length} (Available: ${groups.available.length}, Deleted: ${groups.deleted.length}, Private: ${groups.private.length}, Other unavailable: ${groups.unavailable.length})`,
         '',
-        '| # | Title | Channel | Status | Link |',
-        '| --- | --- | --- | --- | --- |',
       ];
-      items.forEach((item, idx) => {
-        const link = item.videoId
-          ? (item.isShort ? `https://www.youtube.com/shorts/${item.videoId}` : `https://www.youtube.com/watch?v=${item.videoId}`)
-          : '';
-        const title = item.title || resolved.get(item.videoId) || item.rawTitle || `[${item.status}]`;
-        const linkCell = link ? `[Watch](${link})` : '';
-        lines.push(`| ${idx + 1} | ${escapeMd(title)} | ${escapeMd(item.channel)} | ${item.status} | ${linkCell} |`);
-      });
+      if (groups.available.length) {
+        lines.push('## Available', '', '| # | Video ID | Title | Channel | YouTube |', '| --- | --- | --- | --- | --- |');
+        groups.available.forEach((item, idx) => {
+          const url = item.isShort
+            ? `https://www.youtube.com/shorts/${item.videoId}`
+            : `https://www.youtube.com/watch?v=${item.videoId}`;
+          lines.push(`| ${idx + 1} | \`${item.videoId}\` | ${escapeMd(item.title)} | ${escapeMd(item.channel)} | [Link](${url}) |`);
+        });
+        lines.push('');
+      }
+      const unavailSections = [
+        ['Deleted', groups.deleted],
+        ['Private', groups.private],
+        ['Other Unavailable', groups.unavailable],
+      ];
+      for (const [heading, list] of unavailSections) {
+        if (!list.length) continue;
+        lines.push(`## ${heading}`, '');
+        if (withTitles) {
+          lines.push('| # | Video ID | Title | YouTube | Wayback Machine |', '| --- | --- | --- | --- | --- |');
+        } else {
+          lines.push('| # | Video ID | YouTube | Wayback Machine |', '| --- | --- | --- | --- |');
+        }
+        list.forEach((item, idx) => {
+          const yt = item.isShort
+            ? `https://www.youtube.com/shorts/${item.videoId}`
+            : `https://www.youtube.com/watch?v=${item.videoId}`;
+          const wb = `https://web.archive.org/web/*/${yt}`;
+          if (withTitles) {
+            const found = resolved.get(item.videoId);
+            const titleCell = found ? escapeMd(found) : '*(not found)*';
+            lines.push(`| ${idx + 1} | \`${item.videoId}\` | ${titleCell} | [Link](${yt}) | [Archive](${wb}) |`);
+          } else {
+            lines.push(`| ${idx + 1} | \`${item.videoId}\` | [Link](${yt}) | [Archive](${wb}) |`);
+          }
+        });
+        lines.push('');
+      }
       content = lines.join('\n');
     }
 
@@ -850,6 +996,8 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
 
     const q = filterState.query.trim().toLowerCase();
     if (!q) return true;
+    if (filterState.target === 'title') return `${item.title} ${item.rawTitle}`.toLowerCase().includes(q);
+    if (filterState.target === 'channel') return item.channel.toLowerCase().includes(q);
     const hay = `${item.title} ${item.rawTitle} ${item.channel}`.toLowerCase();
     return hay.includes(q);
   }
@@ -875,8 +1023,10 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
     if (bar) {
       const counter = bar.querySelector('.ytlt-counter');
       if (counter) counter.textContent = `Showing ${shown} / ${totalVisible}`;
-      const resetBtn = bar.querySelector('.ytlt-fbtn');
-      if (resetBtn) resetBtn.hidden = !active;
+      for (const act of ['export-filtered', 'unlike-filtered', 'reset-filter']) {
+        const b = bar.querySelector(`[data-act="${act}"]`);
+        if (b) b.hidden = !active;
+      }
     }
 
     const empty = document.getElementById(EMPTY_ID);
@@ -901,7 +1051,7 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
   }
 
   function resetFilter() {
-    filterState = { query: '', chip: 'all' };
+    filterState = { query: '', chip: 'all', target: 'both' };
     const bar = document.getElementById(FILTER_ID);
     if (bar) {
       const input = bar.querySelector('input[type="search"]');
@@ -962,6 +1112,7 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
     input.value = filterState.query;
     input.addEventListener('input', () => {
       filterState.query = input.value;
+      filterState.target = 'both';
       applyFilter();
     });
     searchWrap.append(makeSvgIcon(ICON_SEARCH, 15), input);
@@ -991,9 +1142,35 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
       chips.append(chip);
     }
 
+    const expBtn = document.createElement('button');
+    expBtn.type = 'button';
+    expBtn.className = 'ytlt-fbtn';
+    expBtn.dataset.act = 'export-filtered';
+    expBtn.textContent = 'Export Filtered';
+    expBtn.hidden = !isFilterActive();
+    expBtn.addEventListener('click', () => {
+      runExport('filtered', get('exportFormat'), get('resolveTitles') === true);
+    });
+
+    const unlikeBtn = document.createElement('button');
+    unlikeBtn.type = 'button';
+    unlikeBtn.className = 'ytlt-fbtn';
+    unlikeBtn.dataset.act = 'unlike-filtered';
+    unlikeBtn.textContent = 'Unlike Filtered';
+    unlikeBtn.hidden = !isFilterActive();
+    unlikeBtn.addEventListener('click', () => {
+      const targets = selectScopeItems('filtered');
+      if (!targets.length) {
+        showToast({ text: 'No filtered liked videos to unlike.', actions: [{ label: 'Close', onClick: clearToast }] });
+        return;
+      }
+      openDialog('unlike', { label: 'Filtered liked videos', items: targets });
+    });
+
     const resetBtn = document.createElement('button');
     resetBtn.type = 'button';
     resetBtn.className = 'ytlt-fbtn';
+    resetBtn.dataset.act = 'reset-filter';
     resetBtn.textContent = 'Reset';
     resetBtn.hidden = !isFilterActive();
     resetBtn.addEventListener('click', resetFilter);
@@ -1001,7 +1178,7 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
     const counter = document.createElement('span');
     counter.className = 'ytlt-counter';
 
-    bar.append(searchLabel, searchWrap, chips, resetBtn, counter);
+    bar.append(searchLabel, searchWrap, chips, counter, expBtn, unlikeBtn, resetBtn);
     listRoot.before(bar);
     applyFilter();
   }
@@ -1198,6 +1375,8 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
     body.className = 'ytlt-body';
 
     let currentTab = initialTab;
+    let kwQuery = '';
+    let kwTarget = 'both';
     const tabButtons = [];
     for (const [id, label] of [
       ['unlike', 'Bulk Unlike'],
@@ -1236,12 +1415,12 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
       return card;
     };
 
-    function askConfirm(label, items) {
+    function askConfirm(label, items, { warning = '' } = {}) {
       if (!items.length) {
         showToast({ text: `No loaded liked videos match "${label}".`, actions: [{ label: 'Close', onClick: clearToast }] });
         return;
       }
-      renderBody({ label, items });
+      renderBody({ label, items, warning });
     }
 
     function renderBody(confirmState) {
@@ -1260,6 +1439,13 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
         const summary = document.createElement('p');
         summary.className = 'ytlt-note';
         summary.textContent = `This will unlike ${confirmState.items.length} video(s) from your Liked Videos using YouTube's unlike API.`;
+        box.append(ch, summary);
+        if (confirmState.warning) {
+          const warn = document.createElement('div');
+          warn.className = 'ytlt-warn';
+          warn.append(makeSvgIcon(ICON_WARN, 16), document.createTextNode(confirmState.warning));
+          box.append(warn);
+        }
         const list = document.createElement('ul');
         list.className = 'ytlt-confirm-list';
         for (const item of confirmState.items.slice(0, 5)) {
@@ -1285,7 +1471,7 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
         confirm.textContent = `Unlike ${confirmState.items.length} video(s)`;
         confirm.addEventListener('click', () => runBulkUnlike(confirmState.items, confirmState.label));
         actions.append(cancel, confirm);
-        box.append(ch, summary, list, actions);
+        box.append(list, actions);
         body.append(box);
         cancel.focus();
         return;
@@ -1293,30 +1479,35 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
 
       if (currentTab === 'unlike') {
         const all = getAllItems();
-        const unavailCard = makeCard('Unlike unavailable videos');
-        const unavailRow = document.createElement('div');
-        unavailRow.className = 'ytlt-row';
-        const unavailSel = document.createElement('select');
-        for (const [val, txt] of [
-          ['unavailable-all', 'All unavailable (deleted + private)'],
-          ['unavailable-deleted', 'Deleted only'],
-          ['unavailable-private', 'Private only'],
-        ]) {
+        const clearCard = makeCard('Clear Liked Videos');
+        const clearRow = document.createElement('div');
+        clearRow.className = 'ytlt-row';
+        const clearSel = document.createElement('select');
+        clearSel.id = 'ytlt-clear-mode';
+        for (const [val, txt] of CLEAR_MODES) {
           const o = document.createElement('option');
           o.value = val;
           o.textContent = txt;
-          unavailSel.append(o);
+          if (val === get('clearMode')) o.selected = true;
+          clearSel.append(o);
         }
-        const unavailBtn = document.createElement('button');
-        unavailBtn.type = 'button';
-        unavailBtn.className = 'ytlt-btn danger';
-        unavailBtn.textContent = 'Unlike';
-        unavailBtn.addEventListener('click', () => {
-          const items = selectScopeItems(unavailSel.value);
-          askConfirm(unavailSel.options[unavailSel.selectedIndex].textContent, items);
+        clearSel.addEventListener('change', () => put('clearMode', clearSel.value));
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'ytlt-btn danger';
+        clearBtn.textContent = 'Unlike';
+        clearBtn.addEventListener('click', () => {
+          const mode = clearSel.value;
+          const { targets } = selectClearTargets(getAllItems(), mode);
+          const includesUnavail = mode !== 'skip-unavailable';
+          const warning =
+            includesUnavail && hasUnavailableHiddenBanner()
+              ? 'Unavailable videos are currently hidden. Enable "Show unavailable videos" first to unlike them.'
+              : '';
+          askConfirm(clearSel.options[clearSel.selectedIndex].textContent, targets, { warning });
         });
-        unavailRow.append(unavailSel, unavailBtn);
-        unavailCard.append(unavailRow);
+        clearRow.append(clearSel, clearBtn);
+        clearCard.append(clearRow);
 
         const watchedCard = makeCard('Unlike watched videos');
         const watchedRow = document.createElement('div');
@@ -1350,20 +1541,78 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
         const kwRow = document.createElement('div');
         kwRow.className = 'ytlt-row';
         const kwInput = document.createElement('input');
+        kwInput.id = 'ytlt-kw-input';
         kwInput.type = 'text';
+        kwInput.value = kwQuery;
         kwInput.placeholder = 'Title or channel keyword...';
         kwInput.style.flex = '1';
+        const tgtSel = document.createElement('select');
+        tgtSel.id = 'ytlt-kw-target';
+        for (const [val, txt] of [
+          ['both', 'Title & Channel'],
+          ['title', 'Title'],
+          ['channel', 'Channel'],
+        ]) {
+          const o = document.createElement('option');
+          o.value = val;
+          o.textContent = txt;
+          if (val === kwTarget) o.selected = true;
+          tgtSel.append(o);
+        }
+        kwRow.append(kwInput, tgtSel);
+
+        const kwPreview = document.createElement('p');
+        kwPreview.className = 'ytlt-note';
+        const updateKwPreview = () => {
+          const matches = getAllItems().filter((i) => matchKeywordItem(i, kwQuery, kwTarget));
+          if (!kwQuery.trim()) {
+            kwPreview.textContent = 'Type a keyword to preview matches.';
+            return;
+          }
+          const sample = matches.slice(0, 3).map((m) => m.title).join(', ');
+          kwPreview.textContent = matches.length ? `${matches.length} match(es): ${sample}` : '0 matches found.';
+        };
+        updateKwPreview();
+        kwInput.addEventListener('input', () => {
+          kwQuery = kwInput.value;
+          updateKwPreview();
+        });
+        tgtSel.addEventListener('change', () => {
+          kwTarget = tgtSel.value;
+          updateKwPreview();
+        });
+
+        const kwActRow = document.createElement('div');
+        kwActRow.className = 'ytlt-row';
+        const prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
+        prevBtn.className = 'ytlt-btn';
+        prevBtn.textContent = 'Preview in list';
+        prevBtn.addEventListener('click', () => {
+          filterState.query = kwQuery;
+          filterState.target = kwTarget;
+          filterState.chip = 'all';
+          const bar = document.getElementById(FILTER_ID);
+          if (bar) {
+            const inp = bar.querySelector('input[type="search"]');
+            if (inp) inp.value = kwQuery;
+            for (const c of bar.querySelectorAll('.ytlt-chip')) {
+              c.setAttribute('aria-pressed', String(c.dataset.chip === 'all'));
+            }
+          }
+          applyFilter();
+          closeDialog();
+        });
         const kwBtn = document.createElement('button');
         kwBtn.type = 'button';
         kwBtn.className = 'ytlt-btn danger';
         kwBtn.textContent = 'Unlike matching';
         kwBtn.addEventListener('click', () => {
-          const q = cleanText(kwInput.value).toLowerCase();
-          if (!q) return;
-          const matched = getAllItems().filter((i) => `${i.title} ${i.channel}`.toLowerCase().includes(q));
-          askConfirm(`Keyword "${kwInput.value.trim()}"`, matched);
+          if (!kwQuery.trim()) return;
+          const matched = getAllItems().filter((i) => matchKeywordItem(i, kwQuery, kwTarget));
+          askConfirm(`Keyword "${kwQuery.trim()}"`, matched);
         });
-        kwRow.append(kwInput, kwBtn);
+        kwActRow.append(prevBtn, kwBtn);
 
         const extraRow = document.createElement('div');
         extraRow.className = 'ytlt-row';
@@ -1378,9 +1627,30 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
         filteredBtn.textContent = 'Unlike currently filtered';
         filteredBtn.addEventListener('click', () => askConfirm('Filtered liked videos', selectScopeItems('filtered')));
         extraRow.append(shortsBtn, filteredBtn);
-        quickCard.append(kwRow, extraRow);
+        quickCard.append(kwRow, kwPreview, kwActRow, extraRow);
 
-        body.append(unavailCard, watchedCard, quickCard);
+        const uiCard = makeCard('Display Settings');
+        const makeToggle = (id, label, key, onChange) => {
+          const wrap = document.createElement('label');
+          wrap.className = 'ytlt-check';
+          wrap.setAttribute('for', id);
+          const cb = document.createElement('input');
+          cb.id = id;
+          cb.type = 'checkbox';
+          cb.checked = get(key) === true;
+          cb.addEventListener('change', () => {
+            put(key, cb.checked);
+            onChange();
+          });
+          wrap.append(cb, document.createTextNode(label));
+          return wrap;
+        };
+        uiCard.append(
+          makeToggle('ytlt-show-filter', 'Show in-page search & filter bar', 'showFilterBar', mountFilterBar),
+          makeToggle('ytlt-show-dur', 'Show total duration calculator badge', 'showDuration', updateDurationBadge)
+        );
+
+        body.append(clearCard, watchedCard, quickCard, uiCard);
         return;
       }
 
@@ -1425,12 +1695,30 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
         resolveCb.addEventListener('change', () => put('resolveTitles', resolveCb.checked));
         resolveLabel.append(resolveCb, document.createTextNode('Resolve unavailable video titles (via findyoutubevideo)'));
 
+        const warnBox = document.createElement('div');
+        warnBox.className = 'ytlt-warn';
+        const updateWarn = () => {
+          const includesUnavail = scopeSel.value !== 'available' && scopeSel.value !== 'shorts';
+          if (includesUnavail && hasUnavailableHiddenBanner()) {
+            warnBox.textContent = '';
+            warnBox.append(
+              makeSvgIcon(ICON_WARN, 16),
+              document.createTextNode('Unavailable videos are hidden. Enable "Show unavailable videos" first to include them.')
+            );
+            warnBox.style.display = '';
+          } else {
+            warnBox.style.display = 'none';
+          }
+        };
+        updateWarn();
+        scopeSel.addEventListener('change', updateWarn);
+
         const goBtn = document.createElement('button');
         goBtn.type = 'button';
         goBtn.className = 'ytlt-btn primary';
         goBtn.textContent = 'Export';
         goBtn.addEventListener('click', () => runExport(scopeSel.value, fmtSel.value, resolveCb.checked));
-        card.append(row1, resolveLabel, goBtn);
+        card.append(row1, resolveLabel, warnBox, goBtn);
         body.append(card);
         return;
       }
@@ -1531,7 +1819,7 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
   }
 
   document.addEventListener('yt-navigate-finish', () => {
-    filterState = { query: '', chip: 'all' };
+    filterState = { query: '', chip: 'all', target: 'both' };
     syncPage();
   });
   window.addEventListener('popstate', syncPage);
