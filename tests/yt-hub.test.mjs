@@ -51,8 +51,8 @@ check('second entry opens the bookmark list', menu[1].startsWith('Show bookmarks
 await openHub();
 await page.waitForTimeout(100);
 check('hub opens from its entry', (await title()) === 'YouTube: Custom Collection');
-check('hub button count is fourteen features plus backup, diagnostics, reset and close', (await page.locator('#ytc-panel button').count()) === 18);
-check('hub rows carry chevrons', (await page.locator('#ytc-panel .ytc-chevron').count()) === 16);
+check('hub button count is fifteen features plus backup, diagnostics, reset and close', (await page.locator('#ytc-panel button').count()) === 19);
+check('hub rows carry chevrons', (await page.locator('#ytc-panel .ytc-chevron').count()) === 17);
 const hubLabels = () => page.evaluate(() =>
   [...document.querySelectorAll('#ytc-panel > button')]
     .filter((button) => button.querySelector('.ytc-value'))
@@ -62,7 +62,7 @@ check('hub features read A to Z', await page.evaluate(() => {
   const labels = [...document.querySelectorAll('#ytc-panel > button')]
     .filter((button) => button.querySelector('.ytc-value'))
     .map((button) => button.querySelector('span').textContent)
-    .slice(0, 14);
+    .slice(0, 15);
   const sorted = [...labels].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
   return JSON.stringify(labels) === JSON.stringify(sorted);
 }));
@@ -70,7 +70,7 @@ check('utility rows stay below the features', await page.evaluate(() => {
   const labels = [...document.querySelectorAll('#ytc-panel > button')]
     .filter((button) => button.querySelector('.ytc-value'))
     .map((button) => button.querySelector('span').textContent);
-  return labels[14] === 'Backup' && labels[15] === 'Diagnostics';
+  return labels[15] === 'Backup' && labels[16] === 'Diagnostics';
 }));
 check('the bookmark feature sorts under B', (await hubLabels())[1] === 'Bookmarks');
 check('hub has no back button', (await page.getByRole('button', { name: 'Back', exact: true }).count()) === 0);
@@ -118,7 +118,7 @@ await page.getByRole('button', { name: 'Diagnostics' }).click();
 await page.waitForTimeout(80);
 const info = await page.locator('#ytc-panel .ytc-info').allTextContents();
 check('diagnostics shows the version', info.some((t) => t.includes('Version 2.5')));
-check('diagnostics shows the feature count', info.some((t) => t.includes('Enabled features 12 of 14')));
+check('diagnostics shows the feature count', info.some((t) => t.includes('Enabled features 13 of 15')));
 await page.getByRole('button', { name: 'Copy report' }).click();
 await page.waitForTimeout(80);
 const report = await page.evaluate(() => navigator.clipboard.readText());

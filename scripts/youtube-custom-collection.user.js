@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      4.8
+// @version      4.9
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -133,6 +133,7 @@
   const SUBTITLES = ONOFF;
   const AUDIOS = [['leave', 'Leave as-is'], ['original', 'Original (first track)']];
   const PROMPTS = [['yes', 'Yes'], ['no', 'No'], ['leave', 'Leave as-is']];
+  const GRID_COLUMNS = [[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6'], [7, '7'], [8, '8']];
 
   const FEATURES = [
     {
@@ -357,6 +358,20 @@
         { key: 'quietSidebarExplore', label: 'Hide Explore section', type: 'toggle', group: 'Sidebar', def: false },
         { key: 'quietSidebarMore', label: 'Hide More from YouTube', type: 'toggle', group: 'Sidebar', def: false },
         { key: 'quietSidebarFooter', label: 'Hide sidebar footer', type: 'toggle', group: 'Sidebar', def: false },
+      ],
+    },
+    {
+      id: 'grid',
+      def: true,
+      title: 'YouTube: Custom Grid',
+      short: 'Custom Grid',
+      desc: 'Sets a custom number of videos per row on YouTube grids, scaling cards down uniformly. Toggle which sections use the custom grid.',
+      rows: [
+        { key: 'gridColumns', label: 'Videos per row', type: 'choice', group: 'Layout', def: 4, options: GRID_COLUMNS },
+        { key: 'gridHome', label: 'Home', type: 'toggle', group: 'Sections', def: true },
+        { key: 'gridSubscriptions', label: 'Subscriptions', type: 'toggle', group: 'Sections', def: true },
+        { key: 'gridChannel', label: 'Channel', type: 'toggle', group: 'Sections', def: true },
+        { key: 'gridOther', label: 'Other grids', type: 'toggle', group: 'Sections', def: true },
       ],
     },
   ];
@@ -1802,6 +1817,64 @@
       },
       true
     );
+
+    document.addEventListener('ytc-change', apply);
+    apply();
+  }
+
+  // ---------- custom grid ----------
+
+  {
+    const enabled = () => isTop && featureOn('grid');
+    const SECTIONS = [
+      { key: 'gridHome', cls: 'ytc-grid-home', scope: 'ytd-browse[page-subtype="home"]' },
+      { key: 'gridSubscriptions', cls: 'ytc-grid-subs', scope: 'ytd-browse[page-subtype="subscriptions"]' },
+      { key: 'gridChannel', cls: 'ytc-grid-channel', scope: 'ytd-browse[page-subtype="channels"]' },
+      {
+        key: 'gridOther',
+        cls: 'ytc-grid-other',
+        scope: 'ytd-browse:not([page-subtype="home"]):not([page-subtype="subscriptions"]):not([page-subtype="channels"])',
+      },
+    ];
+    const scopes = SECTIONS.map((s) => `html.${s.cls} ${s.scope}`);
+    const sel = (suffix) => scopes.map((s) => `${s} ${suffix}`).join(',');
+    const item = 'ytd-rich-item-renderer:not([is-slim-media]):not([is-post]):not([is-mini-mode])';
+
+    const style = document.createElement('style');
+    style.id = 'ytc-grid';
+    style.textContent =
+      `${sel('ytd-rich-grid-renderer')}{` +
+      `--ytd-rich-grid-items-per-row:var(--ytc-grid-cols)!important;` +
+      `--ytd-rich-grid-item-max-width:none!important;` +
+      `--ytd-rich-grid-item-min-width:0px!important}` +
+      `${sel('ytd-rich-grid-renderer>#contents')}{` +
+      `display:flex!important;flex-wrap:wrap!important;align-items:flex-start!important}` +
+      `${sel('ytd-rich-grid-row')},${sel('ytd-rich-grid-row>#contents')}{display:contents!important}` +
+      `${sel(item)}{` +
+      `--ytd-rich-grid-items-per-row:var(--ytc-grid-cols)!important;` +
+      `box-sizing:border-box!important;` +
+      `width:calc(100% / var(--ytc-grid-cols) - var(--ytd-rich-grid-item-margin, 16px) - 0.01px)!important;` +
+      `max-width:calc(100% / var(--ytc-grid-cols) - var(--ytd-rich-grid-item-margin, 16px) - 0.01px)!important;` +
+      `min-width:0!important;` +
+      `flex:0 0 calc(100% / var(--ytc-grid-cols) - var(--ytd-rich-grid-item-margin, 16px) - 0.01px)!important;` +
+      `margin-left:calc(var(--ytd-rich-grid-item-margin, 16px) / 2)!important;` +
+      `margin-right:calc(var(--ytd-rich-grid-item-margin, 16px) / 2)!important}` +
+      `${sel(`${item}>#content`)},${sel(`${item} ytd-rich-grid-media`)},${sel(`${item} yt-lockup-view-model`)}{` +
+      `width:100%!important;max-width:100%!important;min-width:0!important}` +
+      `${sel('ytd-rich-section-renderer')},${sel('ytd-continuation-item-renderer')}{` +
+      `width:100%!important;flex:0 0 100%!important}`;
+    document.documentElement.append(style);
+
+    function apply() {
+      const root = document.documentElement;
+      const on = enabled();
+      const cols = read(featureById('grid').rows[0]);
+      if (on) root.style.setProperty('--ytc-grid-cols', String(cols));
+      else root.style.removeProperty('--ytc-grid-cols');
+      for (const s of SECTIONS) {
+        root.classList.toggle(s.cls, on && get(s.key, true) === true);
+      }
+    }
 
     document.addEventListener('ytc-change', apply);
     apply();
@@ -6936,6 +7009,10 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
     if (feature.id === 'quiet') {
       const on = feature.rows.filter((row) => get(row.key, row.def === true) === true).length;
       return `${on} on`;
+    }
+    if (feature.id === 'grid') {
+      const cols = read(feature.rows[0]);
+      return `${cols} per row`;
     }
     return 'On';
   }
