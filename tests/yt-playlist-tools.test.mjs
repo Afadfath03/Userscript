@@ -283,16 +283,10 @@ for (const variant of [
     (await tab.locator('#row-1').count()) === 0 && (await tab.locator('#row-2').count()) === 1);
   await ctx.close();
 
-  // 7. Special playlist LL rejected on Import + No side-effects on /watch
+  // 7. Liked Videos (LL) is skipped by Playlist Tools + No side-effects on /watch
   htmlPayload = fixtureHtml({ listTotal: 7 });
   ({ ctx, tab } = await openTab(script, '/playlist?list=LL'));
-  await tab.locator(ids.btn).click();
-  await tab.locator(`${ids.dialog} [role="tab"]`, { hasText: 'Import' }).click();
-  await tab.locator(ids.impTa).fill('NEW00000001');
-  await tab.locator(`${ids.dialog} button:not([role="tab"])`, { hasText: /^Import$/ }).click();
-  await tab.locator(`${ids.dialog} .ytpt-confirm button, ${ids.dialog} .ytc-pt-confirm button`, { hasText: /^Import$/ }).click();
-  await tab.waitForTimeout(300);
-  check(`${name}: LL playlist rejected on Import`, (await tab.locator(ids.toast).textContent()).includes('not supported'));
+  check(`${name}: zero playlist-tools UI on /playlist?list=LL`, (await tab.locator(`${ids.btn}, ${ids.dur}, ${ids.filter}`).count()) === 0);
   await ctx.close();
 
   htmlPayload = '<!doctype html><html><body><div id="movie_player"><video></video></div></body></html>';

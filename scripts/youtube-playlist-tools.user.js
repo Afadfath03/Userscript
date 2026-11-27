@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Playlist Tools
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.3
+// @version      1.4
 // @description  Bulk cleanup, search and filter, total duration calculator, export with optional title lookup, and import on YouTube playlist pages
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -74,7 +74,7 @@
   };
   const put = (key, val) => GM_setValue(`${PREFIX}.${key}`, val);
 
-  const onPlaylistPage = () => location.pathname === '/playlist';
+  const onPlaylistPage = () => location.pathname === '/playlist' && currentListId() !== 'LL';
   const currentListId = () => new URLSearchParams(location.search).get('list') || '';
   const isSpecialPlaylist = (id) => !id || id === 'LL' || /^RD/i.test(id);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
