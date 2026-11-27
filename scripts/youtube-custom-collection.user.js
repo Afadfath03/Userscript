@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      4.3
+// @version      4.4
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -2330,14 +2330,30 @@
       };
     }
 
-    const getRows = () => [...document.querySelectorAll('ytd-playlist-video-renderer')];
+    function isElementHidden(el) {
+      for (let cur = el; cur && cur.nodeType === 1; cur = cur.parentElement) {
+        if (cur.hasAttribute('hidden')) return true;
+        if (getComputedStyle(cur).display === 'none') return true;
+      }
+      return false;
+    }
+
+    function activePlaylistRoot() {
+      for (const page of document.querySelectorAll('ytd-browse[page-subtype="playlist"]')) {
+        if (!isElementHidden(page)) return page;
+      }
+      return document;
+    }
+
+    const getRows = () => [...activePlaylistRoot().querySelectorAll('ytd-playlist-video-renderer')];
     const getAllItems = () => getRows().map(readRow);
 
     function getTotalPlaylistCount() {
-      const candidates = document.querySelectorAll(
-        'ytd-playlist-header-renderer .metadata-stats, yt-page-header-renderer yt-content-metadata-view-model, #stats yt-formatted-string, .yt-page-header-view-model__page-header-headline-info'
+      const candidates = activePlaylistRoot().querySelectorAll(
+        'ytd-playlist-header-renderer .metadata-stats, yt-page-header-view-model yt-content-metadata-view-model, yt-page-header-renderer yt-content-metadata-view-model, #stats yt-formatted-string, .yt-page-header-view-model__page-header-headline-info, .page-header-view-model-wiz__page-header-headline-info'
       );
       for (const el of candidates) {
+        if (isElementHidden(el)) continue;
         const text = cleanText(el.textContent);
         const m = text.match(/([\d,.\s]+)\s+video/i);
         if (m) {
@@ -3349,11 +3365,15 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
         for (const row of getRows()) row.removeAttribute(HIDDEN_ATTR);
         return;
       }
-      if (existing && existing.isConnected) return;
+      const root = activePlaylistRoot();
       const listRoot =
-        document.querySelector('ytd-playlist-video-list-renderer #contents') ||
-        document.querySelector('ytd-playlist-video-list-renderer');
+        root.querySelector('ytd-playlist-video-list-renderer #contents') ||
+        root.querySelector('ytd-playlist-video-list-renderer');
       if (!listRoot) return;
+      if (existing && existing.isConnected) {
+        if (existing.parentElement !== listRoot.parentElement) listRoot.before(existing);
+        return;
+      }
 
       ensureStyle();
       const bar = document.createElement('div');
@@ -3452,13 +3472,31 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
     }
 
     function findHeaderAnchor() {
-      return (
-        document.querySelector('ytd-playlist-header-renderer .metadata-action-bar') ||
-        document.querySelector('ytd-playlist-header-renderer .metadata-wrapper') ||
-        document.querySelector('yt-page-header-renderer .yt-page-header-view-model__page-header-content') ||
-        document.querySelector('ytd-playlist-header-renderer') ||
-        document.querySelector('yt-page-header-renderer')
-      );
+      const root = activePlaylistRoot();
+      const selectors = [
+        'ytd-playlist-header-renderer .metadata-action-bar',
+        'ytd-playlist-header-renderer .metadata-wrapper',
+        'yt-page-header-view-model .yt-page-header-view-model__page-header-headline-info',
+        'yt-page-header-view-model .page-header-view-model-wiz__page-header-headline-info',
+        'yt-page-header-view-model .yt-page-header-view-model__page-header-content',
+        'yt-page-header-view-model .page-header-view-model-wiz__page-header-content',
+        'yt-page-header-renderer .yt-page-header-view-model__page-header-content',
+        'yt-page-header-renderer .page-header-view-model-wiz__page-header-content',
+      ];
+      for (const sel of selectors) {
+        for (const el of root.querySelectorAll(sel)) {
+          if (!isElementHidden(el)) return el;
+        }
+      }
+      for (const actions of root.querySelectorAll('yt-flexible-actions-view-model')) {
+        if (!isElementHidden(actions) && actions.parentElement) return actions.parentElement;
+      }
+      for (const sel of ['yt-page-header-view-model', 'ytd-playlist-header-renderer', 'yt-page-header-renderer']) {
+        for (const el of root.querySelectorAll(sel)) {
+          if (!isElementHidden(el)) return el;
+        }
+      }
+      return null;
     }
 
     function updateDurationBadge() {
@@ -3475,6 +3513,8 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
       if (!badge) {
         badge = document.createElement('div');
         badge.id = DURATION_ID;
+        anchor.append(badge);
+      } else if (badge.parentElement !== anchor) {
         anchor.append(badge);
       }
 
@@ -3540,16 +3580,25 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
         document.getElementById(BTN_ID)?.remove();
         return;
       }
-      if (document.getElementById(BTN_ID)?.isConnected) return;
       const anchor = findHeaderAnchor();
       if (!anchor) return;
       ensureStyle();
+      const existing = document.getElementById(BTN_ID);
+      const badge = document.getElementById(DURATION_ID);
+      if (existing) {
+        if (existing.parentElement !== anchor) {
+          if (badge && badge.parentElement === anchor) anchor.insertBefore(existing, badge);
+          else anchor.append(existing);
+        }
+        return;
+      }
       const btn = document.createElement('button');
       btn.id = BTN_ID;
       btn.type = 'button';
       btn.append(makeSvgIcon(ICON_TOOLS, 16), document.createTextNode('Playlist Tools'));
       btn.addEventListener('click', () => openDialog('cleanup'));
-      anchor.append(btn);
+      if (badge && badge.parentElement === anchor) anchor.insertBefore(btn, badge);
+      else anchor.append(btn);
     }
 
     function closeDialog() {

@@ -360,6 +360,60 @@ htmlPayload = fixtureHtml({ listTotal: 7 });
   await ctx.close();
 }
 
+// ---------- New playlist header (yt-page-header-view-model) with hidden Watch Later browse ----------
+{
+  htmlPayload = `<!doctype html><html dark><body>
+    <ytd-browse page-subtype="playlist" hidden>
+      <ytd-playlist-header-renderer>
+        <div class="metadata-wrapper">
+          <div class="metadata-stats">1 video</div>
+          <div class="metadata-action-bar" id="stale-wl-bar"></div>
+        </div>
+      </ytd-playlist-header-renderer>
+    </ytd-browse>
+    <ytd-browse page-subtype="playlist" id="active-browse">
+      <yt-page-header-view-model>
+        <div class="page-header-view-model-wiz__page-header-headline-info" id="new-header-info">
+          <yt-content-metadata-view-model>Playlist - Public - 165 videos</yt-content-metadata-view-model>
+          <yt-flexible-actions-view-model><button>Play all</button></yt-flexible-actions-view-model>
+        </div>
+      </yt-page-header-view-model>
+      <ytd-playlist-video-list-renderer>
+        <div id="contents">
+          <ytd-playlist-video-renderer id="row-new-1">
+            <a id="thumbnail" href="/watch?v=NEW00000001&amp;list=PLNEW">
+              <ytd-thumbnail-overlay-time-status-renderer>4:19</ytd-thumbnail-overlay-time-status-renderer>
+            </a>
+            <a id="video-title" href="/watch?v=NEW00000001&amp;list=PLNEW">Sample MAD</a>
+            <ytd-channel-name><a href="/@chan">Creator</a></ytd-channel-name>
+          </ytd-playlist-video-renderer>
+        </div>
+      </ytd-playlist-video-list-renderer>
+    </ytd-browse>
+  </body></html>`;
+
+  for (const [label, script, btnId, durId] of [
+    ['standalone', STANDALONE, 'ytpt-open-btn', 'ytpt-duration-badge'],
+    ['collection', COLLECTION, 'ytc-pt-open-btn', 'ytc-pt-duration-badge'],
+  ]) {
+    const { ctx, tab } = await openTab(script, '/playlist?list=PLNEW');
+    const info = await tab.evaluate(([bId, dId]) => {
+      const btn = document.getElementById(bId);
+      const dur = document.getElementById(dId);
+      return {
+        btnInNew: btn?.parentElement?.id === 'new-header-info',
+        durInNew: dur?.parentElement?.id === 'new-header-info',
+        durText: dur?.textContent || '',
+      };
+    }, [btnId, durId]);
+    check(`${label}: mounts button and duration in visible yt-page-header-view-model (not hidden WL)`,
+      info.btnInNew && info.durInNew);
+    check(`${label}: reads active playlist count (165) instead of hidden WL count (1)`,
+      info.durText.includes('1/165 loaded'));
+    await ctx.close();
+  }
+}
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} failure(s)` : '\nall checks passed');
