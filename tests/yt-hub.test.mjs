@@ -44,15 +44,15 @@ const openHub = () => page.evaluate(() => window.__menu[0].cb());
 const back = () => page.getByRole('button', { name: 'Back', exact: true }).click();
 
 const menu = await page.evaluate(() => window.__menu.map((m) => m.name));
-check('menu has the hub entry, the bookmark shortcut and the share command', menu.length === 3);
+check('menu has the hub entry, bookmark shortcut, share command and playlist tools', menu.length === 4);
 check('first entry is named after the script', menu[0] === 'YouTube: Custom Collection');
 check('second entry opens the bookmark list', menu[1].startsWith('Show bookmarks'));
 
 await openHub();
 await page.waitForTimeout(100);
 check('hub opens from its entry', (await title()) === 'YouTube: Custom Collection');
-check('hub button count is twelve features plus backup, diagnostics, reset and close', (await page.locator('#ytc-panel button').count()) === 16);
-check('hub rows carry chevrons', (await page.locator('#ytc-panel .ytc-chevron').count()) === 14);
+check('hub button count is thirteen features plus backup, diagnostics, reset and close', (await page.locator('#ytc-panel button').count()) === 17);
+check('hub rows carry chevrons', (await page.locator('#ytc-panel .ytc-chevron').count()) === 15);
 const hubLabels = () => page.evaluate(() =>
   [...document.querySelectorAll('#ytc-panel > button')]
     .filter((button) => button.querySelector('.ytc-value'))
@@ -62,7 +62,7 @@ check('hub features read A to Z', await page.evaluate(() => {
   const labels = [...document.querySelectorAll('#ytc-panel > button')]
     .filter((button) => button.querySelector('.ytc-value'))
     .map((button) => button.querySelector('span').textContent)
-    .slice(0, 11);
+    .slice(0, 13);
   const sorted = [...labels].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
   return JSON.stringify(labels) === JSON.stringify(sorted);
 }));
@@ -70,7 +70,7 @@ check('utility rows stay below the features', await page.evaluate(() => {
   const labels = [...document.querySelectorAll('#ytc-panel > button')]
     .filter((button) => button.querySelector('.ytc-value'))
     .map((button) => button.querySelector('span').textContent);
-  return labels[12] === 'Backup' && labels[13] === 'Diagnostics';
+  return labels[13] === 'Backup' && labels[14] === 'Diagnostics';
 }));
 check('the bookmark feature sorts under B', (await hubLabels())[1] === 'Bookmarks');
 check('hub has no back button', (await page.getByRole('button', { name: 'Back', exact: true }).count()) === 0);
@@ -118,7 +118,7 @@ await page.getByRole('button', { name: 'Diagnostics' }).click();
 await page.waitForTimeout(80);
 const info = await page.locator('#ytc-panel .ytc-info').allTextContents();
 check('diagnostics shows the version', info.some((t) => t.includes('Version 2.5')));
-check('diagnostics shows the feature count', info.some((t) => t.includes('Enabled features 10 of 12')));
+check('diagnostics shows the feature count', info.some((t) => t.includes('Enabled features 11 of 13')));
 await page.getByRole('button', { name: 'Copy report' }).click();
 await page.waitForTimeout(80);
 const report = await page.evaluate(() => navigator.clipboard.readText());

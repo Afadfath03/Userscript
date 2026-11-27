@@ -43,7 +43,7 @@ await page.addScriptTag({ content: SCRIPT });
 await page.waitForTimeout(150);
 
 const menuNames = await page.evaluate(() => window.__menu.map((m) => m.name));
-check('menu has the hub entry, the bookmark shortcut and the share command', menuNames.length === 3);
+check('menu has the hub entry, bookmark shortcut, share command and playlist tools', menuNames.length === 4);
 
 await page.evaluate(() => window.__menu[0].cb());
 await page.waitForTimeout(100);
