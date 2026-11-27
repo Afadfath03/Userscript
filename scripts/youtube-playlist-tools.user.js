@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Playlist Tools
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.0
+// @version      1.1
 // @description  Bulk cleanup, search and filter, total duration calculator, export with optional title lookup, and import on YouTube playlist pages
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -331,69 +331,152 @@
   // ---------- Styles ----------
 
   const CSS = `
-#${BTN_ID}{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.35));border-radius:18px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:var(--yt-spec-text-primary,#0f0f0f);font:500 13px/1 Roboto,Arial,sans-serif;cursor:pointer}
-html[dark] #${BTN_ID}{background:var(--yt-spec-badge-chip-background,rgba(255,255,255,.1));color:var(--yt-spec-text-primary,#f1f1f1)}
-#${BTN_ID}:hover{background:var(--yt-spec-10-percent-layer,rgba(128,128,128,.2))}
-#${BTN_ID}:focus-visible,#${DURATION_ID} button:focus-visible,#${FILTER_ID} button:focus-visible,#${FILTER_ID} input:focus-visible,#${DIALOG_ID} button:focus-visible,#${DIALOG_ID} input:focus-visible,#${DIALOG_ID} select:focus-visible,#${DIALOG_ID} textarea:focus-visible,#${TOAST_ID} button:focus-visible{outline:2px solid var(--yt-spec-call-to-action,#065fd4);outline-offset:2px}
-#${DURATION_ID}{display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;padding:6px 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.25));border-radius:8px;background:transparent;color:var(--yt-spec-text-primary,#0f0f0f);font:400 12px/1.4 Roboto,Arial,sans-serif}
-html[dark] #${DURATION_ID}{color:var(--yt-spec-text-primary,#f1f1f1)}
-#${DURATION_ID} .ytpt-dur-meta{color:var(--yt-spec-text-secondary,#606060)}
-html[dark] #${DURATION_ID} .ytpt-dur-meta{color:var(--yt-spec-text-secondary,#aaa)}
-#${DURATION_ID} button{padding:3px 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.4));border-radius:12px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:500 12px/1.2 Roboto,Arial,sans-serif;cursor:pointer}
-#${FILTER_ID}{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0 12px;padding:10px 12px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.25));border-radius:10px;background:transparent;color:var(--yt-spec-text-primary,#0f0f0f);font:400 13px/1.4 Roboto,Arial,sans-serif;box-sizing:border-box;max-width:100%}
-html[dark] #${FILTER_ID}{color:var(--yt-spec-text-primary,#f1f1f1)}
-#${FILTER_ID} input[type="search"]{flex:1 1 180px;min-width:140px;min-height:34px;padding:0 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.4));border-radius:8px;background:var(--yt-spec-base-background,#fff);color:inherit;font:inherit}
-html[dark] #${FILTER_ID} input[type="search"]{background:var(--yt-spec-base-background,#0f0f0f)}
+#${BTN_ID}{display:inline-flex;align-items:center;justify-content:center;gap:8px;align-self:flex-start;width:auto;min-height:36px;margin-top:10px;padding:0 16px;border:0;border-radius:18px;background:#0f0f0f;color:#fff;font:500 14px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s}
+#${BTN_ID}:hover{background:#272727}
+html[dark] #${BTN_ID}{background:#f1f1f1;color:#0f0f0f}
+html[dark] #${BTN_ID}:hover{background:#d9d9d9}
+#${BTN_ID} svg,#${DURATION_ID} svg,#${FILTER_ID} svg,#${DIALOG_ID} .ytpt-dhead svg{flex:0 0 auto;display:block}
+#${BTN_ID}:focus-visible,#${DURATION_ID} button:focus-visible,#${FILTER_ID} button:focus-visible,#${FILTER_ID} input:focus-visible,#${DIALOG_ID} button:focus-visible,#${DIALOG_ID} input:focus-visible,#${DIALOG_ID} select:focus-visible,#${DIALOG_ID} textarea:focus-visible,#${TOAST_ID} button:focus-visible{outline:2px solid #065fd4;outline-offset:2px}
+html[dark] #${BTN_ID}:focus-visible,html[dark] #${DURATION_ID} button:focus-visible,html[dark] #${FILTER_ID} button:focus-visible,html[dark] #${FILTER_ID} input:focus-visible,html[dark] #${DIALOG_ID} button:focus-visible,html[dark] #${DIALOG_ID} input:focus-visible,html[dark] #${DIALOG_ID} select:focus-visible,html[dark] #${DIALOG_ID} textarea:focus-visible,html[dark] #${TOAST_ID} button:focus-visible{outline-color:#3ea6ff}
+#${DURATION_ID}{display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;margin:10px 0 4px;padding:12px 14px;border:0;border-radius:12px;background:rgba(0,0,0,.05);color:#0f0f0f;font:400 13px/1.4 Roboto,Arial,sans-serif;font-variant-numeric:tabular-nums}
+html[dark] #${DURATION_ID}{background:rgba(255,255,255,.08);color:#f1f1f1}
+#${DURATION_ID} .ytpt-dur-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#${DURATION_ID} .ytpt-dur-total{display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:600;letter-spacing:-.01em}
+#${DURATION_ID} .ytpt-dur-meta{margin-left:auto;font-size:12px;color:#606060}
+html[dark] #${DURATION_ID} .ytpt-dur-meta{color:#aaa}
+#${DURATION_ID} .ytpt-dur-speeds{display:flex;flex-wrap:wrap;gap:6px}
+#${DURATION_ID} .ytpt-dur-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;background:rgba(0,0,0,.05);font-size:12px;color:#0f0f0f}
+html[dark] #${DURATION_ID} .ytpt-dur-pill{background:rgba(255,255,255,.08);color:#f1f1f1}
+#${DURATION_ID} .ytpt-dur-pill b{font-weight:500;color:#606060}
+html[dark] #${DURATION_ID} .ytpt-dur-pill b{color:#aaa}
+#${DURATION_ID} button{min-height:28px;padding:0 12px;border:0;border-radius:14px;background:rgba(0,0,0,.08);color:inherit;font:500 12px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s}
+#${DURATION_ID} button:hover{background:rgba(0,0,0,.14)}
+html[dark] #${DURATION_ID} button{background:rgba(255,255,255,.14)}
+html[dark] #${DURATION_ID} button:hover{background:rgba(255,255,255,.22)}
+#${FILTER_ID}{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 12px;padding:6px 0;border:0;background:transparent;color:#0f0f0f;font:400 13px/1.4 Roboto,Arial,sans-serif;box-sizing:border-box;max-width:100%}
+html[dark] #${FILTER_ID}{color:#f1f1f1}
+#${FILTER_ID} .ytpt-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+#${FILTER_ID} .ytpt-search-wrap{position:relative;display:flex;align-items:center;flex:1 1 200px;min-width:150px;max-width:340px;height:36px;padding:0 12px;border:1px solid transparent;border-radius:18px;background:rgba(0,0,0,.05);transition:border-color .15s,background .15s}
+html[dark] #${FILTER_ID} .ytpt-search-wrap{background:rgba(255,255,255,.08)}
+#${FILTER_ID} .ytpt-search-wrap:focus-within{border-color:#065fd4;background:#fff}
+html[dark] #${FILTER_ID} .ytpt-search-wrap:focus-within{border-color:#3ea6ff;background:#121212}
+#${FILTER_ID} .ytpt-search-wrap svg{color:#606060;margin-right:8px}
+html[dark] #${FILTER_ID} .ytpt-search-wrap svg{color:#aaa}
+#${FILTER_ID} input[type="search"]{flex:1;min-width:0;height:100%;border:0;background:transparent;color:inherit;font:inherit;outline:none}
+#${FILTER_ID} input[type="search"]:focus-visible{outline:none}
 #${FILTER_ID} .ytpt-chips{display:flex;flex-wrap:wrap;gap:6px}
-#${FILTER_ID} .ytpt-chip{min-height:32px;padding:0 12px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.35));border-radius:16px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:500 12px/1 Roboto,Arial,sans-serif;cursor:pointer}
-#${FILTER_ID} .ytpt-chip[aria-pressed="true"]{background:var(--yt-spec-text-primary,#0f0f0f);color:var(--yt-spec-base-background,#fff);border-color:transparent}
-html[dark] #${FILTER_ID} .ytpt-chip[aria-pressed="true"]{background:var(--yt-spec-text-primary,#f1f1f1);color:var(--yt-spec-base-background,#0f0f0f)}
-#${FILTER_ID} .ytpt-counter{font-size:12px;color:var(--yt-spec-text-secondary,#606060);margin-left:auto}
-html[dark] #${FILTER_ID} .ytpt-counter{color:var(--yt-spec-text-secondary,#aaa)}
-#${FILTER_ID} .ytpt-fbtn{min-height:32px;padding:0 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.4));border-radius:8px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:500 12px/1 Roboto,Arial,sans-serif;cursor:pointer}
+#${FILTER_ID} .ytpt-chip{min-height:32px;padding:0 12px;border:0;border-radius:8px;background:rgba(0,0,0,.05);color:#0f0f0f;font:500 13px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s,color .15s}
+#${FILTER_ID} .ytpt-chip:hover{background:rgba(0,0,0,.1)}
+html[dark] #${FILTER_ID} .ytpt-chip{background:rgba(255,255,255,.1);color:#f1f1f1}
+html[dark] #${FILTER_ID} .ytpt-chip:hover{background:rgba(255,255,255,.18)}
+#${FILTER_ID} .ytpt-chip[aria-pressed="true"]{background:#0f0f0f;color:#fff}
+html[dark] #${FILTER_ID} .ytpt-chip[aria-pressed="true"]{background:#f1f1f1;color:#0f0f0f}
+#${FILTER_ID} .ytpt-counter{font-size:12px;font-variant-numeric:tabular-nums;color:#606060;margin-left:auto;padding:0 4px}
+html[dark] #${FILTER_ID} .ytpt-counter{color:#aaa}
+#${FILTER_ID} .ytpt-fbtn{min-height:32px;padding:0 12px;border:0;border-radius:16px;background:rgba(0,0,0,.06);color:inherit;font:500 12px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s}
+#${FILTER_ID} .ytpt-fbtn:hover{background:rgba(0,0,0,.12)}
+html[dark] #${FILTER_ID} .ytpt-fbtn{background:rgba(255,255,255,.12)}
+html[dark] #${FILTER_ID} .ytpt-fbtn:hover{background:rgba(255,255,255,.2)}
 #${FILTER_ID} .ytpt-fbtn:disabled,#${DIALOG_ID} button:disabled,#${TOAST_ID} button:disabled{opacity:.45;cursor:not-allowed}
-#${EMPTY_ID}{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:16px;margin:8px 0;border:1px dashed var(--yt-spec-10-percent-layer,rgba(128,128,128,.35));border-radius:10px;color:var(--yt-spec-text-secondary,#606060);font:400 13px/1.4 Roboto,Arial,sans-serif}
-html[dark] #${EMPTY_ID}{color:var(--yt-spec-text-secondary,#aaa)}
+#${EMPTY_ID}{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;padding:24px 16px;margin:8px 0;border:0;border-radius:12px;background:rgba(0,0,0,.04);color:#606060;font:400 13px/1.4 Roboto,Arial,sans-serif}
+html[dark] #${EMPTY_ID}{background:rgba(255,255,255,.05);color:#aaa}
 [${HIDDEN_ATTR}]{display:none!important}
-#${BACKDROP_ID}{position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.62);padding:16px;box-sizing:border-box}
+#${BACKDROP_ID}{position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);padding:16px;box-sizing:border-box}
 #${DIALOG_ID},#${DIALOG_ID} *{box-sizing:border-box}
-#${DIALOG_ID}{width:100%;max-width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow-y:auto;border-radius:14px;background:var(--yt-spec-base-background,#fff);color:var(--yt-spec-text-primary,#0f0f0f);box-shadow:0 16px 40px rgba(0,0,0,.45);font:400 13px/1.45 Roboto,Arial,sans-serif}
-html[dark] #${DIALOG_ID}{background:var(--yt-spec-base-background,#212121);color:var(--yt-spec-text-primary,#f1f1f1)}
-#${DIALOG_ID} .ytpt-dhead{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.25))}
+#${DIALOG_ID}{width:100%;max-width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow-y:auto;border-radius:16px;background:#fff;color:#0f0f0f;box-shadow:0 20px 48px rgba(0,0,0,.45);font:400 13px/1.45 Roboto,Arial,sans-serif}
+html[dark] #${DIALOG_ID}{background:#212121;color:#f1f1f1;border:1px solid rgba(255,255,255,.08)}
+#${DIALOG_ID} .ytpt-dhead{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:14px 16px 14px 20px;background:#fff;border-bottom:1px solid rgba(0,0,0,.08)}
+html[dark] #${DIALOG_ID} .ytpt-dhead{background:#212121;border-bottom-color:rgba(255,255,255,.1)}
 #${DIALOG_ID} .ytpt-dhead h2{flex:1;margin:0;font-size:16px;font-weight:600}
-#${DIALOG_ID} .ytpt-close{min-width:34px;min-height:34px;border:0;border-radius:50%;background:transparent;color:inherit;font-size:20px;line-height:1;cursor:pointer}
-#${DIALOG_ID} .ytpt-tabs{display:flex;border-bottom:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.25));padding:0 12px;gap:4px}
-#${DIALOG_ID} .ytpt-tab{padding:10px 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--yt-spec-text-secondary,#606060);font:500 13px/1 Roboto,Arial,sans-serif;cursor:pointer}
-html[dark] #${DIALOG_ID} .ytpt-tab{color:var(--yt-spec-text-secondary,#aaa)}
-#${DIALOG_ID} .ytpt-tab[aria-selected="true"]{color:var(--yt-spec-text-primary,#0f0f0f);border-bottom-color:var(--yt-spec-call-to-action,#065fd4)}
-html[dark] #${DIALOG_ID} .ytpt-tab[aria-selected="true"]{color:var(--yt-spec-text-primary,#f1f1f1)}
-#${DIALOG_ID} .ytpt-body{padding:14px 16px;display:flex;flex-direction:column;gap:14px}
-#${DIALOG_ID} .ytpt-card{padding:12px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.25));border-radius:10px;display:flex;flex-direction:column;gap:8px}
+#${DIALOG_ID} .ytpt-close{width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:inherit;font-size:22px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s}
+#${DIALOG_ID} .ytpt-close:hover{background:rgba(0,0,0,.06)}
+html[dark] #${DIALOG_ID} .ytpt-close:hover{background:rgba(255,255,255,.1)}
+#${DIALOG_ID} .ytpt-tabs{display:flex;border-bottom:1px solid rgba(0,0,0,.08);padding:0 16px;gap:4px}
+html[dark] #${DIALOG_ID} .ytpt-tabs{border-bottom-color:rgba(255,255,255,.1)}
+#${DIALOG_ID} .ytpt-tab{padding:11px 16px;border:0;border-bottom:2px solid transparent;background:transparent;color:#606060;font:500 13px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:color .15s,border-color .15s}
+#${DIALOG_ID} .ytpt-tab:hover{color:#0f0f0f}
+html[dark] #${DIALOG_ID} .ytpt-tab{color:#aaa}
+html[dark] #${DIALOG_ID} .ytpt-tab:hover{color:#f1f1f1}
+#${DIALOG_ID} .ytpt-tab[aria-selected="true"]{color:#0f0f0f;border-bottom-color:#065fd4}
+html[dark] #${DIALOG_ID} .ytpt-tab[aria-selected="true"]{color:#f1f1f1;border-bottom-color:#3ea6ff}
+#${DIALOG_ID} .ytpt-body{padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px}
+#${DIALOG_ID} .ytpt-card{padding:14px 16px;border:0;border-radius:12px;background:rgba(0,0,0,.035);display:flex;flex-direction:column;gap:10px}
+html[dark] #${DIALOG_ID} .ytpt-card{background:rgba(255,255,255,.05)}
 #${DIALOG_ID} .ytpt-card h3{margin:0;font-size:14px;font-weight:600}
 #${DIALOG_ID} .ytpt-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-#${DIALOG_ID} label{font-size:12px;font-weight:500;color:var(--yt-spec-text-secondary,#606060)}
-html[dark] #${DIALOG_ID} label{color:var(--yt-spec-text-secondary,#aaa)}
-#${DIALOG_ID} select,#${DIALOG_ID} input[type="text"],#${DIALOG_ID} input[type="number"],#${DIALOG_ID} textarea{width:100%;min-height:34px;padding:6px 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.4));border-radius:8px;background:var(--yt-spec-base-background,#fff);color:inherit;font:inherit}
-html[dark] #${DIALOG_ID} select,html[dark] #${DIALOG_ID} input[type="text"],html[dark] #${DIALOG_ID} input[type="number"],html[dark] #${DIALOG_ID} textarea{background:var(--yt-spec-base-background,#181818)}
-#${DIALOG_ID} textarea{min-height:92px;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
-#${DIALOG_ID} .ytpt-btn{min-height:34px;padding:0 14px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.4));border-radius:8px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.06));color:inherit;font:500 13px/1 Roboto,Arial,sans-serif;cursor:pointer}
-#${DIALOG_ID} .ytpt-btn.primary{background:var(--yt-spec-call-to-action,#065fd4);color:#fff;border-color:transparent}
-#${DIALOG_ID} .ytpt-btn.danger{background:#c00;color:#fff;border-color:transparent}
-#${DIALOG_ID} .ytpt-note{margin:0;font-size:12px;color:var(--yt-spec-text-secondary,#606060)}
-html[dark] #${DIALOG_ID} .ytpt-note{color:var(--yt-spec-text-secondary,#aaa)}
-#${DIALOG_ID} .ytpt-warn{padding:8px 10px;border-radius:8px;background:rgba(217,119,6,.15);color:var(--yt-spec-text-primary,#0f0f0f);font-size:12px}
-html[dark] #${DIALOG_ID} .ytpt-warn{color:#fde68a}
-#${DIALOG_ID} .ytpt-confirm{padding:12px;border:1px solid var(--yt-spec-call-to-action,#065fd4);border-radius:10px;display:flex;flex-direction:column;gap:8px}
-#${TOAST_ID}{position:fixed;left:16px;bottom:16px;z-index:2147483647;max-width:calc(100vw - 32px);min-width:260px;padding:12px 14px;border-radius:12px;background:var(--yt-spec-base-background,#fff);color:var(--yt-spec-text-primary,#0f0f0f);box-shadow:0 10px 30px rgba(0,0,0,.38);border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.25));font:400 13px/1.4 Roboto,Arial,sans-serif;display:flex;flex-direction:column;gap:8px;box-sizing:border-box}
-html[dark] #${TOAST_ID}{background:var(--yt-spec-base-background,#212121);color:var(--yt-spec-text-primary,#f1f1f1)}
+#${DIALOG_ID} label{font-size:12px;font-weight:500;color:#606060}
+html[dark] #${DIALOG_ID} label{color:#aaa}
+#${DIALOG_ID} select,#${DIALOG_ID} input[type="text"],#${DIALOG_ID} input[type="number"],#${DIALOG_ID} textarea{width:100%;min-height:36px;padding:7px 12px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff;color:inherit;font:inherit;transition:border-color .15s}
+html[dark] #${DIALOG_ID} select,html[dark] #${DIALOG_ID} input[type="text"],html[dark] #${DIALOG_ID} input[type="number"],html[dark] #${DIALOG_ID} textarea{border-color:rgba(255,255,255,.16);background:#121212}
+#${DIALOG_ID} textarea{min-height:96px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
+#${DIALOG_ID} .ytpt-btn{min-height:36px;padding:0 16px;border:0;border-radius:18px;background:rgba(0,0,0,.07);color:inherit;font:500 13px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s}
+#${DIALOG_ID} .ytpt-btn:hover{background:rgba(0,0,0,.12)}
+html[dark] #${DIALOG_ID} .ytpt-btn{background:rgba(255,255,255,.12)}
+html[dark] #${DIALOG_ID} .ytpt-btn:hover{background:rgba(255,255,255,.2)}
+#${DIALOG_ID} .ytpt-btn.primary{background:#065fd4;color:#fff}
+#${DIALOG_ID} .ytpt-btn.primary:hover{background:#0550b5}
+html[dark] #${DIALOG_ID} .ytpt-btn.primary{background:#3ea6ff;color:#0f0f0f}
+html[dark] #${DIALOG_ID} .ytpt-btn.primary:hover{background:#65b8ff}
+#${DIALOG_ID} .ytpt-btn.danger{background:#c00;color:#fff}
+#${DIALOG_ID} .ytpt-btn.danger:hover{background:#a30000}
+html[dark] #${DIALOG_ID} .ytpt-btn.danger{background:#ff4e45;color:#0f0f0f}
+html[dark] #${DIALOG_ID} .ytpt-btn.danger:hover{background:#ff6f68}
+#${DIALOG_ID} .ytpt-note{margin:0;font-size:12px;color:#606060}
+html[dark] #${DIALOG_ID} .ytpt-note{color:#aaa}
+#${DIALOG_ID} .ytpt-warn{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:10px;background:rgba(217,119,6,.14);color:#92400e;font-size:12px;line-height:1.45}
+html[dark] #${DIALOG_ID} .ytpt-warn{background:rgba(251,191,36,.14);color:#fde68a}
+#${DIALOG_ID} .ytpt-confirm-wrap{min-height:220px;display:flex;flex-direction:column;justify-content:center}
+#${DIALOG_ID} .ytpt-confirm{padding:20px;border:1px solid rgba(204,0,0,.28);border-radius:14px;background:rgba(204,0,0,.05);display:flex;flex-direction:column;gap:14px}
+html[dark] #${DIALOG_ID} .ytpt-confirm{border-color:rgba(255,78,69,.32);background:rgba(255,78,69,.09)}
+#${DIALOG_ID} .ytpt-confirm.info{border-color:rgba(6,95,212,.3);background:rgba(6,95,212,.06)}
+html[dark] #${DIALOG_ID} .ytpt-confirm.info{border-color:rgba(62,166,255,.35);background:rgba(62,166,255,.1)}
+#${DIALOG_ID} .ytpt-confirm-head{display:flex;align-items:center;gap:10px}
+#${DIALOG_ID} .ytpt-confirm-ico{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px;background:rgba(204,0,0,.12);color:#c00}
+html[dark] #${DIALOG_ID} .ytpt-confirm-ico{background:rgba(255,78,69,.18);color:#ff6f68}
+#${DIALOG_ID} .ytpt-confirm.info .ytpt-confirm-ico{background:rgba(6,95,212,.12);color:#065fd4}
+html[dark] #${DIALOG_ID} .ytpt-confirm.info .ytpt-confirm-ico{background:rgba(62,166,255,.18);color:#3ea6ff}
+#${DIALOG_ID} .ytpt-confirm-title{font-size:15px;font-weight:600;color:inherit}
+#${DIALOG_ID} .ytpt-confirm-msg{margin:0;font-size:13px;line-height:1.5;color:inherit}
+#${DIALOG_ID} .ytpt-confirm-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;padding-top:2px}
+#${TOAST_ID}{position:fixed;right:24px;bottom:24px;left:auto;z-index:2147483647;max-width:calc(100vw - 32px);min-width:280px;padding:14px 16px;border-radius:14px;background:#fff;color:#0f0f0f;box-shadow:0 12px 32px rgba(0,0,0,.22);border:1px solid rgba(0,0,0,.08);font:400 13px/1.4 Roboto,Arial,sans-serif;font-variant-numeric:tabular-nums;display:flex;flex-direction:column;gap:10px;box-sizing:border-box}
+html[dark] #${TOAST_ID}{background:#282828;color:#f1f1f1;box-shadow:0 12px 32px rgba(0,0,0,.55);border-color:rgba(255,255,255,.1)}
 #${TOAST_ID} .ytpt-trow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-#${TOAST_ID} .ytpt-spin{width:14px;height:14px;border:2px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.35));border-top-color:var(--yt-spec-call-to-action,#065fd4);border-radius:50%;animation:ytpt-rot .8s linear infinite}
-#${TOAST_ID} .ytpt-bar{width:100%;height:6px;border-radius:3px;background:var(--yt-spec-10-percent-layer,rgba(128,128,128,.25));overflow:hidden}
-#${TOAST_ID} .ytpt-bar > span{display:block;height:100%;background:var(--yt-spec-call-to-action,#065fd4);transition:width .15s}
-#${TOAST_ID} button{min-height:30px;padding:0 10px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.4));border-radius:8px;background:var(--yt-spec-badge-chip-background,rgba(0,0,0,.05));color:inherit;font:500 12px/1 Roboto,Arial,sans-serif;cursor:pointer}
+#${TOAST_ID} .ytpt-spin{width:14px;height:14px;border:2px solid rgba(128,128,128,.3);border-top-color:#065fd4;border-radius:50%;animation:ytpt-rot .8s linear infinite}
+html[dark] #${TOAST_ID} .ytpt-spin{border-top-color:#3ea6ff}
+#${TOAST_ID} .ytpt-bar{width:100%;height:4px;border-radius:999px;background:rgba(0,0,0,.1);overflow:hidden}
+html[dark] #${TOAST_ID} .ytpt-bar{background:rgba(255,255,255,.14)}
+#${TOAST_ID} .ytpt-bar > span{display:block;height:100%;border-radius:999px;background:#065fd4;transition:width .18s ease}
+html[dark] #${TOAST_ID} .ytpt-bar > span{background:#3ea6ff}
+#${TOAST_ID} button{min-height:32px;padding:0 14px;border:0;border-radius:16px;background:rgba(0,0,0,.07);color:inherit;font:500 12px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s}
+#${TOAST_ID} button:hover{background:rgba(0,0,0,.13)}
+html[dark] #${TOAST_ID} button{background:rgba(255,255,255,.12)}
+html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
 @keyframes ytpt-rot{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){#${TOAST_ID} .ytpt-spin{animation:none;display:none}#${TOAST_ID} .ytpt-bar > span{transition:none}}
+@media (prefers-reduced-motion:reduce){#${TOAST_ID} .ytpt-spin{animation:none;display:none}#${TOAST_ID} .ytpt-bar > span,#${BTN_ID},#${FILTER_ID} .ytpt-chip,#${DIALOG_ID} .ytpt-btn{transition:none}}
 `;
+
+  function makeSvgIcon(pathD, size = 16) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('width', String(size));
+    svg.setAttribute('height', String(size));
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', pathD);
+    svg.append(path);
+    return svg;
+  }
+
+  const ICON_TOOLS = 'M4 6h16M4 12h10M4 18h7m7-4 2 2 4-4';
+  const ICON_CLOCK = 'M12 6v6l4 2m6-2a10 10 0 1 1-20 0 10 10 0 0 1 20 0z';
+  const ICON_SEARCH = 'M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z';
+  const ICON_ALERT = 'M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z';
 
   function ensureStyle() {
     if (document.getElementById(STYLE_ID)) return;
@@ -1184,7 +1267,9 @@ html[dark] #${TOAST_ID}{background:var(--yt-spec-base-background,#212121);color:
       return;
     }
     if (existing && existing.isConnected) return;
-    const listRoot = document.querySelector('ytd-playlist-video-list-renderer #contents, ytd-playlist-video-list-renderer');
+    const listRoot =
+      document.querySelector('ytd-playlist-video-list-renderer #contents') ||
+      document.querySelector('ytd-playlist-video-list-renderer');
     if (!listRoot) return;
 
     ensureStyle();
@@ -1192,8 +1277,11 @@ html[dark] #${TOAST_ID}{background:var(--yt-spec-base-background,#212121);color:
     bar.id = FILTER_ID;
 
     const searchLabel = document.createElement('label');
+    searchLabel.className = 'ytpt-sr';
     searchLabel.setAttribute('for', 'ytpt-filter-input');
-    searchLabel.textContent = 'Filter';
+    searchLabel.textContent = 'Filter playlist';
+    const searchWrap = document.createElement('div');
+    searchWrap.className = 'ytpt-search-wrap';
     const input = document.createElement('input');
     input.id = 'ytpt-filter-input';
     input.type = 'search';
@@ -1204,6 +1292,7 @@ html[dark] #${TOAST_ID}{background:var(--yt-spec-base-background,#212121);color:
       filterState.target = 'both';
       applyFilter();
     });
+    searchWrap.append(makeSvgIcon(ICON_SEARCH, 15), input);
 
     const chips = document.createElement('div');
     chips.className = 'ytpt-chips';
@@ -1262,7 +1351,7 @@ html[dark] #${TOAST_ID}{background:var(--yt-spec-base-background,#212121);color:
     resetBtn.textContent = 'Reset';
     resetBtn.addEventListener('click', resetFilter);
 
-    bar.append(searchLabel, input, chips, counter, expBtn, remBtn, resetBtn);
+    bar.append(searchLabel, searchWrap, chips, counter, expBtn, remBtn, resetBtn);
     listRoot.before(bar);
     applyFilter();
   }
@@ -1318,21 +1407,24 @@ html[dark] #${TOAST_ID}{background:var(--yt-spec-base-background,#212121);color:
     const shownSum = active ? computeDurationSummary(visibleItems) : totalSum;
 
     badge.textContent = '';
+    const top = document.createElement('div');
+    top.className = 'ytpt-dur-top';
     const main = document.createElement('span');
+    main.className = 'ytpt-dur-total';
     const s = shownSum.totalSec;
-    const speeds = `1.25x: ${formatDuration(s / 1.25)} · 1.5x: ${formatDuration(s / 1.5)} · 2x: ${formatDuration(s / 2)}`;
-    if (active) {
-      main.textContent = `Filtered: ${formatDuration(s)} (of ${formatDuration(totalSum.totalSec)}) · ${speeds}`;
-    } else {
-      main.textContent = `${formatDuration(s)} · ${speeds}`;
-    }
-    badge.append(main);
+    const totalLabel = document.createElement('span');
+    totalLabel.textContent = active
+      ? `Filtered: ${formatDuration(s)} (of ${formatDuration(totalSum.totalSec)})`
+      : formatDuration(s);
+    main.append(makeSvgIcon(ICON_CLOCK, 15), totalLabel);
 
     const meta = document.createElement('span');
     meta.className = 'ytpt-dur-meta';
-    const loadedPart = totalCount && all.length < totalCount ? `(${all.length}/${totalCount} loaded)` : `(${shownSum.timedCount}/${shownSum.count} timed)`;
-    meta.textContent = loadedPart;
-    badge.append(meta);
+    meta.textContent =
+      totalCount && all.length < totalCount
+        ? `(${all.length}/${totalCount} loaded)`
+        : `(${shownSum.timedCount}/${shownSum.count} timed)`;
+    top.append(main, meta);
 
     if (totalCount && all.length < totalCount) {
       const loadBtn = document.createElement('button');
@@ -1346,8 +1438,20 @@ html[dark] #${TOAST_ID}{background:var(--yt-spec-base-background,#212121);color:
         endTask(task);
         clearToast();
       });
-      badge.append(loadBtn);
+      top.append(loadBtn);
     }
+
+    const speedsRow = document.createElement('div');
+    speedsRow.className = 'ytpt-dur-speeds';
+    for (const rate of [1.25, 1.5, 2]) {
+      const pill = document.createElement('span');
+      pill.className = 'ytpt-dur-pill';
+      const b = document.createElement('b');
+      b.textContent = `${rate}x`;
+      pill.append(b, document.createTextNode(` ${formatDuration(s / rate)}`));
+      speedsRow.append(pill);
+    }
+    badge.append(top, speedsRow);
   }
 
   function mountHeaderButton() {
@@ -1358,7 +1462,7 @@ html[dark] #${TOAST_ID}{background:var(--yt-spec-base-background,#212121);color:
     const btn = document.createElement('button');
     btn.id = BTN_ID;
     btn.type = 'button';
-    btn.textContent = 'Playlist Tools';
+    btn.append(makeSvgIcon(ICON_TOOLS, 16), document.createTextNode('Playlist Tools'));
     btn.addEventListener('click', () => openDialog('cleanup'));
     anchor.append(btn);
   }
@@ -1464,32 +1568,30 @@ html[dark] #${TOAST_ID}{background:var(--yt-spec-base-background,#212121);color:
 
     function renderConfirmBox() {
       if (!confirmState) return null;
+      const isInfo = confirmState.tone === 'info';
       const box = document.createElement('div');
-      box.className = 'ytpt-confirm';
+      box.className = `ytpt-confirm${isInfo ? ' info' : ''}`;
+      const head = document.createElement('div');
+      head.className = 'ytpt-confirm-head';
+      const ico = document.createElement('span');
+      ico.className = 'ytpt-confirm-ico';
+      ico.append(makeSvgIcon(isInfo ? ICON_TOOLS : ICON_ALERT, 16));
       const h = document.createElement('strong');
+      h.className = 'ytpt-confirm-title';
       h.textContent = confirmState.title;
+      head.append(ico, h);
       const p = document.createElement('p');
-      p.className = 'ytpt-note';
+      p.className = 'ytpt-confirm-msg';
       p.textContent = confirmState.summary;
-      box.append(h, p);
+      box.append(head, p);
       if (confirmState.warning) {
         const w = document.createElement('div');
         w.className = 'ytpt-warn';
-        w.textContent = confirmState.warning;
+        w.append(makeSvgIcon(ICON_ALERT, 15), document.createTextNode(confirmState.warning));
         box.append(w);
       }
       const row = document.createElement('div');
-      row.className = 'ytpt-row';
-      const okBtn = document.createElement('button');
-      okBtn.type = 'button';
-      okBtn.className = 'ytpt-btn danger';
-      okBtn.textContent = confirmState.confirmLabel || 'Confirm';
-      okBtn.addEventListener('click', () => {
-        const fn = confirmState.onConfirm;
-        confirmState = null;
-        closeDialog();
-        fn();
-      });
+      row.className = 'ytpt-confirm-actions';
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
       cancelBtn.className = 'ytpt-btn';
@@ -1498,7 +1600,17 @@ html[dark] #${TOAST_ID}{background:var(--yt-spec-base-background,#212121);color:
         confirmState = null;
         renderBody();
       });
-      row.append(okBtn, cancelBtn);
+      const okBtn = document.createElement('button');
+      okBtn.type = 'button';
+      okBtn.className = `ytpt-btn ${isInfo ? 'primary' : 'danger'}`;
+      okBtn.textContent = confirmState.confirmLabel || 'Confirm';
+      okBtn.addEventListener('click', () => {
+        const fn = confirmState.onConfirm;
+        confirmState = null;
+        closeDialog();
+        fn();
+      });
+      row.append(cancelBtn, okBtn);
       box.append(row);
       return box;
     }
@@ -1511,7 +1623,16 @@ html[dark] #${TOAST_ID}{background:var(--yt-spec-base-background,#212121);color:
       }
       body.textContent = '';
       const confirmBox = renderConfirmBox();
-      if (confirmBox) body.append(confirmBox);
+      if (confirmBox) {
+        const wrap = document.createElement('div');
+        wrap.className = 'ytpt-confirm-wrap';
+        wrap.append(confirmBox);
+        body.append(wrap);
+        dialog.scrollTop = 0;
+        setBusy(!!activeTask);
+        confirmBox.querySelector('button')?.focus();
+        return;
+      }
 
       if (activeTab === 'cleanup') renderCleanupTab();
       else if (activeTab === 'export') renderExportTab();
@@ -1950,6 +2071,7 @@ html[dark] #${TOAST_ID}{background:var(--yt-spec-base-background,#212121);color:
           title: 'Import Playlist',
           summary: `Import up to ${ids.length} video(s) into playlist ${currentListId()}?`,
           confirmLabel: 'Import',
+          tone: 'info',
           onConfirm: () => runImport(ids, skip),
         };
         renderBody();
