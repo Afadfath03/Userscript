@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      5.0
+// @version      5.1
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -2758,23 +2758,23 @@ html[dark] #${EMPTY_ID}{background:rgba(255,255,255,.05);color:#aaa}
 [${HIDDEN_ATTR}]{display:none!important}
 #${BACKDROP_ID}{position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);padding:16px;box-sizing:border-box}
 #${DIALOG_ID},#${DIALOG_ID} *{box-sizing:border-box}
-#${DIALOG_ID}{width:100%;max-width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow-y:auto;border-radius:16px;background:#fff;color:#0f0f0f;box-shadow:0 20px 48px rgba(0,0,0,.45);font:400 13px/1.45 Roboto,Arial,sans-serif}
+#${DIALOG_ID}{display:flex;flex-direction:column;width:100%;max-width:min(520px,calc(100vw - 32px));height:min(76vh,620px);height:min(76dvh,620px);max-height:calc(100vh - 32px);overflow:hidden;border-radius:16px;background:#fff;color:#0f0f0f;box-shadow:0 20px 48px rgba(0,0,0,.45);font:400 13px/1.45 Roboto,Arial,sans-serif}
 html[dark] #${DIALOG_ID}{background:#212121;color:#f1f1f1;border:1px solid rgba(255,255,255,.08)}
-#${DIALOG_ID} .ytc-pt-dhead{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:14px 16px 14px 20px;background:#fff;border-bottom:1px solid rgba(0,0,0,.08)}
+#${DIALOG_ID} .ytc-pt-dhead{flex:0 0 auto;position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:14px 16px 14px 20px;background:#fff;border-bottom:1px solid rgba(0,0,0,.08)}
 html[dark] #${DIALOG_ID} .ytc-pt-dhead{background:#212121;border-bottom-color:rgba(255,255,255,.1)}
 #${DIALOG_ID} .ytc-pt-dhead h2{flex:1;margin:0;font-size:16px;font-weight:600}
 #${DIALOG_ID} .ytc-pt-close{width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:inherit;font-size:22px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s}
 #${DIALOG_ID} .ytc-pt-close:hover{background:rgba(0,0,0,.06)}
 html[dark] #${DIALOG_ID} .ytc-pt-close:hover{background:rgba(255,255,255,.1)}
-#${DIALOG_ID} .ytc-pt-tabs{display:flex;border-bottom:1px solid rgba(0,0,0,.08);padding:0 16px;gap:4px}
-html[dark] #${DIALOG_ID} .ytc-pt-tabs{border-bottom-color:rgba(255,255,255,.1)}
+#${DIALOG_ID} .ytc-pt-tabs{flex:0 0 auto;display:flex;background:#fff;border-bottom:1px solid rgba(0,0,0,.08);padding:0 16px;gap:4px}
+html[dark] #${DIALOG_ID} .ytc-pt-tabs{background:#212121;border-bottom-color:rgba(255,255,255,.1)}
 #${DIALOG_ID} .ytc-pt-tab{padding:11px 16px;border:0;border-bottom:2px solid transparent;background:transparent;color:#606060;font:500 13px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:color .15s,border-color .15s}
 #${DIALOG_ID} .ytc-pt-tab:hover{color:#0f0f0f}
 html[dark] #${DIALOG_ID} .ytc-pt-tab{color:#aaa}
 html[dark] #${DIALOG_ID} .ytc-pt-tab:hover{color:#f1f1f1}
 #${DIALOG_ID} .ytc-pt-tab[aria-selected="true"]{color:#0f0f0f;border-bottom-color:#065fd4}
 html[dark] #${DIALOG_ID} .ytc-pt-tab[aria-selected="true"]{color:#f1f1f1;border-bottom-color:#3ea6ff}
-#${DIALOG_ID} .ytc-pt-body{padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px}
+#${DIALOG_ID} .ytc-pt-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px}
 #${DIALOG_ID} .ytc-pt-card{padding:14px 16px;border:0;border-radius:12px;background:rgba(0,0,0,.035);display:flex;flex-direction:column;gap:10px}
 html[dark] #${DIALOG_ID} .ytc-pt-card{background:rgba(255,255,255,.05)}
 #${DIALOG_ID} .ytc-pt-card h3{margin:0;font-size:14px;font-weight:600}
@@ -4920,23 +4920,23 @@ html[dark] #${EMPTY_ID}{background:rgba(255,255,255,.05);color:#aaa}
 [${HIDDEN_ATTR}]{display:none!important}
 #${BACKDROP_ID}{position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);padding:16px;box-sizing:border-box}
 #${DIALOG_ID},#${DIALOG_ID} *{box-sizing:border-box}
-#${DIALOG_ID}{width:100%;max-width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow-y:auto;border-radius:16px;background:#fff;color:#0f0f0f;box-shadow:0 20px 48px rgba(0,0,0,.45);font:400 13px/1.45 Roboto,Arial,sans-serif}
+#${DIALOG_ID}{display:flex;flex-direction:column;width:100%;max-width:min(520px,calc(100vw - 32px));height:min(76vh,620px);height:min(76dvh,620px);max-height:calc(100vh - 32px);overflow:hidden;border-radius:16px;background:#fff;color:#0f0f0f;box-shadow:0 20px 48px rgba(0,0,0,.45);font:400 13px/1.45 Roboto,Arial,sans-serif}
 html[dark] #${DIALOG_ID}{background:#212121;color:#f1f1f1;border:1px solid rgba(255,255,255,.08)}
-#${DIALOG_ID} .ytc-lt-dhead{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:14px 16px 14px 20px;background:#fff;border-bottom:1px solid rgba(0,0,0,.08)}
+#${DIALOG_ID} .ytc-lt-dhead{flex:0 0 auto;position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:14px 16px 14px 20px;background:#fff;border-bottom:1px solid rgba(0,0,0,.08)}
 html[dark] #${DIALOG_ID} .ytc-lt-dhead{background:#212121;border-bottom-color:rgba(255,255,255,.1)}
 #${DIALOG_ID} .ytc-lt-dhead h2{flex:1;margin:0;font-size:16px;font-weight:600}
 #${DIALOG_ID} .ytc-lt-close{width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:inherit;font-size:22px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s}
 #${DIALOG_ID} .ytc-lt-close:hover{background:rgba(0,0,0,.06)}
 html[dark] #${DIALOG_ID} .ytc-lt-close:hover{background:rgba(255,255,255,.1)}
-#${DIALOG_ID} .ytc-lt-tabs{display:flex;border-bottom:1px solid rgba(0,0,0,.08);padding:0 16px;gap:4px}
-html[dark] #${DIALOG_ID} .ytc-lt-tabs{border-bottom-color:rgba(255,255,255,.1)}
+#${DIALOG_ID} .ytc-lt-tabs{flex:0 0 auto;display:flex;background:#fff;border-bottom:1px solid rgba(0,0,0,.08);padding:0 16px;gap:4px}
+html[dark] #${DIALOG_ID} .ytc-lt-tabs{background:#212121;border-bottom-color:rgba(255,255,255,.1)}
 #${DIALOG_ID} .ytc-lt-tab{padding:11px 16px;border:0;border-bottom:2px solid transparent;background:transparent;color:#606060;font:500 13px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:color .15s,border-color .15s}
 #${DIALOG_ID} .ytc-lt-tab:hover{color:#0f0f0f}
 html[dark] #${DIALOG_ID} .ytc-lt-tab{color:#aaa}
 html[dark] #${DIALOG_ID} .ytc-lt-tab:hover{color:#f1f1f1}
 #${DIALOG_ID} .ytc-lt-tab[aria-selected="true"]{color:#0f0f0f;border-bottom-color:#065fd4}
 html[dark] #${DIALOG_ID} .ytc-lt-tab[aria-selected="true"]{color:#f1f1f1;border-bottom-color:#3ea6ff}
-#${DIALOG_ID} .ytc-lt-body{padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px}
+#${DIALOG_ID} .ytc-lt-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px}
 #${DIALOG_ID} .ytc-lt-card{padding:14px 16px;border:0;border-radius:12px;background:rgba(0,0,0,.035);display:flex;flex-direction:column;gap:10px}
 html[dark] #${DIALOG_ID} .ytc-lt-card{background:rgba(255,255,255,.05)}
 #${DIALOG_ID} .ytc-lt-card h3{margin:0;font-size:14px;font-weight:600}

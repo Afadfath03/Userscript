@@ -232,11 +232,14 @@
     }
     #pl-modal-backdrop.open { display: flex; }
     #pl-modal {
+      display: flex;
+      flex-direction: column;
       width: 100%;
       max-width: min(520px, calc(100vw - 32px));
+      height: min(76vh, 620px);
+      height: min(76dvh, 620px);
       max-height: calc(100vh - 32px);
-      overflow-y: auto;
-      overscroll-behavior: contain;
+      overflow: hidden;
       border-radius: 16px;
       background: var(--yt-spec-base-background);
       color: var(--yt-spec-text-primary);
@@ -245,6 +248,7 @@
       font: 400 13px/1.45 Roboto, Arial, sans-serif;
     }
     #pl-modal .pm-head {
+      flex: 0 0 auto;
       position: sticky;
       top: 0;
       z-index: 2;
@@ -269,9 +273,11 @@
     }
     #pl-modal .pm-close:hover { background: var(--yt-spec-badge-chip-background); }
     #pl-modal .pm-tabs {
+      flex: 0 0 auto;
       display: flex;
       gap: 4px;
       padding: 0 16px;
+      background: var(--yt-spec-base-background);
       border-bottom: 1px solid var(--border);
     }
     #pl-modal .pm-tab {
@@ -288,6 +294,10 @@
       border-bottom-color: var(--accent);
     }
     #pl-modal .pm-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
       padding: 14px 16px 18px;
       display: flex;
       flex-direction: column;
