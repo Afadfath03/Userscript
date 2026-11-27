@@ -86,7 +86,7 @@ const size = await page.evaluate(() => getComputedStyle(document.querySelector('
 check('section label is 12px', size === '12px');
 const switches = await page.locator('#ytc-panel .ytc-switch').count();
 const toggles = await page.locator('#ytc-panel button[aria-pressed]').count();
-check('every toggle renders a switch', switches === toggles && toggles === 20);
+check('every toggle renders a switch', switches === toggles && toggles === 25);
 check('switches are hidden from the accessibility tree', (await page.locator('#ytc-panel .ytc-switch[aria-hidden="true"]').count()) === switches);
 
 await browser.close();

@@ -15,7 +15,34 @@ const FIXTURE = `<!doctype html><html><body>
   <ytd-live-chat-frame id="chat">chat</ytd-live-chat-frame>
   <ytd-mealbar-promo-renderer id="promo">promo</ytd-mealbar-promo-renderer>
   <div id="merch-shelf">merch</div>
-  <ytd-guide-entry-renderer id="guide"><a href="/shorts/">Shorts</a></ytd-guide-entry-renderer>
+  <ytd-guide-renderer id="sidebar">
+    <ytd-guide-section-renderer id="sec-primary">
+      <ytd-guide-entry-renderer id="guide-home"><a href="/">Home</a></ytd-guide-entry-renderer>
+      <ytd-guide-entry-renderer id="guide"><a href="/shorts/">Shorts</a></ytd-guide-entry-renderer>
+    </ytd-guide-section-renderer>
+    <ytd-guide-section-renderer id="sec-you">
+      <ytd-guide-entry-renderer><a href="/feed/history">History</a></ytd-guide-entry-renderer>
+      <ytd-guide-entry-renderer><a href="https://studio.youtube.com/channel/UC123/videos">Your videos</a></ytd-guide-entry-renderer>
+    </ytd-guide-section-renderer>
+    <ytd-guide-collapsible-section-entry-renderer id="sec-you-collapsible">
+      <a href="/feed/you">You</a>
+    </ytd-guide-collapsible-section-entry-renderer>
+    <ytd-guide-section-renderer id="sec-subs">
+      <ytd-guide-entry-renderer><a href="/feed/channels">Subscriptions</a></ytd-guide-entry-renderer>
+    </ytd-guide-section-renderer>
+    <ytd-guide-section-renderer id="sec-more">
+      <ytd-guide-entry-renderer><a href="/premium">YouTube Premium</a></ytd-guide-entry-renderer>
+      <ytd-guide-entry-renderer><a href="https://music.youtube.com/">YouTube Music</a></ytd-guide-entry-renderer>
+      <ytd-guide-entry-renderer><a href="https://www.youtubekids.com/">YouTube Kids</a></ytd-guide-entry-renderer>
+      <ytd-guide-entry-renderer><a href="/new">YouTube Labs</a></ytd-guide-entry-renderer>
+    </ytd-guide-section-renderer>
+    <ytd-guide-section-renderer id="sec-explore">
+      <ytd-guide-entry-renderer><a href="/channel/UC-9-kyTW8ZkZNDHQJ6FgpwQ">Music</a></ytd-guide-entry-renderer>
+      <ytd-guide-entry-renderer><a href="/feed/storefront?bp=ogUCKAI%3D">Movies</a></ytd-guide-entry-renderer>
+      <ytd-guide-entry-renderer><a href="/gaming">Gaming</a></ytd-guide-entry-renderer>
+    </ytd-guide-section-renderer>
+    <div id="footer">About Copyright</div>
+  </ytd-guide-renderer>
   <ytd-donation-shelf-renderer id="donation">donation</ytd-donation-shelf-renderer>
   <ytd-feed-filter-chip-bar-renderer id="chips">chips</ytd-feed-filter-chip-bar-renderer>
   <ytd-rich-item-renderer id="postcard"><ytd-post-renderer>post</ytd-post-renderer></ytd-rich-item-renderer>
@@ -79,13 +106,13 @@ await page.evaluate(() => window.__menu[0].cb());
 await page.waitForTimeout(80);
 await page.getByRole('button', { name: 'Quiet Page' }).click();
 await page.waitForTimeout(80);
-check('panel lists enabled, nineteen levers, reset, back and close', (await page.locator('#ytc-panel button').count()) === 23);
+check('panel lists enabled, twenty-four levers, reset, back and close', (await page.locator('#ytc-panel button').count()) === 28);
 const onCount = await page.locator('#ytc-panel button[aria-pressed="true"]').count();
 const offCount = await page.locator('#ytc-panel button[aria-pressed="false"]').count();
 check('four rows start on: Enabled plus three playback levers', onCount === 4);
-check('sixteen section rows start off', offCount === 16);
+check('twenty-one section and sidebar rows start off', offCount === 21);
 const groups = await page.locator('#ytc-panel .ytc-section').allTextContents();
-check('rows are grouped', groups.includes('Playback') && groups.includes('Sections') && !groups.includes('Settings'));
+check('rows are grouped', groups.includes('Playback') && groups.includes('Sections') && groups.includes('Sidebar') && !groups.includes('Settings'));
 await page.getByRole('button', { name: 'Close' }).click();
 
 // Defaults: playback levers on, every section visible
@@ -96,6 +123,7 @@ check('end screen hidden by default', (await display('#card')) === 'none');
 check('ambient hidden by default', (await display('#cinematics')) === 'none');
 
 const sections = ['#shelf', '#section', '#comments', '#chat', '#promo', '#merch-shelf', '#guide',
+  '#sec-primary', '#sec-you', '#sec-you-collapsible', '#sec-subs', '#sec-more', '#sec-explore', '#footer',
   '#donation', '#chips', '#postcard', '#clarification', '#playlist', '#nudge', '#chvideo',
   '#suggested', '#bigpanel', '#miniplayer'];
 const visible = [];
@@ -112,6 +140,26 @@ await set('ytc.quietShorts', true);
 await page.waitForTimeout(80);
 check('shorts shelf hides when switched on', (await display('#shelf')) === 'none');
 check('shorts wrapper hides too', (await display('#section')) === 'none');
+
+// Sidebar sections toggle independently without affecting Primary or You
+await set('ytc.quietSidebarMore', true);
+await page.waitForTimeout(80);
+check('More from YouTube hides when switched on', (await display('#sec-more')) === 'none');
+check('You section with studio link stays visible', (await display('#sec-you')) !== 'none');
+check('Explore stays visible when only More is hidden', (await display('#sec-explore')) !== 'none');
+
+await set('ytc.quietSidebarExplore', true);
+await page.waitForTimeout(80);
+check('Explore hides when switched on', (await display('#sec-explore')) === 'none');
+
+await set('ytc.quietSidebarYou', true);
+await set('ytc.quietSidebarSubscriptions', true);
+await set('ytc.quietSidebarFooter', true);
+await page.waitForTimeout(80);
+check('You sections hide when switched on', (await display('#sec-you')) === 'none' && (await display('#sec-you-collapsible')) === 'none');
+check('Subscriptions hides when switched on', (await display('#sec-subs')) === 'none');
+check('sidebar footer hides when switched on', (await display('#footer')) === 'none');
+check('Primary section stays visible', (await display('#sec-primary')) !== 'none');
 
 await set('ytc.quietComments', false);
 await page.waitForTimeout(80);

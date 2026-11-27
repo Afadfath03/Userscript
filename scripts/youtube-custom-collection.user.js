@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      4.2
+// @version      4.3
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -302,7 +302,6 @@
         { key: 'quietChat', label: 'Hide live chat', type: 'toggle', group: 'Sections', def: false },
         { key: 'quietPromos', label: 'Hide promo banners', type: 'toggle', group: 'Sections', def: false },
         { key: 'quietMerch', label: 'Hide merch shelf', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietShortsEntry', label: 'Hide Shorts sidebar entry', type: 'toggle', group: 'Sections', def: false },
         { key: 'quietDonation', label: 'Hide donation shelves', type: 'toggle', group: 'Sections', def: false },
         { key: 'quietChips', label: 'Hide filter chips', type: 'toggle', group: 'Sections', def: false },
         { key: 'quietPosts', label: 'Hide community posts', type: 'toggle', group: 'Sections', def: false },
@@ -313,6 +312,12 @@
         { key: 'quietSuggested', label: 'Hide player suggestion bubble', type: 'toggle', group: 'Sections', def: false },
         { key: 'quietInfoPanels', label: 'Hide large info panels', type: 'toggle', group: 'Sections', def: false },
         { key: 'quietMiniplayer', label: 'Hide miniplayer', type: 'toggle', group: 'Sections', def: false },
+        { key: 'quietShortsEntry', label: 'Hide Shorts entry', type: 'toggle', group: 'Sidebar', def: false },
+        { key: 'quietSidebarYou', label: 'Hide You section', type: 'toggle', group: 'Sidebar', def: false },
+        { key: 'quietSidebarSubscriptions', label: 'Hide Subscriptions section', type: 'toggle', group: 'Sidebar', def: false },
+        { key: 'quietSidebarExplore', label: 'Hide Explore section', type: 'toggle', group: 'Sidebar', def: false },
+        { key: 'quietSidebarMore', label: 'Hide More from YouTube', type: 'toggle', group: 'Sidebar', def: false },
+        { key: 'quietSidebarFooter', label: 'Hide sidebar footer', type: 'toggle', group: 'Sidebar', def: false },
       ],
     },
   ];
@@ -1702,7 +1707,14 @@
       'html.ytc-quiet-channel-video ytd-channel-video-player-renderer{display:none!important}' +
       'html.ytc-quiet-suggested .ytp-suggested-action{display:none!important}' +
       'html.ytc-quiet-info-panels ytd-info-panel-container-renderer{display:none!important}' +
-      'html.ytc-quiet-miniplayer ytd-miniplayer{display:none!important}';
+      'html.ytc-quiet-miniplayer ytd-miniplayer{display:none!important}' +
+      'html.ytc-quiet-sidebar-you ytd-guide-collapsible-section-entry-renderer:has(a[href="/feed/you"],a[href="/feed/history"]),' +
+      'html.ytc-quiet-sidebar-you ytd-guide-section-renderer:not(:has(a[href="/"])):has(a[href="/feed/history"],a[href="/feed/playlists"]){display:none!important}' +
+      'html.ytc-quiet-sidebar-subs ytd-guide-collapsible-section-entry-renderer:has(a[href="/feed/subscriptions"]),' +
+      'html.ytc-quiet-sidebar-subs ytd-guide-section-renderer:not(:has(a[href="/"])):has(a[href="/feed/channels"],a[href="/feed/subscriptions"]){display:none!important}' +
+      'html.ytc-quiet-sidebar-explore ytd-guide-section-renderer:has(a[href^="/feed/storefront"],a[href="/gaming"],a[href="/feed/trending"],a[href="/feed/explore"],a[href="/channel/UC-9-kyTW8ZkZNDHQJ6FgpwQ"],a[href="/podcasts"],a[href="/feed/courses_destination"]){display:none!important}' +
+      'html.ytc-quiet-sidebar-more ytd-guide-section-renderer:has(a[href^="/premium"],a[href*="music.youtube.com"],a[href*="youtubekids.com"],a[href*="tv.youtube.com"],a[href="/new"]){display:none!important}' +
+      'html.ytc-quiet-sidebar-footer ytd-guide-renderer #footer{display:none!important}';
     document.documentElement.append(style);
 
     function apply() {
@@ -1725,6 +1737,11 @@
       root.classList.toggle('ytc-quiet-suggested', flag('quietSuggested'));
       root.classList.toggle('ytc-quiet-info-panels', flag('quietInfoPanels'));
       root.classList.toggle('ytc-quiet-miniplayer', flag('quietMiniplayer'));
+      root.classList.toggle('ytc-quiet-sidebar-you', flag('quietSidebarYou'));
+      root.classList.toggle('ytc-quiet-sidebar-subs', flag('quietSidebarSubscriptions'));
+      root.classList.toggle('ytc-quiet-sidebar-explore', flag('quietSidebarExplore'));
+      root.classList.toggle('ytc-quiet-sidebar-more', flag('quietSidebarMore'));
+      root.classList.toggle('ytc-quiet-sidebar-footer', flag('quietSidebarFooter'));
     }
 
     // Pausing on the event catches previews wherever they start; the player and
