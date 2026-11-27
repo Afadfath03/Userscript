@@ -171,6 +171,8 @@ for (const variant of [
   let { ctx, tab } = await openTab(script, '/playlist?list=WL');
   const durText = await tab.locator(ids.dur).textContent();
   check(`${name}: duration sums >24h and shows loaded/total`, durText.includes('50h 10m 0s') && durText.includes('(7/10 loaded)'));
+  check(`${name}: duration hides 1.25x/1.5x/2x speed estimates`,
+    !durText.includes('1.25x') && !durText.includes('1.5x') && !durText.includes('2x'));
   check(`${name}: Load all button shown when loaded < total`, (await tab.locator(`${ids.dur} button`, { hasText: 'Load all' }).count()) === 1);
   check(`${name}: filter counter excludes members-hidden row`, (await tab.locator(`${ids.filter} .ytpt-counter, ${ids.filter} .ytc-pt-counter`).textContent()) === 'Showing 6 / 6');
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Liked Videos Tools
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.1
+// @version      1.2
 // @description  Bulk unlike, search and filter, total duration calculator, export with optional title lookup, and copy to playlist on YouTube Liked Videos (/playlist?list=LL)
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -397,11 +397,6 @@ html[dark] #${DURATION_ID}{background:rgba(255,255,255,.08);color:#f1f1f1}
 #${DURATION_ID} .ytlt-dur-total{display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:600;letter-spacing:-.01em}
 #${DURATION_ID} .ytlt-dur-meta{margin-left:auto;font-size:12px;color:#606060}
 html[dark] #${DURATION_ID} .ytlt-dur-meta{color:#aaa}
-#${DURATION_ID} .ytlt-dur-speeds{display:flex;flex-wrap:wrap;gap:6px}
-#${DURATION_ID} .ytlt-dur-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;background:rgba(0,0,0,.05);font-size:12px;color:#0f0f0f}
-html[dark] #${DURATION_ID} .ytlt-dur-pill{background:rgba(255,255,255,.08);color:#f1f1f1}
-#${DURATION_ID} .ytlt-dur-pill b{font-weight:500;color:#606060}
-html[dark] #${DURATION_ID} .ytlt-dur-pill b{color:#aaa}
 #${DURATION_ID} button{min-height:28px;padding:0 12px;border:0;border-radius:14px;background:rgba(0,0,0,.08);color:inherit;font:500 12px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s}
 #${DURATION_ID} button:hover{background:rgba(0,0,0,.14)}
 html[dark] #${DURATION_ID} button{background:rgba(255,255,255,.14)}
@@ -1288,17 +1283,7 @@ html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);col
       top.append(loadBtn);
     }
 
-    const speedsRow = document.createElement('div');
-    speedsRow.className = 'ytlt-dur-speeds';
-    for (const rate of [1.25, 1.5, 2]) {
-      const pill = document.createElement('span');
-      pill.className = 'ytlt-dur-pill';
-      const b = document.createElement('b');
-      b.textContent = `${rate}x`;
-      pill.append(b, document.createTextNode(` ${formatDuration(s / rate)}`));
-      speedsRow.append(pill);
-    }
-    badge.append(top, speedsRow);
+    badge.append(top);
   }
 
   function mountHeaderButton() {

@@ -179,6 +179,8 @@ for (const [name, script, ids] of [
   check(`${name}: mounts Liked Videos Tools button on /playlist?list=LL`, (await tab.locator(ids.btn).count()) === 1);
   check(`${name}: duration reads badge-shape times (29m 57s) and loaded/total (4/4028)`,
     durText.includes('29m 57s') && durText.includes('4/4028 loaded'));
+  check(`${name}: duration hides 1.25x/1.5x/2x speed estimates`,
+    !durText.includes('1.25x') && !durText.includes('1.5x') && !durText.includes('2x'));
   check(`${name}: filter bar mounts above item-section contents`, (await tab.locator(ids.filter).count()) === 1);
 
   // 2. Filter chips & quick action buttons in filter bar
