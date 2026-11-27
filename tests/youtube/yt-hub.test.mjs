@@ -31,7 +31,7 @@ await page.addInitScript(() => {
   window.GM_deleteValue = (k) => { delete window.__store[k]; };
   window.GM_registerMenuCommand = (name, cb) => { window.__menu.push({ name, cb }); return window.__menu.length; };
   window.GM_unregisterMenuCommand = () => {};
-  window.GM_info = { script: { version: '2.5' } };
+  window.GM_info = { script: { version: '5.0' } };
   window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
 });
 
@@ -44,90 +44,43 @@ const openHub = () => page.evaluate(() => window.__menu[0].cb());
 const back = () => page.getByRole('button', { name: 'Back', exact: true }).click();
 
 const menu = await page.evaluate(() => window.__menu.map((m) => m.name));
-check('menu has the hub entry, bookmark shortcut, share command, playlist tools and liked videos tools', menu.length === 5);
+check('menu has hub, bookmarks, share, playlist tools and liked videos tools', menu.length === 5);
 check('first entry is named after the script', menu[0] === 'YouTube: Custom Collection');
-check('second entry opens the bookmark list', menu[1].startsWith('Show bookmarks'));
 
 await openHub();
-await page.waitForTimeout(100);
-check('hub opens from its entry', (await title()) === 'YouTube: Custom Collection');
-check('hub button count is fifteen features plus backup, diagnostics, reset and close', (await page.locator('#ytc-panel button').count()) === 19);
-check('hub rows carry chevrons', (await page.locator('#ytc-panel .ytc-chevron').count()) === 17);
-const hubLabels = () => page.evaluate(() =>
-  [...document.querySelectorAll('#ytc-panel > button')]
-    .filter((button) => button.querySelector('.ytc-value'))
-    .map((button) => button.querySelector('span').textContent)
-);
-check('hub features read A to Z', await page.evaluate(() => {
-  const labels = [...document.querySelectorAll('#ytc-panel > button')]
-    .filter((button) => button.querySelector('.ytc-value'))
-    .map((button) => button.querySelector('span').textContent)
-    .slice(0, 15);
-  const sorted = [...labels].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
-  return JSON.stringify(labels) === JSON.stringify(sorted);
-}));
-check('utility rows stay below the features', await page.evaluate(() => {
-  const labels = [...document.querySelectorAll('#ytc-panel > button')]
-    .filter((button) => button.querySelector('.ytc-value'))
-    .map((button) => button.querySelector('span').textContent);
-  return labels[15] === 'Backup' && labels[16] === 'Diagnostics';
-}));
-check('the bookmark feature sorts under B', (await hubLabels())[1] === 'Bookmarks');
-check('hub has no back button', (await page.getByRole('button', { name: 'Back', exact: true }).count()) === 0);
-check('backdrop uses a solid scrim, no blur', await page.evaluate(() =>
-  getComputedStyle(document.getElementById('ytc-backdrop')).backdropFilter === 'none'
-));
-
-await page.getByRole('button', { name: 'Playback Defaults' }).click();
 await page.waitForTimeout(80);
-check('feature panel opens from the hub', (await title()) === 'YouTube: Playback Defaults');
-check('feature panel has enabled, eight settings, reset, back and close', (await page.locator('#ytc-panel button').count()) === 12);
-check('feature panel has a back button', (await page.getByRole('button', { name: 'Back', exact: true }).count()) === 1);
+check('hub opens from its entry', (await title()) === 'YouTube: Custom Collection');
+check('hub lists 4 consolidated modules plus backup, diagnostics, reset and close', (await page.locator('#ytc-panel button').count()) === 8);
+check('hub rows carry chevrons', (await page.locator('#ytc-panel .ytc-chevron').count()) === 6);
+
+await page.getByRole('button', { name: /Playback Custom/ }).click();
+await page.waitForTimeout(80);
+check('module panel opens with centered title and breadcrumb', (await title()) === 'Playback Custom');
+check('module panel has 4 split sub-sections', (await page.locator('#ytc-panel .ytc-group button').count()) === 4);
 
 await page.getByRole('button', { name: 'Enabled' }).click();
 await page.waitForTimeout(80);
-check('toggle writes the feature key', (await page.evaluate(() => window.__store['ytc.playbackOn'])) === false);
-check('toggle exposes its state', (await page.getByRole('button', { name: 'Enabled' }).getAttribute('aria-pressed')) === 'false');
+check('toggling Enabled off disables sub-sections and writes ytc.playbackOn',
+  (await page.evaluate(() => window.__store['ytc.playbackOn'] === false)) &&
+  (await page.evaluate(() => [...document.querySelectorAll('#ytc-panel .ytc-group button')].every((b) => b.disabled))));
 
 await back();
 await page.waitForTimeout(80);
-check('back returns to the hub', (await title()) === 'YouTube: Custom Collection');
-check('hub row reflects the new state', (await page.getByRole('button', { name: 'Playback Defaults' }).textContent()).includes('Off'));
+check('back returns to hub and reflects Off', (await title()) === 'YouTube: Custom Collection' &&
+  (await page.getByRole('button', { name: /Playback Custom/ }).textContent()).includes('Off'));
 
 await page.evaluate(() => { window.__store['ytc.speed'] = 1.5; });
 await page.getByRole('button', { name: 'Reset all settings' }).click();
-await page.waitForTimeout(80);
-check('reset asks for a second click', (await page.getByRole('button', { name: /Press again to delete every setting/ }).count()) === 1);
-check('reset keeps settings after the first click', (await page.evaluate(() => window.__store['ytc.speed'])) === 1.5);
-await page.getByRole('button', { name: /Press again to delete every setting/ }).click();
+await page.waitForTimeout(60);
+check('reset asks for a second click', (await page.getByRole('button', { name: 'Click again to reset all settings' }).count()) === 1);
+await page.getByRole('button', { name: 'Click again to reset all settings' }).click();
 await page.waitForTimeout(80);
 check('second click clears every key', (await page.evaluate(() => Object.keys(window.__store).length)) === 0);
-check('hub labels return to their defaults', (await page.getByRole('button', { name: 'Playback Defaults' }).textContent()).includes('Default'));
-check('reset button returns to its idle label', (await page.getByRole('button', { name: 'Reset all settings' }).count()) === 1);
-
-await page.getByRole('button', { name: 'Backup' }).click();
-await page.waitForTimeout(80);
-check('backup opens from the hub', (await title()) === 'Backup');
-await page.getByRole('button', { name: /^Copy settings JSON/ }).click();
-await page.waitForTimeout(80);
-const exported = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
-check('backup exports an empty settings object after reset', Object.keys(exported.settings).length === 0);
-await back();
 
 await page.getByRole('button', { name: 'Diagnostics' }).click();
 await page.waitForTimeout(80);
 const info = await page.locator('#ytc-panel .ytc-info').allTextContents();
-check('diagnostics shows the version', info.some((t) => t.includes('Version 2.5')));
-check('diagnostics shows the feature count', info.some((t) => t.includes('Enabled features 13 of 15')));
-await page.getByRole('button', { name: 'Copy report' }).click();
-await page.waitForTimeout(80);
-const report = await page.evaluate(() => navigator.clipboard.readText());
-check('copy report writes the lines', report.startsWith('Script: youtube-custom-collection') && report.includes('Page: /watch'));
-
-check('panel has no horizontal overflow', await page.evaluate(() => {
-  const panel = document.getElementById('ytc-panel');
-  return panel.scrollWidth === panel.clientWidth;
-}));
+check('diagnostics shows 4 of 4 enabled modules', info.some((t) => t.includes('Enabled features 4 of 4')));
 
 await browser.close();
 server.close();

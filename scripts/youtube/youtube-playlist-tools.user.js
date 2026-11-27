@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         YouTube: Playlist Tools
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.5
-// @description  Bulk cleanup, search and filter, total duration calculator, export with optional title lookup, and import on YouTube playlist pages
+// @version      2.0
+// @description  Unified Watch Later Tools, Playlist Tools, Liked Videos Tools, and Watch Page Playlist Length for YouTube
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
 // @supportURL   https://github.com/Afadfath03/Userscript/issues
@@ -14,6 +14,7 @@
 // @run-at       document-idle
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
 // @grant        GM_setClipboard
@@ -74,8 +75,16 @@
   };
   const put = (key, val) => GM_setValue(`${PREFIX}.${key}`, val);
 
-  const onPlaylistPage = () => location.pathname === '/playlist' && currentListId() !== 'LL';
   const currentListId = () => new URLSearchParams(location.search).get('list') || '';
+  const isWatchLater = () => currentListId() === 'WL';
+  const moduleEnabled = () => GM_getValue('ytpt.on', true) !== false;
+  const onPlaylistPage = () => {
+    if (!moduleEnabled() || location.pathname !== '/playlist') return false;
+    const id = currentListId();
+    if (!id || id === 'LL') return false;
+    return id === 'WL' ? GM_getValue('ytpt.wlOn', true) !== false : GM_getValue('ytpt.normalOn', true) !== false;
+  };
+  const pageTitleLabel = () => (isWatchLater() ? 'Watch Later Tools' : 'Playlist Tools');
   const isSpecialPlaylist = (id) => !id || id === 'LL' || /^RD/i.test(id);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const cleanText = (s) => String(s || '').replace(/\s+/g, ' ').trim();
@@ -1202,7 +1211,8 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
       if (isHiddenByMembers(it.row)) continue;
       totalVisiblePool++;
       let match = true;
-      if (filterState.chip === 'unwatched') match = it.status === 'available' && it.watchedPct < get('watchedThreshold');
+      if (filterState.chip === 'available') match = it.status === 'available';
+      else if (filterState.chip === 'unwatched') match = it.status === 'available' && it.watchedPct < get('watchedThreshold');
       else if (filterState.chip === 'watched') match = it.status === 'available' && it.watchedPct >= get('watchedThreshold');
       else if (filterState.chip === 'unavailable') match = it.status !== 'available';
 
@@ -1291,7 +1301,11 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
     ensureStyle();
     const bar = document.createElement('div');
     bar.id = FILTER_ID;
+    bar.style.flexDirection = 'column';
+    bar.style.alignItems = 'stretch';
 
+    const topRow = document.createElement('div');
+    topRow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap';
     const searchLabel = document.createElement('label');
     searchLabel.className = 'ytpt-sr';
     searchLabel.setAttribute('for', 'ytpt-filter-input');
@@ -1303,20 +1317,46 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
     input.type = 'search';
     input.placeholder = 'Search title or channel...';
     input.value = filterState.query;
-    input.addEventListener('input', () => {
+    const runSearch = () => {
       filterState.query = input.value;
       filterState.target = 'both';
       applyFilter();
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        runSearch();
+      }
     });
     searchWrap.append(makeSvgIcon(ICON_SEARCH, 15), input);
+
+    const searchBtn = document.createElement('button');
+    searchBtn.type = 'button';
+    searchBtn.className = 'ytpt-fbtn';
+    searchBtn.dataset.act = 'search-filter';
+    searchBtn.textContent = 'Search';
+    searchBtn.addEventListener('click', runSearch);
+
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.className = 'ytpt-fbtn';
+    resetBtn.dataset.act = 'reset-filter';
+    resetBtn.textContent = 'Reset';
+    resetBtn.addEventListener('click', resetFilter);
+
+    const counter = document.createElement('span');
+    counter.className = 'ytpt-counter';
+
+    topRow.append(searchLabel, searchWrap, searchBtn, resetBtn, counter);
 
     const chips = document.createElement('div');
     chips.className = 'ytpt-chips';
     for (const [id, label] of [
       ['all', 'All'],
-      ['unwatched', 'Unwatched'],
-      ['watched', 'Watched'],
+      ['available', 'Available'],
       ['unavailable', 'Unavailable'],
+      ['watched', 'Watched'],
+      ['unwatched', 'Unwatched'],
     ]) {
       const chip = document.createElement('button');
       chip.type = 'button';
@@ -1334,40 +1374,7 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
       chips.append(chip);
     }
 
-    const counter = document.createElement('span');
-    counter.className = 'ytpt-counter';
-
-    const expBtn = document.createElement('button');
-    expBtn.type = 'button';
-    expBtn.className = 'ytpt-fbtn';
-    expBtn.dataset.act = 'export-filtered';
-    expBtn.textContent = 'Export Filtered';
-    expBtn.addEventListener('click', () => {
-      runExport('filtered', get('exportFormat'), get('resolveTitles'));
-    });
-
-    const remBtn = document.createElement('button');
-    remBtn.type = 'button';
-    remBtn.className = 'ytpt-fbtn';
-    remBtn.dataset.act = 'remove-filtered';
-    remBtn.textContent = 'Remove Filtered';
-    remBtn.addEventListener('click', () => {
-      const targets = getAllItems().filter((i) => !i.row.hasAttribute(HIDDEN_ATTR) && !isHiddenByMembers(i.row));
-      openDialog('cleanup', {
-        title: 'Remove Filtered',
-        summary: `Remove ${targets.length} currently visible filtered video(s)?`,
-        onConfirm: () => runRemoval(targets, getAllItems().length - targets.length),
-      });
-    });
-
-    const resetBtn = document.createElement('button');
-    resetBtn.type = 'button';
-    resetBtn.className = 'ytpt-fbtn';
-    resetBtn.dataset.act = 'reset-filter';
-    resetBtn.textContent = 'Reset';
-    resetBtn.addEventListener('click', resetFilter);
-
-    bar.append(searchLabel, searchWrap, chips, counter, expBtn, remBtn, resetBtn);
+    bar.append(topRow, chips);
     listRoot.before(bar);
     applyFilter();
   }
@@ -1496,7 +1503,7 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
     const btn = document.createElement('button');
     btn.id = BTN_ID;
     btn.type = 'button';
-    btn.append(makeSvgIcon(ICON_TOOLS, 16), document.createTextNode('Playlist Tools'));
+    btn.append(makeSvgIcon(ICON_TOOLS, 16), document.createTextNode(pageTitleLabel()));
     btn.addEventListener('click', () => openDialog('cleanup'));
     if (badge && badge.parentElement === anchor) anchor.insertBefore(btn, badge);
     else anchor.append(btn);
@@ -1540,12 +1547,12 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
     dialog.id = DIALOG_ID;
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
-    dialog.setAttribute('aria-label', 'Playlist Tools');
+    dialog.setAttribute('aria-label', pageTitleLabel());
 
     const head = document.createElement('div');
     head.className = 'ytpt-dhead';
     const title = document.createElement('h2');
-    title.textContent = 'Playlist Tools';
+    title.textContent = pageTitleLabel();
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'ytpt-close';
@@ -1733,18 +1740,30 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
       watchH.textContent = 'Remove Watched';
       const watchLbl = document.createElement('label');
       watchLbl.setAttribute('for', 'ytpt-threshold');
-      watchLbl.textContent = 'Watched threshold (10-100%)';
+      watchLbl.textContent = 'Watched threshold';
+      const sliderRow = document.createElement('div');
+      sliderRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin:4px 0 8px';
       const watchIn = document.createElement('input');
       watchIn.id = 'ytpt-threshold';
-      watchIn.type = 'number';
+      watchIn.type = 'range';
       watchIn.min = '10';
       watchIn.max = '100';
+      watchIn.step = '5';
+      watchIn.style.cssText = 'flex:1;accent-color:var(--yt-spec-call-to-action,#3ea6ff);cursor:pointer';
       watchIn.value = String(get('watchedThreshold'));
+      const watchVal = document.createElement('span');
+      watchVal.style.cssText = 'min-width:40px;text-align:right;font-size:13px;font-weight:600';
+      watchVal.textContent = `${watchIn.value}%`;
+      watchIn.addEventListener('input', () => {
+        watchVal.textContent = `${watchIn.value}%`;
+      });
       watchIn.addEventListener('change', () => {
         const n = Math.min(100, Math.max(10, Math.round(Number(watchIn.value) || 80)));
         watchIn.value = String(n);
+        watchVal.textContent = `${n}%`;
         put('watchedThreshold', n);
       });
+      sliderRow.append(watchIn, watchVal);
       const watchBtn = document.createElement('button');
       watchBtn.type = 'button';
       watchBtn.className = 'ytpt-btn';
@@ -1762,7 +1781,7 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
         };
         renderBody();
       });
-      watchCard.append(watchH, watchLbl, watchIn, watchBtn);
+      watchCard.append(watchH, watchLbl, sliderRow, watchBtn);
       body.append(watchCard);
 
       // F1c Remove Duplicates
@@ -2195,7 +2214,2029 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
     syncPage();
   });
 
+  document.addEventListener('ytpt-change', syncPage);
   drawMenu();
   syncPage();
   setTimeout(syncPage, 1000);
+})();
+
+
+// ---------- Liked Videos Tools (/playlist?list=LL) ----------
+(() => {
+  if (window.self !== window.top) return;
+
+  const STYLE_ID = 'ytlt-style';
+  const BTN_ID = 'ytlt-open-btn';
+  const DURATION_ID = 'ytlt-duration-badge';
+  const FILTER_ID = 'ytlt-filter-bar';
+  const EMPTY_ID = 'ytlt-empty-state';
+  const BACKDROP_ID = 'ytlt-backdrop';
+  const DIALOG_ID = 'ytlt-dialog';
+  const TOAST_ID = 'ytlt-toast';
+  const HIDDEN_ATTR = 'data-ytlt-hidden';
+
+  const UNLIKE_DELAY_MS = 350;
+  const COPY_DELAY_MS = 400;
+  const RESOLVE_CONCURRENCY = 3;
+  const RESOLVE_TIMEOUT_MS = 8000;
+  const SCROLL_STALL_ROUNDS = 4;
+  const SCROLL_WAIT_MS = 650;
+
+  const DEFAULTS = {
+    clearMode: 'unavailable-only',
+    watchedThreshold: 80,
+    exportFormat: 'md',
+    resolveTitles: false,
+    showDuration: true,
+    showFilterBar: true,
+  };
+
+  const CLEAR_MODES = [
+    ['unavailable-only', 'Unlike unavailable only'],
+    ['unavailable-deleted', 'Unlike deleted only'],
+    ['unavailable-private', 'Unlike private only'],
+    ['skip-unavailable', 'Skip unavailable (unlike available)'],
+    ['skip-deleted', 'Skip deleted'],
+    ['skip-private', 'Skip private'],
+    ['none', 'Unlike all'],
+  ];
+
+  const get = (key) => {
+    const v = GM_getValue(`ytlt.${key}`, DEFAULTS[key]);
+    return v === undefined || v === null ? DEFAULTS[key] : v;
+  };
+  const put = (key, value) => GM_setValue(`ytlt.${key}`, value);
+
+  const onLikedPage = () =>
+    location.pathname === '/playlist' && new URLSearchParams(location.search).get('list') === 'LL';
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const cleanText = (s) => (s || '').replace(/\s+/g, ' ').trim();
+
+  const resolvedTitleCache = new Map();
+  let activeTask = null;
+  let lastTrigger = null;
+  let filterState = { query: '', chip: 'all', target: 'both' };
+  let pageObserver = null;
+  let mountTimer = 0;
+
+  // ---------- Icons (inline SVG) ----------
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const ICON_HEART = 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
+  const ICON_CLOCK = 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z';
+  const ICON_SEARCH = 'M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z';
+  const ICON_CLOSE = 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z';
+  const ICON_WARN = 'M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z';
+
+  function makeSvgIcon(pathD, size = 16) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('width', String(size));
+    svg.setAttribute('height', String(size));
+    svg.setAttribute('fill', 'currentColor');
+    svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', pathD);
+    svg.append(path);
+    return svg;
+  }
+
+  // ---------- DOM Helpers ----------
+
+  function isElementHidden(el) {
+    for (let cur = el; cur && cur.nodeType === 1; cur = cur.parentElement) {
+      if (cur.hasAttribute('hidden')) return true;
+      if (getComputedStyle(cur).display === 'none') return true;
+    }
+    return false;
+  }
+
+  function activeLikedRoot() {
+    for (const page of document.querySelectorAll('ytd-browse[page-subtype="playlist"]')) {
+      if (!isElementHidden(page)) return page;
+    }
+    return document;
+  }
+
+  function isHiddenByMembers(row) {
+    return row.hasAttribute('data-ytc-off') || row.hasAttribute('data-ytmp-hidden');
+  }
+
+  function parseDurationSeconds(text) {
+    const clean = cleanText(text);
+    if (!clean || /live|shorts|upcoming|premiere/i.test(clean)) return null;
+    const m = clean.match(/(\d+(?::\d{1,2}){1,2})/);
+    if (!m) return null;
+    const parts = m[1].split(':').map((p) => Number.parseInt(p, 10));
+    if (parts.some((n) => !Number.isFinite(n) || n < 0)) return null;
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return null;
+  }
+
+  function formatDuration(totalSec) {
+    const sec = Math.max(0, Math.round(totalSec));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  }
+
+  function extractVideoInfoFromRow(row) {
+    const links = row.querySelectorAll('a[href*="/watch?v="], a[href*="/shorts/"]');
+    for (const link of links) {
+      const href = link.getAttribute('href') || '';
+      const shortMatch = href.match(/\/shorts\/([A-Za-z0-9_-]{11})/);
+      if (shortMatch) return { videoId: shortMatch[1], isShort: true };
+      const watchMatch = href.match(/[?&]v=([A-Za-z0-9_-]{11})/);
+      if (watchMatch) return { videoId: watchMatch[1], isShort: false };
+    }
+    return { videoId: '', isShort: row.tagName.toLowerCase() === 'ytm-shorts-lockup-view-model' };
+  }
+
+  function classifyStatus(rawTitle) {
+    const lower = cleanText(rawTitle).toLowerCase();
+    if (!lower) return 'unavailable';
+    if (lower === '[deleted video]' || lower === '[video yang dihapus]' || lower === 'deleted video') return 'deleted';
+    if (lower === '[private video]' || lower === '[video pribadi]' || lower === 'private video') return 'private';
+    if (lower === '[unavailable video]' || lower === '[video tidak tersedia]') return 'unavailable';
+    return 'available';
+  }
+
+  function readRow(row) {
+    const { videoId, isShort } = extractVideoInfoFromRow(row);
+    const titleEl =
+      row.querySelector('a#video-title') ||
+      row.querySelector('a.yt-lockup-metadata-view-model__title') ||
+      row.querySelector('a.yt-lockup-metadata-view-model-wiz__title') ||
+      row.querySelector('h3 a') ||
+      row.querySelector('#video-title') ||
+      row.querySelector('h3');
+    const rawTitle = cleanText(titleEl?.textContent || titleEl?.getAttribute?.('title') || titleEl?.getAttribute?.('aria-label') || '');
+    const status = classifyStatus(rawTitle);
+
+    const channelEl =
+      row.querySelector('ytd-channel-name a') ||
+      row.querySelector('ytd-channel-name') ||
+      row.querySelector('yt-content-metadata-view-model a') ||
+      row.querySelector('.yt-content-metadata-view-model__metadata-row a') ||
+      row.querySelector('.yt-content-metadata-view-model-wiz__metadata-row span') ||
+      row.querySelector('#channel-name');
+    const channel = cleanText(channelEl?.textContent || '');
+
+    let durationSec = null;
+    const badgeEls = row.querySelectorAll(
+      'ytd-thumbnail-overlay-time-status-renderer, badge-shape .badge-shape-wiz__text, yt-thumbnail-badge-view-model .badge-shape-wiz__text, .yt-badge-shape__text, badge-shape'
+    );
+    for (const el of badgeEls) {
+      const parsed = parseDurationSeconds(el.textContent);
+      if (parsed !== null) {
+        durationSec = parsed;
+        break;
+      }
+    }
+
+    const progressEl =
+      row.querySelector('ytd-thumbnail-overlay-resume-playback-renderer #progress') ||
+      row.querySelector('yt-thumbnail-overlay-progress-bar-view-model .ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment') ||
+      row.querySelector('#progress');
+    let watchedPct = 0;
+    if (progressEl) {
+      const m = (progressEl.style?.width || progressEl.getAttribute('style') || '').match(/([\d.]+)%/);
+      if (m) watchedPct = Math.min(100, Math.max(0, Number.parseFloat(m[1])));
+    }
+
+    return {
+      row,
+      videoId,
+      isShort,
+      status,
+      title: status === 'available' ? rawTitle : '',
+      rawTitle,
+      channel: status === 'available' ? channel : '',
+      durationSec,
+      watchedPct,
+    };
+  }
+
+  function getRows() {
+    const root = activeLikedRoot();
+    const candidates = root.querySelectorAll(
+      'ytd-playlist-video-renderer, ytd-video-renderer, ytd-rich-item-renderer, yt-lockup-view-model, ytm-shorts-lockup-view-model'
+    );
+    const out = [];
+    for (const el of candidates) {
+      if (el.parentElement?.closest('ytd-playlist-video-renderer, ytd-video-renderer, ytd-rich-item-renderer')) continue;
+      if (el.closest('ytd-playlist-header-renderer, yt-page-header-renderer, yt-page-header-view-model')) continue;
+      const tag = el.tagName.toLowerCase();
+      if (tag === 'ytd-rich-item-renderer' || tag === 'yt-lockup-view-model') {
+        if (!el.querySelector('a[href*="/watch?v="], a[href*="/shorts/"]')) continue;
+      }
+      out.push(el);
+    }
+    return out;
+  }
+
+  const getAllItems = () => getRows().map(readRow);
+
+  function getTotalLikedCount() {
+    const candidates = activeLikedRoot().querySelectorAll(
+      'ytd-playlist-header-renderer .metadata-stats, yt-page-header-view-model yt-content-metadata-view-model, yt-page-header-renderer yt-content-metadata-view-model, #stats yt-formatted-string, .yt-page-header-view-model__page-header-headline-info, .page-header-view-model-wiz__page-header-headline-info'
+    );
+    for (const el of candidates) {
+      if (isElementHidden(el)) continue;
+      const text = cleanText(el.textContent);
+      const m = text.match(/([\d,.\s]+)\s+video/i);
+      if (m) {
+        const n = Number(m[1].replace(/[,.\s]/g, ''));
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+    }
+    return null;
+  }
+
+  function hasUnavailableHiddenBanner() {
+    const banners = document.querySelectorAll(
+      'ytd-alert-with-button-renderer, ytd-message-renderer, #alerts, .ytd-playlist-video-list-renderer'
+    );
+    for (const el of banners) {
+      const t = cleanText(el.textContent).toLowerCase();
+      if (t.includes('unavailable videos are hidden') || t.includes('video yang tidak tersedia disembunyikan')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function selectClearTargets(items, mode) {
+    const targets = [];
+    let skipped = 0;
+    for (const it of items) {
+      let remove = false;
+      if (mode === 'unavailable-only') remove = it.status !== 'available';
+      else if (mode === 'unavailable-deleted') remove = it.status === 'deleted';
+      else if (mode === 'unavailable-private') remove = it.status === 'private';
+      else if (mode === 'skip-unavailable') remove = it.status === 'available';
+      else if (mode === 'skip-deleted') remove = it.status !== 'deleted';
+      else if (mode === 'skip-private') remove = it.status !== 'private';
+      else if (mode === 'none') remove = true;
+      if (remove) targets.push(it);
+      else skipped++;
+    }
+    return { targets, skipped };
+  }
+
+  function matchKeywordItem(item, query, target) {
+    const q = query.trim().toLowerCase();
+    if (!q) return false;
+    if (item.status !== 'available') return false;
+    const t = item.title.toLowerCase();
+    const c = item.channel.toLowerCase();
+    if (target === 'title') return t.includes(q);
+    if (target === 'channel') return c.includes(q);
+    return t.includes(q) || c.includes(q);
+  }
+
+  // ---------- InnerTube API (Unlike & Copy to Playlist) ----------
+
+  function getYtCfg() {
+    const win = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+    const cfg = win?.ytcfg;
+    if (!cfg) return {};
+    const read = (k) => (typeof cfg.get === 'function' ? cfg.get(k) : cfg.data_?.[k]);
+    return {
+      apiKey: read('INNERTUBE_API_KEY') || '',
+      context: read('INNERTUBE_CONTEXT') || null,
+      clientName: read('INNERTUBE_CLIENT_NAME') || '1',
+      clientVersion: read('INNERTUBE_CLIENT_VERSION') || '',
+      sessionIndex: read('SESSION_INDEX'),
+      pageId: read('DELEGATED_SESSION_ID') || '',
+    };
+  }
+
+  function readSapisidCookie() {
+    const cookies = document.cookie || '';
+    for (const name of ['SAPISID', '__Secure-3PAPISID', '__Secure-1PAPISID']) {
+      const m = cookies.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+      if (m) return decodeURIComponent(m[1]);
+    }
+    return '';
+  }
+
+  async function sha1Hex(text) {
+    const data = new TextEncoder().encode(text);
+    const digest = await crypto.subtle.digest('SHA-1', data);
+    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function buildAuthHeaders(cfg) {
+    const sapisid = readSapisidCookie();
+    if (!sapisid) return null;
+    const ts = Math.floor(Date.now() / 1000);
+    const origin = location.origin || 'https://www.youtube.com';
+    const hash = await sha1Hex(`${ts} ${sapisid} ${origin}`);
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `SAPISIDHASH ${ts}_${hash}`,
+      'X-Origin': origin,
+    };
+    if (cfg.clientName) headers['X-Youtube-Client-Name'] = String(cfg.clientName);
+    if (cfg.clientVersion) headers['X-Youtube-Client-Version'] = String(cfg.clientVersion);
+    if (cfg.sessionIndex !== undefined && cfg.sessionIndex !== null && cfg.sessionIndex !== '') {
+      headers['X-Goog-AuthUser'] = String(cfg.sessionIndex);
+    }
+    if (cfg.pageId) headers['X-Goog-PageId'] = String(cfg.pageId);
+    return headers;
+  }
+
+  async function postInnerTube(endpoint, body) {
+    const cfg = getYtCfg();
+    const headers = await buildAuthHeaders(cfg);
+    if (!headers || !cfg.context) return { ok: false, authError: true, status: 0 };
+    const qs = cfg.apiKey ? `?key=${encodeURIComponent(cfg.apiKey)}&prettyPrint=false` : '?prettyPrint=false';
+    try {
+      const resp = await fetch(`${endpoint}${qs}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({ context: cfg.context, ...body }),
+      });
+      if (resp.status === 401 || resp.status === 403) return { ok: false, authError: true, status: resp.status };
+      if (!resp.ok) return { ok: false, authError: false, status: resp.status };
+      const data = await resp.json().catch(() => ({}));
+      if (data?.status === 'STATUS_FAILED' || data?.error) return { ok: false, authError: false, status: resp.status };
+      return { ok: true, authError: false, status: resp.status, data };
+    } catch {
+      return { ok: false, authError: false, status: 0 };
+    }
+  }
+
+  const unlikeVideo = (videoId) => postInnerTube('/youtubei/v1/like/removelike', { target: { videoId } });
+  const addVideoToPlaylist = (playlistId, videoId) =>
+    postInnerTube('/youtubei/v1/browse/edit_playlist', {
+      playlistId,
+      actions: [{ action: 'ACTION_ADD_VIDEO', addedVideoId: videoId }],
+    });
+
+  // ---------- Styles ----------
+
+  const CSS = `
+#${BTN_ID}{display:inline-flex;align-items:center;justify-content:center;gap:8px;align-self:flex-start;width:auto;min-height:36px;margin-top:10px;padding:0 16px;border:0;border-radius:18px;background:#0f0f0f;color:#fff;font:500 14px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s}
+#${BTN_ID}:hover{background:#272727}
+html[dark] #${BTN_ID}{background:#f1f1f1;color:#0f0f0f}
+html[dark] #${BTN_ID}:hover{background:#d9d9d9}
+#${BTN_ID} svg,#${DURATION_ID} svg,#${FILTER_ID} svg,#${DIALOG_ID} .ytlt-dhead svg{flex:0 0 auto;display:block}
+#${BTN_ID}:focus-visible,#${DURATION_ID} button:focus-visible,#${FILTER_ID} button:focus-visible,#${FILTER_ID} input:focus-visible,#${DIALOG_ID} button:focus-visible,#${DIALOG_ID} input:focus-visible,#${DIALOG_ID} select:focus-visible,#${TOAST_ID} button:focus-visible{outline:2px solid #065fd4;outline-offset:2px}
+html[dark] #${BTN_ID}:focus-visible,html[dark] #${DURATION_ID} button:focus-visible,html[dark] #${FILTER_ID} button:focus-visible,html[dark] #${FILTER_ID} input:focus-visible,html[dark] #${DIALOG_ID} button:focus-visible,html[dark] #${DIALOG_ID} input:focus-visible,html[dark] #${DIALOG_ID} select:focus-visible,html[dark] #${TOAST_ID} button:focus-visible{outline-color:#3ea6ff}
+#${DURATION_ID}{display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;margin:10px 0 4px;padding:12px 14px;border:0;border-radius:12px;background:rgba(0,0,0,.05);color:#0f0f0f;font:400 13px/1.4 Roboto,Arial,sans-serif;font-variant-numeric:tabular-nums}
+html[dark] #${DURATION_ID}{background:rgba(255,255,255,.08);color:#f1f1f1}
+#${DURATION_ID} .ytlt-dur-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#${DURATION_ID} .ytlt-dur-total{display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:600;letter-spacing:-.01em}
+#${DURATION_ID} .ytlt-dur-meta{margin-left:auto;font-size:12px;color:#606060}
+html[dark] #${DURATION_ID} .ytlt-dur-meta{color:#aaa}
+#${DURATION_ID} button{min-height:28px;padding:0 12px;border:0;border-radius:14px;background:rgba(0,0,0,.08);color:inherit;font:500 12px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s}
+#${DURATION_ID} button:hover{background:rgba(0,0,0,.14)}
+html[dark] #${DURATION_ID} button{background:rgba(255,255,255,.14)}
+html[dark] #${DURATION_ID} button:hover{background:rgba(255,255,255,.22)}
+#${FILTER_ID}{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px;padding:4px 24px 8px;border:0;background:transparent;color:#0f0f0f;font:400 13px/1.4 Roboto,Arial,sans-serif;box-sizing:border-box;max-width:100%}
+@media (max-width:600px){#${FILTER_ID}{padding:4px 12px 8px}}
+html[dark] #${FILTER_ID}{color:#f1f1f1}
+#${FILTER_ID} .ytlt-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+#${FILTER_ID} .ytlt-search-wrap{position:relative;display:flex;align-items:center;flex:1 1 200px;min-width:150px;max-width:280px;height:32px;padding:0 10px;border:1px solid rgba(0,0,0,.18);border-radius:8px;background:#fff;box-sizing:border-box;transition:border-color .15s,background .15s,box-shadow .15s}
+html[dark] #${FILTER_ID} .ytlt-search-wrap{border-color:rgba(255,255,255,.16);background:#121212}
+#${FILTER_ID} .ytlt-search-wrap:focus-within{border-color:#065fd4;box-shadow:0 0 0 1px #065fd4}
+html[dark] #${FILTER_ID} .ytlt-search-wrap:focus-within{border-color:#3ea6ff;box-shadow:0 0 0 1px #3ea6ff}
+#${FILTER_ID} .ytlt-search-wrap svg{color:#606060;margin-right:8px}
+html[dark] #${FILTER_ID} .ytlt-search-wrap svg{color:#aaa}
+#${FILTER_ID} input[type="search"]{flex:1;min-width:0;height:100%;border:0;background:transparent;color:inherit;font:inherit;outline:none}
+#${FILTER_ID} input[type="search"]:focus-visible{outline:none}
+#${FILTER_ID} .ytlt-chips{display:flex;flex-wrap:wrap;gap:6px}
+#${FILTER_ID} .ytlt-chip{min-height:32px;padding:0 12px;border:0;border-radius:8px;background:rgba(0,0,0,.05);color:#0f0f0f;font:500 13px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s,color .15s}
+#${FILTER_ID} .ytlt-chip:hover{background:rgba(0,0,0,.1)}
+html[dark] #${FILTER_ID} .ytlt-chip{background:rgba(255,255,255,.1);color:#f1f1f1}
+html[dark] #${FILTER_ID} .ytlt-chip:hover{background:rgba(255,255,255,.18)}
+#${FILTER_ID} .ytlt-chip[aria-pressed="true"]{background:#0f0f0f;color:#fff}
+html[dark] #${FILTER_ID} .ytlt-chip[aria-pressed="true"]{background:#f1f1f1;color:#0f0f0f}
+#${FILTER_ID} .ytlt-counter{font-size:12px;font-variant-numeric:tabular-nums;color:#606060;margin-left:auto;padding:0 4px}
+html[dark] #${FILTER_ID} .ytlt-counter{color:#aaa}
+#${FILTER_ID} .ytlt-fbtn{min-height:32px;padding:0 12px;border:0;border-radius:8px;background:rgba(0,0,0,.06);color:inherit;font:500 12px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s}
+#${FILTER_ID} .ytlt-fbtn:hover{background:rgba(0,0,0,.12)}
+html[dark] #${FILTER_ID} .ytlt-fbtn{background:rgba(255,255,255,.12)}
+html[dark] #${FILTER_ID} .ytlt-fbtn:hover{background:rgba(255,255,255,.2)}
+#${EMPTY_ID}{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;padding:24px 16px;margin:8px 24px;border:0;border-radius:12px;background:rgba(0,0,0,.04);color:#606060;font:400 13px/1.4 Roboto,Arial,sans-serif}
+html[dark] #${EMPTY_ID}{background:rgba(255,255,255,.05);color:#aaa}
+[${HIDDEN_ATTR}]{display:none!important}
+#${BACKDROP_ID}{position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);padding:16px;box-sizing:border-box}
+#${DIALOG_ID},#${DIALOG_ID} *{box-sizing:border-box}
+#${DIALOG_ID}{width:100%;max-width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow-y:auto;border-radius:16px;background:#fff;color:#0f0f0f;box-shadow:0 20px 48px rgba(0,0,0,.45);font:400 13px/1.45 Roboto,Arial,sans-serif}
+html[dark] #${DIALOG_ID}{background:#212121;color:#f1f1f1;border:1px solid rgba(255,255,255,.08)}
+#${DIALOG_ID} .ytlt-dhead{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:14px 16px 14px 20px;background:#fff;border-bottom:1px solid rgba(0,0,0,.08)}
+html[dark] #${DIALOG_ID} .ytlt-dhead{background:#212121;border-bottom-color:rgba(255,255,255,.1)}
+#${DIALOG_ID} .ytlt-dhead h2{flex:1;margin:0;font-size:16px;font-weight:600}
+#${DIALOG_ID} .ytlt-close{width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:inherit;font-size:22px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s}
+#${DIALOG_ID} .ytlt-close:hover{background:rgba(0,0,0,.06)}
+html[dark] #${DIALOG_ID} .ytlt-close:hover{background:rgba(255,255,255,.1)}
+#${DIALOG_ID} .ytlt-tabs{display:flex;border-bottom:1px solid rgba(0,0,0,.08);padding:0 16px;gap:4px}
+html[dark] #${DIALOG_ID} .ytlt-tabs{border-bottom-color:rgba(255,255,255,.1)}
+#${DIALOG_ID} .ytlt-tab{padding:11px 16px;border:0;border-bottom:2px solid transparent;background:transparent;color:#606060;font:500 13px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:color .15s,border-color .15s}
+#${DIALOG_ID} .ytlt-tab:hover{color:#0f0f0f}
+html[dark] #${DIALOG_ID} .ytlt-tab{color:#aaa}
+html[dark] #${DIALOG_ID} .ytlt-tab:hover{color:#f1f1f1}
+#${DIALOG_ID} .ytlt-tab[aria-selected="true"]{color:#0f0f0f;border-bottom-color:#065fd4}
+html[dark] #${DIALOG_ID} .ytlt-tab[aria-selected="true"]{color:#f1f1f1;border-bottom-color:#3ea6ff}
+#${DIALOG_ID} .ytlt-body{padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px}
+#${DIALOG_ID} .ytlt-card{padding:14px 16px;border:0;border-radius:12px;background:rgba(0,0,0,.035);display:flex;flex-direction:column;gap:10px}
+html[dark] #${DIALOG_ID} .ytlt-card{background:rgba(255,255,255,.05)}
+#${DIALOG_ID} .ytlt-card h3{margin:0;font-size:14px;font-weight:600}
+#${DIALOG_ID} .ytlt-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#${DIALOG_ID} label{font-size:12px;color:#606060}
+html[dark] #${DIALOG_ID} label{color:#aaa}
+#${DIALOG_ID} select,#${DIALOG_ID} input[type="text"],#${DIALOG_ID} input[type="number"]{min-height:34px;padding:6px 10px;border:1px solid rgba(0,0,0,.18);border-radius:8px;background:#fff;color:inherit;font:inherit;transition:border-color .15s}
+html[dark] #${DIALOG_ID} select,html[dark] #${DIALOG_ID} input[type="text"],html[dark] #${DIALOG_ID} input[type="number"]{background:#121212;border-color:rgba(255,255,255,.16)}
+#${DIALOG_ID} .ytlt-btn{min-height:36px;padding:0 16px;border:0;border-radius:18px;background:rgba(0,0,0,.06);color:inherit;font:500 13px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s}
+#${DIALOG_ID} .ytlt-btn:hover{background:rgba(0,0,0,.12)}
+html[dark] #${DIALOG_ID} .ytlt-btn{background:rgba(255,255,255,.1)}
+html[dark] #${DIALOG_ID} .ytlt-btn:hover{background:rgba(255,255,255,.18)}
+#${DIALOG_ID} .ytlt-btn.primary{background:#0f0f0f;color:#fff}
+#${DIALOG_ID} .ytlt-btn.primary:hover{background:#272727}
+html[dark] #${DIALOG_ID} .ytlt-btn.primary{background:#f1f1f1;color:#0f0f0f}
+html[dark] #${DIALOG_ID} .ytlt-btn.primary:hover{background:#d9d9d9}
+#${DIALOG_ID} .ytlt-btn.danger{background:#c00;color:#fff}
+#${DIALOG_ID} .ytlt-btn.danger:hover{background:#a30000}
+html[dark] #${DIALOG_ID} .ytlt-btn.danger{background:#d93025;color:#fff}
+#${DIALOG_ID} .ytlt-note{font-size:12px;color:#606060;margin:0}
+html[dark] #${DIALOG_ID} .ytlt-note{color:#aaa}
+#${DIALOG_ID} .ytlt-warn{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:10px;background:rgba(217,119,6,.14);color:#92400e;font-size:12px;line-height:1.45}
+html[dark] #${DIALOG_ID} .ytlt-warn{background:rgba(251,191,36,.14);color:#fde68a}
+#${DIALOG_ID} .ytlt-check{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:inherit}
+#${DIALOG_ID} .ytlt-confirm-box{display:flex;flex-direction:column;gap:14px;padding:4px 0}
+#${DIALOG_ID} .ytlt-confirm-head{display:flex;align-items:center;gap:10px;color:#c00;font-size:15px;font-weight:600}
+html[dark] #${DIALOG_ID} .ytlt-confirm-head{color:#ff6b6b}
+#${DIALOG_ID} .ytlt-confirm-list{margin:0;padding:10px 14px 10px 28px;border-radius:10px;background:rgba(0,0,0,.04);font-size:12px;color:#606060;display:flex;flex-direction:column;gap:4px}
+html[dark] #${DIALOG_ID} .ytlt-confirm-list{background:rgba(255,255,255,.05);color:#ccc}
+#${DIALOG_ID} .ytlt-confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+#${TOAST_ID}{position:fixed;right:24px;bottom:24px;z-index:2147483647;max-width:min(380px,calc(100vw - 32px));padding:14px 16px;border-radius:12px;background:#212121;color:#f1f1f1;box-shadow:0 12px 32px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.1);font:400 13px/1.4 Roboto,Arial,sans-serif;display:flex;flex-direction:column;gap:10px}
+#${TOAST_ID} .ytlt-tbar{height:4px;border-radius:2px;background:rgba(255,255,255,.16);overflow:hidden}
+#${TOAST_ID} .ytlt-tbar > span{display:block;height:100%;background:#3ea6ff;transition:width .2s}
+#${TOAST_ID} .ytlt-tactions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+#${TOAST_ID} button{min-height:30px;padding:0 12px;border:0;border-radius:15px;background:rgba(255,255,255,.14);color:#f1f1f1;font:500 12px/1 Roboto,Arial,sans-serif;cursor:pointer}
+#${TOAST_ID} button:hover{background:rgba(255,255,255,.24)}
+`;
+
+  function ensureStyle() {
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = CSS;
+    (document.head || document.documentElement).append(style);
+  }
+
+  // ---------- Toast & Tasks ----------
+
+  function clearToast() {
+    document.getElementById(TOAST_ID)?.remove();
+  }
+
+  function showToast({ text, progress = null, actions = [] }) {
+    ensureStyle();
+    let toast = document.getElementById(TOAST_ID);
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = TOAST_ID;
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
+      document.body.append(toast);
+    }
+    toast.textContent = '';
+    const msg = document.createElement('div');
+    msg.textContent = text;
+    toast.append(msg);
+    if (typeof progress === 'number') {
+      const bar = document.createElement('div');
+      bar.className = 'ytlt-tbar';
+      const fill = document.createElement('span');
+      fill.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+      bar.append(fill);
+      toast.append(bar);
+    }
+    if (actions.length) {
+      const row = document.createElement('div');
+      row.className = 'ytlt-tactions';
+      for (const a of actions) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = a.label;
+        b.addEventListener('click', a.onClick);
+        row.append(b);
+      }
+      toast.append(row);
+    }
+  }
+
+  function beginTask(name) {
+    if (activeTask) {
+      showToast({ text: 'Another task is already running.', actions: [{ label: 'Close', onClick: clearToast }] });
+      return null;
+    }
+    activeTask = { name, stopped: false };
+    return activeTask;
+  }
+
+  function endTask(task) {
+    if (activeTask === task) activeTask = null;
+    updateDurationBadge();
+  }
+
+  // ---------- Auto-Scroll Loader ----------
+
+  async function autoScrollLiked(task) {
+    let prevCount = getRows().length;
+    let stall = 0;
+    while (!task.stopped && stall < SCROLL_STALL_ROUNDS) {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      showToast({
+        text: `Loading liked videos... (${prevCount} loaded)`,
+        actions: [{ label: 'Stop', onClick: () => { task.stopped = true; } }],
+      });
+      await sleep(SCROLL_WAIT_MS);
+      const nextCount = getRows().length;
+      if (nextCount > prevCount) {
+        prevCount = nextCount;
+        stall = 0;
+        applyFilter();
+        updateDurationBadge();
+      } else {
+        stall++;
+      }
+    }
+  }
+
+  // ---------- Bulk Unlike ----------
+
+  async function unlikeViaDomFallback(row) {
+    if (!row || !row.isConnected) return { ok: false, readOnly: false };
+    const menuBtn = row.querySelector(
+      'ytd-menu-renderer button, #menu button, yt-lockup-metadata-view-model button[aria-label], button[aria-label*="Action menu" i], button[aria-label*="More actions" i]'
+    );
+    if (!menuBtn) return { ok: false, readOnly: true };
+    menuBtn.click();
+    let items = [];
+    for (let i = 0; i < 15; i++) {
+      items = [
+        ...document.querySelectorAll(
+          'ytd-menu-popup-renderer ytd-menu-service-item-renderer, ytd-menu-popup-renderer yt-list-item-view-model, tp-yt-iron-dropdown yt-list-item-view-model'
+        ),
+      ];
+      if (items.length) break;
+      await sleep(50);
+    }
+    if (!items.length) return { ok: false, readOnly: true };
+    let target = items.find((el) => {
+      const d = el.data || el.__data?.data;
+      if (d?.serviceEndpoint?.likeEndpoint?.status === 'INDIFFERENT') return true;
+      const acts = d?.serviceEndpoint?.playlistEditEndpoint?.actions;
+      return Array.isArray(acts) && acts.some((a) => String(a?.action || '').includes('REMOVE_VIDEO'));
+    });
+    if (!target) {
+      target = items.find((el) =>
+        /remove from liked videos|hapus dari video yang disukai|unlike/i.test(cleanText(el.textContent))
+      );
+    }
+    if (!target) {
+      document.body.click();
+      return { ok: false, readOnly: true };
+    }
+    target.click();
+    for (let i = 0; i < 30; i++) {
+      if (!row.isConnected) return { ok: true };
+      await sleep(100);
+    }
+    return { ok: !row.isConnected, readOnly: false };
+  }
+
+  async function unlikeSingleItem(item) {
+    let apiAuthError = false;
+    if (item.videoId) {
+      const res = await unlikeVideo(item.videoId);
+      if (res.ok) {
+        item.row.remove();
+        return { ok: true, authError: false };
+      }
+      apiAuthError = !!res.authError;
+    }
+    const fb = await unlikeViaDomFallback(item.row);
+    if (fb.ok) return { ok: true, authError: false };
+    return { ok: false, authError: apiAuthError };
+  }
+
+  async function runBulkUnlike(items, label) {
+    const valid = items.filter((i) => i.videoId || i.row?.isConnected);
+    if (!valid.length) {
+      showToast({ text: `No matching liked videos found for ${label}.`, actions: [{ label: 'Close', onClick: clearToast }] });
+      return;
+    }
+    const task = beginTask('unlike');
+    if (!task) return;
+    closeDialog();
+
+    let done = 0;
+    let failed = 0;
+    let authBlocked = false;
+    const total = valid.length;
+
+    for (let i = 0; i < total; i++) {
+      if (task.stopped) break;
+      const item = valid[i];
+      showToast({
+        text: `Unliking ${i + 1} / ${total}... (${done} removed, ${failed} failed)`,
+        progress: Math.round(((i + 1) / total) * 100),
+        actions: [{ label: 'Stop', onClick: () => { task.stopped = true; } }],
+      });
+      const res = await unlikeSingleItem(item);
+      if (res.ok) {
+        done++;
+      } else if (res.authError) {
+        authBlocked = true;
+        break;
+      } else {
+        failed++;
+      }
+      if (!task.stopped && i + 1 < total) await sleep(UNLIKE_DELAY_MS);
+    }
+
+    const wasStopped = task.stopped;
+    endTask(task);
+    applyFilter();
+
+    if (authBlocked) {
+      showToast({
+        text: 'Unlike failed: sign in to YouTube and refresh the page.',
+        actions: [{ label: 'Close', onClick: clearToast }],
+      });
+      return;
+    }
+    showToast({
+      text: `${wasStopped ? 'Stopped' : 'Done'}: ${done} unliked${failed ? `, ${failed} failed` : ''}.`,
+      actions: [{ label: 'Close', onClick: clearToast }],
+    });
+  }
+
+  // ---------- Export ----------
+
+  function gmGetJson(url) {
+    return new Promise((resolve) => {
+      if (typeof GM_xmlhttpRequest !== 'function') {
+        resolve(null);
+        return;
+      }
+      GM_xmlhttpRequest({
+        method: 'GET',
+        url,
+        timeout: RESOLVE_TIMEOUT_MS,
+        onload: (res) => {
+          if (res.status < 200 || res.status >= 300) return resolve(null);
+          try {
+            resolve(JSON.parse(res.responseText));
+          } catch {
+            resolve(null);
+          }
+        },
+        onerror: () => resolve(null),
+        ontimeout: () => resolve(null),
+      });
+    });
+  }
+
+  async function resolveUnavailableTitle(videoId) {
+    if (!videoId) return '';
+    if (resolvedTitleCache.has(videoId)) return resolvedTitleCache.get(videoId);
+    const data = await gmGetJson(`https://findyoutubevideo.thetechrobo.ca/api/v4/${encodeURIComponent(videoId)}`);
+    let title = '';
+    const keys = Array.isArray(data?.keys) ? data.keys : [];
+    for (const entry of keys) {
+      const candidate =
+        entry?.rawdata?.title ||
+        entry?.rawdata?.videoTitle ||
+        entry?.meta?.title ||
+        entry?.title ||
+        '';
+      if (typeof candidate === 'string' && cleanText(candidate)) {
+        title = cleanText(candidate);
+        break;
+      }
+    }
+    resolvedTitleCache.set(videoId, title);
+    return title;
+  }
+
+  function escapeMd(s) {
+    return String(s || '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
+  }
+
+  function downloadText(filename, content, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function copyText(text) {
+    if (typeof GM_setClipboard === 'function') {
+      GM_setClipboard(text, 'text');
+      return true;
+    }
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    return false;
+  }
+
+  function selectScopeItems(scope) {
+    const all = getAllItems();
+    if (scope === 'filtered') return all.filter((i) => !i.row.hasAttribute(HIDDEN_ATTR) && !isHiddenByMembers(i.row));
+    if (scope === 'available') return all.filter((i) => i.status === 'available');
+    if (scope === 'unavailable-all') return all.filter((i) => i.status !== 'available');
+    if (scope === 'unavailable-deleted') return all.filter((i) => i.status === 'deleted');
+    if (scope === 'unavailable-private') return all.filter((i) => i.status === 'private');
+    if (scope === 'shorts') return all.filter((i) => i.isShort);
+    return all;
+  }
+
+  async function runExport(scope, format, shouldResolve) {
+    const items = selectScopeItems(scope);
+    if (!items.length) {
+      showToast({ text: 'No matching liked videos to export.', actions: [{ label: 'Close', onClick: clearToast }] });
+      return;
+    }
+    const task = beginTask('export');
+    if (!task) return;
+    closeDialog();
+
+    const resolved = new Map();
+    let foundCount = 0;
+    if (shouldResolve) {
+      const queue = items.filter((i) => i.status !== 'available' && i.videoId);
+      let done = 0;
+      const total = queue.length;
+      const worker = async () => {
+        while (queue.length && !task.stopped) {
+          const item = queue.shift();
+          const t = await resolveUnavailableTitle(item.videoId);
+          if (t) {
+            resolved.set(item.videoId, t);
+            foundCount++;
+          }
+          done++;
+          showToast({
+            text: `Resolving titles ${done} / ${total} (${foundCount} found)...`,
+            progress: total ? Math.round((done / total) * 100) : 100,
+            actions: [{ label: 'Finish Now', onClick: () => { task.stopped = true; } }],
+          });
+        }
+      };
+      if (total) {
+        const workers = [];
+        for (let i = 0; i < Math.min(RESOLVE_CONCURRENCY, total); i++) workers.push(worker());
+        await Promise.all(workers);
+      }
+    }
+
+    const date = new Date().toISOString().slice(0, 10);
+    const ext = format === 'txt' ? 'txt' : 'md';
+    const filename = `youtube-liked-videos-${scope}-${date}.${ext}`;
+    const unavailableItems = items.filter((i) => i.status !== 'available' && i.videoId);
+    const withTitles = shouldResolve && format === 'md' && unavailableItems.length > 0;
+    let content = '';
+    if (format === 'txt') {
+      content = items
+        .filter((i) => i.videoId)
+        .map((i) => (i.isShort ? `https://www.youtube.com/shorts/${i.videoId}` : `https://www.youtube.com/watch?v=${i.videoId}`))
+        .join('\n');
+    } else {
+      const groups = {
+        available: items.filter((i) => i.status === 'available'),
+        deleted: items.filter((i) => i.status === 'deleted'),
+        private: items.filter((i) => i.status === 'private'),
+        unavailable: items.filter((i) => i.status !== 'available' && i.status !== 'deleted' && i.status !== 'private'),
+      };
+      const lines = [
+        '# YouTube Liked Videos Export',
+        '',
+        `- Date: ${date}`,
+        `- Scope: ${scope}`,
+        `- Total: ${items.length} (Available: ${groups.available.length}, Deleted: ${groups.deleted.length}, Private: ${groups.private.length}, Other unavailable: ${groups.unavailable.length})`,
+        '',
+      ];
+      if (groups.available.length) {
+        lines.push('## Available', '', '| # | Video ID | Title | Channel | YouTube |', '| --- | --- | --- | --- | --- |');
+        groups.available.forEach((item, idx) => {
+          const url = item.isShort
+            ? `https://www.youtube.com/shorts/${item.videoId}`
+            : `https://www.youtube.com/watch?v=${item.videoId}`;
+          lines.push(`| ${idx + 1} | \`${item.videoId}\` | ${escapeMd(item.title)} | ${escapeMd(item.channel)} | [Link](${url}) |`);
+        });
+        lines.push('');
+      }
+      const unavailSections = [
+        ['Deleted', groups.deleted],
+        ['Private', groups.private],
+        ['Other Unavailable', groups.unavailable],
+      ];
+      for (const [heading, list] of unavailSections) {
+        if (!list.length) continue;
+        lines.push(`## ${heading}`, '');
+        if (withTitles) {
+          lines.push('| # | Video ID | Title | YouTube | Wayback Machine |', '| --- | --- | --- | --- | --- |');
+        } else {
+          lines.push('| # | Video ID | YouTube | Wayback Machine |', '| --- | --- | --- | --- |');
+        }
+        list.forEach((item, idx) => {
+          const yt = item.isShort
+            ? `https://www.youtube.com/shorts/${item.videoId}`
+            : `https://www.youtube.com/watch?v=${item.videoId}`;
+          const wb = `https://web.archive.org/web/*/${yt}`;
+          if (withTitles) {
+            const found = resolved.get(item.videoId);
+            const titleCell = found ? escapeMd(found) : '*(not found)*';
+            lines.push(`| ${idx + 1} | \`${item.videoId}\` | ${titleCell} | [Link](${yt}) | [Archive](${wb}) |`);
+          } else {
+            lines.push(`| ${idx + 1} | \`${item.videoId}\` | [Link](${yt}) | [Archive](${wb}) |`);
+          }
+        });
+        lines.push('');
+      }
+      content = lines.join('\n');
+    }
+
+    endTask(task);
+    const mime = format === 'txt' ? 'text/plain;charset=utf-8' : 'text/markdown;charset=utf-8';
+    const summary = shouldResolve
+      ? `Ready: ${items.length} liked videos (${foundCount} titles resolved)`
+      : `Ready: ${items.length} liked videos`;
+
+    const showReady = (note = '') => {
+      showToast({
+        text: note ? `${summary} - ${note}` : summary,
+        actions: [
+          { label: 'Download', onClick: () => downloadText(filename, content, mime) },
+          {
+            label: 'Copy to Clipboard',
+            onClick: async () => {
+              const ok = await copyText(content).catch(() => false);
+              showReady(ok ? 'Copied' : 'Clipboard failed; use Download');
+            },
+          },
+          { label: 'Close', onClick: clearToast },
+        ],
+      });
+    };
+    showReady();
+  }
+
+  // ---------- Copy to Playlist ----------
+
+  function parseTargetPlaylistId(raw) {
+    const input = cleanText(raw);
+    if (!input) return '';
+    try {
+      if (/^https?:\/\//i.test(input)) {
+        const u = new URL(input);
+        return u.searchParams.get('list') || '';
+      }
+    } catch {
+      // fall through
+    }
+    const m = input.match(/[?&]list=([A-Za-z0-9_-]+)/);
+    if (m) return m[1];
+    if (/^[A-Za-z0-9_-]{2,}$/.test(input)) return input;
+    return '';
+  }
+
+  async function runCopyToPlaylist(rawTarget, scope) {
+    const targetId = parseTargetPlaylistId(rawTarget);
+    if (!targetId || targetId === 'LL') {
+      showToast({
+        text: targetId === 'LL' ? 'Choose a destination playlist other than Liked Videos (LL).' : 'Enter a valid playlist URL or playlist ID.',
+        actions: [{ label: 'Close', onClick: clearToast }],
+      });
+      return;
+    }
+    const items = selectScopeItems(scope).filter((i) => i.videoId);
+    if (!items.length) {
+      showToast({ text: 'No matching liked videos to copy.', actions: [{ label: 'Close', onClick: clearToast }] });
+      return;
+    }
+
+    const task = beginTask('copy');
+    if (!task) return;
+    closeDialog();
+
+    let added = 0;
+    let failed = 0;
+    let authBlocked = false;
+    for (let i = 0; i < items.length; i++) {
+      if (task.stopped) break;
+      showToast({
+        text: `Copying ${i + 1} / ${items.length} to ${targetId}... (${added} added, ${failed} failed)`,
+        progress: Math.round(((i + 1) / items.length) * 100),
+        actions: [{ label: 'Stop', onClick: () => { task.stopped = true; } }],
+      });
+      const res = await addVideoToPlaylist(targetId, items[i].videoId);
+      if (res.ok) {
+        added++;
+      } else if (res.authError) {
+        authBlocked = true;
+        break;
+      } else {
+        failed++;
+      }
+      if (!task.stopped && i + 1 < items.length) await sleep(COPY_DELAY_MS);
+    }
+
+    const wasStopped = task.stopped;
+    endTask(task);
+    if (authBlocked) {
+      showToast({
+        text: 'Copy failed: destination playlist is read-only or you are not signed in.',
+        actions: [{ label: 'Close', onClick: clearToast }],
+      });
+      return;
+    }
+    showToast({
+      text: `${wasStopped ? 'Stopped' : 'Done'}: ${added} added to ${targetId}${failed ? `, ${failed} failed` : ''}.`,
+      actions: [{ label: 'Close', onClick: clearToast }],
+    });
+  }
+
+  // ---------- Search & Filter Bar ----------
+
+  const isFilterActive = () => filterState.query.trim() !== '' || filterState.chip !== 'all';
+
+  function matchesFilter(item) {
+    const chip = filterState.chip;
+    const threshold = Number(get('watchedThreshold')) || 80;
+    if (chip === 'available' && item.status !== 'available') return false;
+    if (chip === 'unwatched' && item.watchedPct >= threshold) return false;
+    if (chip === 'watched' && item.watchedPct < threshold) return false;
+    if (chip === 'shorts' && !item.isShort) return false;
+    if (chip === 'unavailable' && item.status === 'available') return false;
+
+    const q = filterState.query.trim().toLowerCase();
+    if (!q) return true;
+    if (filterState.target === 'title') return `${item.title} ${item.rawTitle}`.toLowerCase().includes(q);
+    if (filterState.target === 'channel') return item.channel.toLowerCase().includes(q);
+    const hay = `${item.title} ${item.rawTitle} ${item.channel}`.toLowerCase();
+    return hay.includes(q);
+  }
+
+  function applyFilter() {
+    const items = getAllItems();
+    const active = isFilterActive();
+    let shown = 0;
+    let totalVisible = 0;
+    for (const item of items) {
+      if (isHiddenByMembers(item.row)) continue;
+      totalVisible++;
+      const ok = !active || matchesFilter(item);
+      if (ok) {
+        item.row.removeAttribute(HIDDEN_ATTR);
+        shown++;
+      } else {
+        item.row.setAttribute(HIDDEN_ATTR, '1');
+      }
+    }
+
+    const bar = document.getElementById(FILTER_ID);
+    if (bar) {
+      const counter = bar.querySelector('.ytlt-counter');
+      if (counter) counter.textContent = `Showing ${shown} / ${totalVisible}`;
+      for (const act of ['export-filtered', 'unlike-filtered', 'reset-filter']) {
+        const b = bar.querySelector(`[data-act="${act}"]`);
+        if (b) b.hidden = !active;
+      }
+    }
+
+    const empty = document.getElementById(EMPTY_ID);
+    if (active && totalVisible > 0 && shown === 0) {
+      if (!empty && bar) {
+        const box = document.createElement('div');
+        box.id = EMPTY_ID;
+        const msg = document.createElement('span');
+        msg.textContent = 'No liked videos match the current filter.';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ytlt-fbtn';
+        btn.textContent = 'Reset filter';
+        btn.addEventListener('click', resetFilter);
+        box.append(msg, btn);
+        bar.after(box);
+      }
+    } else {
+      empty?.remove();
+    }
+    updateDurationBadge();
+  }
+
+  function resetFilter() {
+    filterState = { query: '', chip: 'all', target: 'both' };
+    const bar = document.getElementById(FILTER_ID);
+    if (bar) {
+      const input = bar.querySelector('input[type="search"]');
+      if (input) input.value = '';
+      for (const c of bar.querySelectorAll('.ytlt-chip')) {
+        c.setAttribute('aria-pressed', String(c.dataset.chip === 'all'));
+      }
+    }
+    applyFilter();
+  }
+
+  function findListAnchor() {
+    const root = activeLikedRoot();
+    const selectors = [
+      'ytd-playlist-video-list-renderer #contents',
+      'ytd-rich-grid-renderer #contents',
+      'ytd-item-section-renderer #contents',
+      'ytd-section-list-renderer #contents',
+      'ytd-playlist-video-list-renderer',
+    ];
+    for (const sel of selectors) {
+      for (const el of root.querySelectorAll(sel)) {
+        if (!isElementHidden(el)) return el;
+      }
+    }
+    return null;
+  }
+
+  function mountFilterBar() {
+    const existing = document.getElementById(FILTER_ID);
+    if (!get('showFilterBar')) {
+      existing?.remove();
+      document.getElementById(EMPTY_ID)?.remove();
+      for (const row of getRows()) row.removeAttribute(HIDDEN_ATTR);
+      return;
+    }
+    const listRoot = findListAnchor();
+    if (!listRoot || !listRoot.parentElement) return;
+    if (existing && existing.isConnected) {
+      if (existing.parentElement !== listRoot.parentElement) listRoot.before(existing);
+      return;
+    }
+
+    ensureStyle();
+    const bar = document.createElement('div');
+    bar.id = FILTER_ID;
+    bar.style.flexDirection = 'column';
+    bar.style.alignItems = 'stretch';
+
+    const topRow = document.createElement('div');
+    topRow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+    const searchLabel = document.createElement('label');
+    searchLabel.className = 'ytlt-sr';
+    searchLabel.setAttribute('for', 'ytlt-filter-input');
+    searchLabel.textContent = 'Filter liked videos';
+    const searchWrap = document.createElement('div');
+    searchWrap.className = 'ytlt-search-wrap';
+    const input = document.createElement('input');
+    input.id = 'ytlt-filter-input';
+    input.type = 'search';
+    input.placeholder = 'Search title or channel...';
+    input.value = filterState.query;
+    const runSearch = () => {
+      filterState.query = input.value;
+      filterState.target = 'both';
+      applyFilter();
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        runSearch();
+      }
+    });
+    searchWrap.append(makeSvgIcon(ICON_SEARCH, 15), input);
+
+    const searchBtn = document.createElement('button');
+    searchBtn.type = 'button';
+    searchBtn.className = 'ytlt-fbtn';
+    searchBtn.dataset.act = 'search-filter';
+    searchBtn.textContent = 'Search';
+    searchBtn.addEventListener('click', runSearch);
+
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.className = 'ytlt-fbtn';
+    resetBtn.dataset.act = 'reset-filter';
+    resetBtn.textContent = 'Reset';
+    resetBtn.hidden = !isFilterActive();
+    resetBtn.addEventListener('click', resetFilter);
+
+    const counter = document.createElement('span');
+    counter.className = 'ytlt-counter';
+
+    topRow.append(searchLabel, searchWrap, searchBtn, resetBtn, counter);
+
+    const chips = document.createElement('div');
+    chips.className = 'ytlt-chips';
+    for (const [id, label] of [
+      ['all', 'All'],
+      ['available', 'Available'],
+      ['unavailable', 'Unavailable'],
+      ['watched', 'Watched'],
+      ['unwatched', 'Unwatched'],
+      ['shorts', 'Shorts'],
+    ]) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'ytlt-chip';
+      chip.dataset.chip = id;
+      chip.textContent = label;
+      chip.setAttribute('aria-pressed', String(filterState.chip === id));
+      chip.addEventListener('click', () => {
+        filterState.chip = id;
+        for (const c of chips.querySelectorAll('.ytlt-chip')) {
+          c.setAttribute('aria-pressed', String(c.dataset.chip === id));
+        }
+        applyFilter();
+      });
+      chips.append(chip);
+    }
+
+    bar.append(topRow, chips);
+    listRoot.before(bar);
+    applyFilter();
+  }
+
+  // ---------- Header Button & Duration Card ----------
+
+  function findHeaderAnchor() {
+    const root = activeLikedRoot();
+    const selectors = [
+      'ytd-playlist-header-renderer .metadata-action-bar',
+      'ytd-playlist-header-renderer .metadata-wrapper',
+      'yt-page-header-view-model .yt-page-header-view-model__page-header-headline-info',
+      'yt-page-header-view-model .page-header-view-model-wiz__page-header-headline-info',
+      'yt-page-header-view-model .yt-page-header-view-model__page-header-content',
+      'yt-page-header-view-model .page-header-view-model-wiz__page-header-content',
+      'yt-page-header-renderer .yt-page-header-view-model__page-header-content',
+      'yt-page-header-renderer .page-header-view-model-wiz__page-header-content',
+    ];
+    for (const sel of selectors) {
+      for (const el of root.querySelectorAll(sel)) {
+        if (!isElementHidden(el)) return el;
+      }
+    }
+    for (const actions of root.querySelectorAll('yt-flexible-actions-view-model')) {
+      if (!isElementHidden(actions) && actions.parentElement) return actions.parentElement;
+    }
+    for (const sel of ['yt-page-header-view-model', 'ytd-playlist-header-renderer', 'yt-page-header-renderer']) {
+      for (const el of root.querySelectorAll(sel)) {
+        if (!isElementHidden(el)) return el;
+      }
+    }
+    return null;
+  }
+
+  function computeDurationSummary(items) {
+    let totalSec = 0;
+    let timedCount = 0;
+    for (const item of items) {
+      if (item.durationSec !== null) {
+        totalSec += item.durationSec;
+        timedCount++;
+      }
+    }
+    return { totalSec, timedCount, count: items.length };
+  }
+
+  function updateDurationBadge() {
+    const existing = document.getElementById(DURATION_ID);
+    if (!get('showDuration')) {
+      existing?.remove();
+      return;
+    }
+    const anchor = findHeaderAnchor();
+    if (!anchor) return;
+    ensureStyle();
+
+    let badge = existing;
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = DURATION_ID;
+      anchor.append(badge);
+    } else if (badge.parentElement !== anchor) {
+      anchor.append(badge);
+    }
+
+    const all = getAllItems();
+    const totalSum = computeDurationSummary(all);
+    const totalCount = getTotalLikedCount();
+    const active = isFilterActive();
+    const visibleItems = active
+      ? all.filter((i) => !i.row.hasAttribute(HIDDEN_ATTR) && !isHiddenByMembers(i.row))
+      : all;
+    const shownSum = active ? computeDurationSummary(visibleItems) : totalSum;
+
+    badge.textContent = '';
+    const top = document.createElement('div');
+    top.className = 'ytlt-dur-top';
+    const main = document.createElement('span');
+    main.className = 'ytlt-dur-total';
+    const s = shownSum.totalSec;
+    const totalLabel = document.createElement('span');
+    totalLabel.textContent = active
+      ? `Filtered: ${formatDuration(s)} (of ${formatDuration(totalSum.totalSec)})`
+      : formatDuration(s);
+    main.append(makeSvgIcon(ICON_CLOCK, 15), totalLabel);
+
+    const meta = document.createElement('span');
+    meta.className = 'ytlt-dur-meta';
+    meta.textContent =
+      totalCount && all.length < totalCount
+        ? `(${all.length}/${totalCount} loaded)`
+        : `(${shownSum.timedCount}/${shownSum.count} timed)`;
+    top.append(main, meta);
+
+    if (totalCount && all.length < totalCount) {
+      const loadBtn = document.createElement('button');
+      loadBtn.type = 'button';
+      loadBtn.textContent = 'Load all';
+      loadBtn.disabled = !!activeTask;
+      loadBtn.addEventListener('click', async () => {
+        const task = beginTask('load');
+        if (!task) return;
+        await autoScrollLiked(task);
+        endTask(task);
+        clearToast();
+      });
+      top.append(loadBtn);
+    }
+
+    badge.append(top);
+  }
+
+  function mountHeaderButton() {
+    const anchor = findHeaderAnchor();
+    if (!anchor) return;
+    ensureStyle();
+    const existing = document.getElementById(BTN_ID);
+    const badge = document.getElementById(DURATION_ID);
+    if (existing) {
+      if (existing.parentElement !== anchor) {
+        if (badge && badge.parentElement === anchor) anchor.insertBefore(existing, badge);
+        else anchor.append(existing);
+      }
+      return;
+    }
+    const btn = document.createElement('button');
+    btn.id = BTN_ID;
+    btn.type = 'button';
+    btn.append(makeSvgIcon(ICON_HEART, 15), document.createTextNode('Liked Videos Tools'));
+    btn.addEventListener('click', () => openDialog('unlike'));
+    if (badge && badge.parentElement === anchor) anchor.insertBefore(btn, badge);
+    else anchor.append(btn);
+  }
+
+  // ---------- Dialog ----------
+
+  function closeDialog() {
+    document.removeEventListener('keydown', onDialogKey, true);
+    document.getElementById(BACKDROP_ID)?.remove();
+    if (lastTrigger && lastTrigger.isConnected) lastTrigger.focus();
+    lastTrigger = null;
+  }
+
+  function onDialogKey(e) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      closeDialog();
+    }
+  }
+
+  function openDialog(initialTab = 'unlike', pendingConfirm = null) {
+    if (document.getElementById(BACKDROP_ID)) closeDialog();
+    ensureStyle();
+    lastTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    const backdrop = document.createElement('div');
+    backdrop.id = BACKDROP_ID;
+    backdrop.addEventListener('mousedown', (e) => {
+      if (e.target === backdrop) closeDialog();
+    });
+
+    const dialog = document.createElement('div');
+    dialog.id = DIALOG_ID;
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-label', 'Liked Videos Tools');
+
+    const head = document.createElement('div');
+    head.className = 'ytlt-dhead';
+    const title = document.createElement('h2');
+    title.textContent = 'Liked Videos Tools';
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'ytlt-close';
+    close.setAttribute('aria-label', 'Close');
+    close.append(makeSvgIcon(ICON_CLOSE, 20));
+    close.addEventListener('click', closeDialog);
+    head.append(makeSvgIcon(ICON_HEART, 18), title, close);
+
+    const tabs = document.createElement('div');
+    tabs.className = 'ytlt-tabs';
+    tabs.setAttribute('role', 'tablist');
+    const body = document.createElement('div');
+    body.className = 'ytlt-body';
+
+    let currentTab = initialTab;
+    let kwQuery = '';
+    let kwTarget = 'both';
+    const tabButtons = [];
+    for (const [id, label] of [
+      ['unlike', 'Bulk Unlike'],
+      ['export', 'Export'],
+      ['copy', 'Copy to Playlist'],
+    ]) {
+      const t = document.createElement('button');
+      t.type = 'button';
+      t.className = 'ytlt-tab';
+      t.setAttribute('role', 'tab');
+      t.dataset.tab = id;
+      t.textContent = label;
+      t.addEventListener('click', () => {
+        currentTab = id;
+        renderBody(null);
+      });
+      tabs.append(t);
+      tabButtons.push(t);
+    }
+
+    tabs.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const idx = tabButtons.findIndex((b) => b.dataset.tab === currentTab);
+      const next = (idx + (e.key === 'ArrowRight' ? 1 : -1) + tabButtons.length) % tabButtons.length;
+      currentTab = tabButtons[next].dataset.tab;
+      renderBody(null);
+      tabButtons[next].focus();
+    });
+
+    const makeCard = (heading) => {
+      const card = document.createElement('div');
+      card.className = 'ytlt-card';
+      const h = document.createElement('h3');
+      h.textContent = heading;
+      card.append(h);
+      return card;
+    };
+
+    function askConfirm(label, items, { warning = '' } = {}) {
+      if (!items.length) {
+        showToast({ text: `No loaded liked videos match "${label}".`, actions: [{ label: 'Close', onClick: clearToast }] });
+        return;
+      }
+      renderBody({ label, items, warning });
+    }
+
+    function renderBody(confirmState) {
+      for (const b of tabButtons) {
+        b.setAttribute('aria-selected', String(!confirmState && b.dataset.tab === currentTab));
+      }
+      tabs.hidden = !!confirmState;
+      body.textContent = '';
+
+      if (confirmState) {
+        const box = document.createElement('div');
+        box.className = 'ytlt-confirm-box';
+        const ch = document.createElement('div');
+        ch.className = 'ytlt-confirm-head';
+        ch.append(makeSvgIcon(ICON_WARN, 20), document.createTextNode(`Confirm: ${confirmState.label}`));
+        const summary = document.createElement('p');
+        summary.className = 'ytlt-note';
+        summary.textContent = `This will unlike ${confirmState.items.length} video(s) from your Liked Videos using YouTube's unlike API.`;
+        box.append(ch, summary);
+        if (confirmState.warning) {
+          const warn = document.createElement('div');
+          warn.className = 'ytlt-warn';
+          warn.append(makeSvgIcon(ICON_WARN, 16), document.createTextNode(confirmState.warning));
+          box.append(warn);
+        }
+        const list = document.createElement('ul');
+        list.className = 'ytlt-confirm-list';
+        for (const item of confirmState.items.slice(0, 5)) {
+          const li = document.createElement('li');
+          li.textContent = item.title || item.rawTitle || `[${item.status}] ${item.videoId}`;
+          list.append(li);
+        }
+        if (confirmState.items.length > 5) {
+          const more = document.createElement('li');
+          more.textContent = `...and ${confirmState.items.length - 5} more`;
+          list.append(more);
+        }
+        const actions = document.createElement('div');
+        actions.className = 'ytlt-confirm-actions';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'ytlt-btn';
+        cancel.textContent = 'Cancel';
+        cancel.addEventListener('click', () => renderBody(null));
+        const confirm = document.createElement('button');
+        confirm.type = 'button';
+        confirm.className = 'ytlt-btn danger';
+        confirm.textContent = `Unlike ${confirmState.items.length} video(s)`;
+        confirm.addEventListener('click', () => runBulkUnlike(confirmState.items, confirmState.label));
+        actions.append(cancel, confirm);
+        box.append(list, actions);
+        body.append(box);
+        cancel.focus();
+        return;
+      }
+
+      if (currentTab === 'unlike') {
+        const all = getAllItems();
+        const clearCard = makeCard('Clear Liked Videos');
+        const clearRow = document.createElement('div');
+        clearRow.className = 'ytlt-row';
+        const clearSel = document.createElement('select');
+        clearSel.id = 'ytlt-clear-mode';
+        for (const [val, txt] of CLEAR_MODES) {
+          const o = document.createElement('option');
+          o.value = val;
+          o.textContent = txt;
+          if (val === get('clearMode')) o.selected = true;
+          clearSel.append(o);
+        }
+        clearSel.addEventListener('change', () => put('clearMode', clearSel.value));
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'ytlt-btn danger';
+        clearBtn.textContent = 'Unlike';
+        clearBtn.addEventListener('click', () => {
+          const mode = clearSel.value;
+          const { targets } = selectClearTargets(getAllItems(), mode);
+          const includesUnavail = mode !== 'skip-unavailable';
+          const warning =
+            includesUnavail && hasUnavailableHiddenBanner()
+              ? 'Unavailable videos are currently hidden. Enable "Show unavailable videos" first to unlike them.'
+              : '';
+          askConfirm(clearSel.options[clearSel.selectedIndex].textContent, targets, { warning });
+        });
+        clearRow.append(clearSel, clearBtn);
+        clearCard.append(clearRow);
+
+        const watchedCard = makeCard('Unlike watched videos');
+        const sliderRow = document.createElement('div');
+        sliderRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin:4px 0 8px';
+        const thInput = document.createElement('input');
+        thInput.type = 'range';
+        thInput.min = '10';
+        thInput.max = '100';
+        thInput.step = '5';
+        thInput.value = String(get('watchedThreshold'));
+        thInput.style.cssText = 'flex:1;accent-color:var(--yt-spec-call-to-action,#3ea6ff);cursor:pointer';
+        const thVal = document.createElement('span');
+        thVal.style.cssText = 'min-width:40px;text-align:right;font-size:13px;font-weight:600';
+        thVal.textContent = `${thInput.value}%`;
+        thInput.addEventListener('input', () => {
+          thVal.textContent = `${thInput.value}%`;
+        });
+        thInput.addEventListener('change', () => {
+          const n = Math.min(100, Math.max(10, Number.parseInt(thInput.value, 10) || 80));
+          thInput.value = String(n);
+          thVal.textContent = `${n}%`;
+          put('watchedThreshold', n);
+        });
+        sliderRow.append(thInput, thVal);
+        const watchedRow = document.createElement('div');
+        watchedRow.className = 'ytlt-row';
+        const watchedBtn = document.createElement('button');
+        watchedBtn.type = 'button';
+        watchedBtn.className = 'ytlt-btn danger';
+        watchedBtn.textContent = 'Unlike watched';
+        watchedBtn.addEventListener('click', () => {
+          const th = Math.min(100, Math.max(10, Number.parseInt(thInput.value, 10) || 80));
+          put('watchedThreshold', th);
+          askConfirm(`Watched >= ${th}%`, getAllItems().filter((i) => i.watchedPct >= th));
+        });
+        watchedRow.append(watchedBtn);
+        watchedCard.append(sliderRow, watchedRow);
+
+        const quickCard = makeCard('Unlike by keyword, Shorts or filter');
+        const kwRow = document.createElement('div');
+        kwRow.className = 'ytlt-row';
+        const kwInput = document.createElement('input');
+        kwInput.id = 'ytlt-kw-input';
+        kwInput.type = 'text';
+        kwInput.value = kwQuery;
+        kwInput.placeholder = 'Title or channel keyword...';
+        kwInput.style.flex = '1';
+        const tgtSel = document.createElement('select');
+        tgtSel.id = 'ytlt-kw-target';
+        for (const [val, txt] of [
+          ['both', 'Title & Channel'],
+          ['title', 'Title'],
+          ['channel', 'Channel'],
+        ]) {
+          const o = document.createElement('option');
+          o.value = val;
+          o.textContent = txt;
+          if (val === kwTarget) o.selected = true;
+          tgtSel.append(o);
+        }
+        kwRow.append(kwInput, tgtSel);
+
+        const kwPreview = document.createElement('p');
+        kwPreview.className = 'ytlt-note';
+        const updateKwPreview = () => {
+          const matches = getAllItems().filter((i) => matchKeywordItem(i, kwQuery, kwTarget));
+          if (!kwQuery.trim()) {
+            kwPreview.textContent = 'Type a keyword to preview matches.';
+            return;
+          }
+          const sample = matches.slice(0, 3).map((m) => m.title).join(', ');
+          kwPreview.textContent = matches.length ? `${matches.length} match(es): ${sample}` : '0 matches found.';
+        };
+        updateKwPreview();
+        kwInput.addEventListener('input', () => {
+          kwQuery = kwInput.value;
+          updateKwPreview();
+        });
+        tgtSel.addEventListener('change', () => {
+          kwTarget = tgtSel.value;
+          updateKwPreview();
+        });
+
+        const kwActRow = document.createElement('div');
+        kwActRow.className = 'ytlt-row';
+        const prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
+        prevBtn.className = 'ytlt-btn';
+        prevBtn.textContent = 'Preview in list';
+        prevBtn.addEventListener('click', () => {
+          filterState.query = kwQuery;
+          filterState.target = kwTarget;
+          filterState.chip = 'all';
+          const bar = document.getElementById(FILTER_ID);
+          if (bar) {
+            const inp = bar.querySelector('input[type="search"]');
+            if (inp) inp.value = kwQuery;
+            for (const c of bar.querySelectorAll('.ytlt-chip')) {
+              c.setAttribute('aria-pressed', String(c.dataset.chip === 'all'));
+            }
+          }
+          applyFilter();
+          closeDialog();
+        });
+        const kwBtn = document.createElement('button');
+        kwBtn.type = 'button';
+        kwBtn.className = 'ytlt-btn danger';
+        kwBtn.textContent = 'Unlike matching';
+        kwBtn.addEventListener('click', () => {
+          if (!kwQuery.trim()) return;
+          const matched = getAllItems().filter((i) => matchKeywordItem(i, kwQuery, kwTarget));
+          askConfirm(`Keyword "${kwQuery.trim()}"`, matched);
+        });
+        kwActRow.append(prevBtn, kwBtn);
+
+        const extraRow = document.createElement('div');
+        extraRow.className = 'ytlt-row';
+        const shortsBtn = document.createElement('button');
+        shortsBtn.type = 'button';
+        shortsBtn.className = 'ytlt-btn';
+        shortsBtn.textContent = `Unlike Shorts (${all.filter((i) => i.isShort).length})`;
+        shortsBtn.addEventListener('click', () => askConfirm('Liked Shorts', selectScopeItems('shorts')));
+        const filteredBtn = document.createElement('button');
+        filteredBtn.type = 'button';
+        filteredBtn.className = 'ytlt-btn';
+        filteredBtn.textContent = 'Unlike currently filtered';
+        filteredBtn.addEventListener('click', () => askConfirm('Filtered liked videos', selectScopeItems('filtered')));
+        extraRow.append(shortsBtn, filteredBtn);
+        quickCard.append(kwRow, kwPreview, kwActRow, extraRow);
+
+        const uiCard = makeCard('Display Settings');
+        const makeToggle = (id, label, key, onChange) => {
+          const wrap = document.createElement('label');
+          wrap.className = 'ytlt-check';
+          wrap.setAttribute('for', id);
+          const cb = document.createElement('input');
+          cb.id = id;
+          cb.type = 'checkbox';
+          cb.checked = get(key) === true;
+          cb.addEventListener('change', () => {
+            put(key, cb.checked);
+            onChange();
+          });
+          wrap.append(cb, document.createTextNode(label));
+          return wrap;
+        };
+        uiCard.append(
+          makeToggle('ytlt-show-filter', 'Show in-page search & filter bar', 'showFilterBar', mountFilterBar),
+          makeToggle('ytlt-show-dur', 'Show total duration calculator badge', 'showDuration', updateDurationBadge)
+        );
+
+        body.append(clearCard, watchedCard, quickCard, uiCard);
+        return;
+      }
+
+      if (currentTab === 'export') {
+        const card = makeCard('Export liked videos');
+        const row1 = document.createElement('div');
+        row1.className = 'ytlt-row';
+        const scopeSel = document.createElement('select');
+        for (const [val, txt] of [
+          ['all', 'All loaded'],
+          ['filtered', 'Currently filtered'],
+          ['available', 'Available only'],
+          ['shorts', 'Shorts only'],
+          ['unavailable-all', 'Unavailable: All'],
+          ['unavailable-deleted', 'Unavailable: Deleted'],
+          ['unavailable-private', 'Unavailable: Private'],
+        ]) {
+          const o = document.createElement('option');
+          o.value = val;
+          o.textContent = txt;
+          scopeSel.append(o);
+        }
+        const fmtSel = document.createElement('select');
+        for (const [val, txt] of [
+          ['md', 'Markdown (.md)'],
+          ['txt', 'Plain URLs (.txt)'],
+        ]) {
+          const o = document.createElement('option');
+          o.value = val;
+          o.textContent = txt;
+          fmtSel.append(o);
+        }
+        fmtSel.value = get('exportFormat');
+        fmtSel.addEventListener('change', () => put('exportFormat', fmtSel.value));
+        row1.append(scopeSel, fmtSel);
+
+        const resolveLabel = document.createElement('label');
+        resolveLabel.className = 'ytlt-check';
+        const resolveCb = document.createElement('input');
+        resolveCb.type = 'checkbox';
+        resolveCb.checked = get('resolveTitles') === true;
+        resolveCb.addEventListener('change', () => put('resolveTitles', resolveCb.checked));
+        resolveLabel.append(resolveCb, document.createTextNode('Resolve unavailable video titles (via findyoutubevideo)'));
+
+        const warnBox = document.createElement('div');
+        warnBox.className = 'ytlt-warn';
+        const updateWarn = () => {
+          const includesUnavail = scopeSel.value !== 'available' && scopeSel.value !== 'shorts';
+          if (includesUnavail && hasUnavailableHiddenBanner()) {
+            warnBox.textContent = '';
+            warnBox.append(
+              makeSvgIcon(ICON_WARN, 16),
+              document.createTextNode('Unavailable videos are hidden. Enable "Show unavailable videos" first to include them.')
+            );
+            warnBox.style.display = '';
+          } else {
+            warnBox.style.display = 'none';
+          }
+        };
+        updateWarn();
+        scopeSel.addEventListener('change', updateWarn);
+
+        const goBtn = document.createElement('button');
+        goBtn.type = 'button';
+        goBtn.className = 'ytlt-btn primary';
+        goBtn.textContent = 'Export';
+        goBtn.addEventListener('click', () => runExport(scopeSel.value, fmtSel.value, resolveCb.checked));
+        card.append(row1, resolveLabel, warnBox, goBtn);
+        body.append(card);
+        return;
+      }
+
+      if (currentTab === 'copy') {
+        const card = makeCard('Copy liked videos to another playlist');
+        const note = document.createElement('p');
+        note.className = 'ytlt-note';
+        note.textContent = 'Paste a destination playlist URL or ID (for example WL or PL...).';
+        const targetInput = document.createElement('input');
+        targetInput.type = 'text';
+        targetInput.placeholder = 'https://www.youtube.com/playlist?list=PL... or WL';
+        targetInput.style.width = '100%';
+
+        const row = document.createElement('div');
+        row.className = 'ytlt-row';
+        const scopeSel = document.createElement('select');
+        for (const [val, txt] of [
+          ['filtered', 'Currently filtered'],
+          ['all', 'All loaded'],
+          ['available', 'Available only'],
+          ['shorts', 'Shorts only'],
+        ]) {
+          const o = document.createElement('option');
+          o.value = val;
+          o.textContent = txt;
+          scopeSel.append(o);
+        }
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'ytlt-btn primary';
+        copyBtn.textContent = 'Copy to Playlist';
+        copyBtn.addEventListener('click', () => runCopyToPlaylist(targetInput.value, scopeSel.value));
+        row.append(scopeSel, copyBtn);
+        card.append(note, targetInput, row);
+        body.append(card);
+      }
+    }
+
+    dialog.append(head, tabs, body);
+    backdrop.append(dialog);
+    document.body.append(backdrop);
+    document.addEventListener('keydown', onDialogKey, true);
+    renderBody(pendingConfirm);
+    tabButtons[0]?.focus();
+  }
+
+  // ---------- Mount & Lifecycle ----------
+
+  function unmountAll() {
+    clearTimeout(mountTimer);
+    document.getElementById(BTN_ID)?.remove();
+    document.getElementById(DURATION_ID)?.remove();
+    document.getElementById(FILTER_ID)?.remove();
+    document.getElementById(EMPTY_ID)?.remove();
+    closeDialog();
+    if (pageObserver) {
+      pageObserver.disconnect();
+      pageObserver = null;
+    }
+  }
+
+  function scheduleMount() {
+    clearTimeout(mountTimer);
+    mountTimer = setTimeout(() => {
+      if (!onLikedPage()) return;
+      mountHeaderButton();
+      mountFilterBar();
+      updateDurationBadge();
+    }, 150);
+  }
+
+  function syncPage() {
+    if (!onLikedPage()) {
+      unmountAll();
+      return;
+    }
+    mountHeaderButton();
+    mountFilterBar();
+    updateDurationBadge();
+    if (!pageObserver) {
+      pageObserver = new MutationObserver(scheduleMount);
+      pageObserver.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  if (typeof GM_registerMenuCommand === 'function') {
+    GM_registerMenuCommand('Liked Videos Tools...', () => {
+      if (!onLikedPage()) {
+        showToast({
+          text: 'Open YouTube Liked Videos (/playlist?list=LL) to use Liked Videos Tools.',
+          actions: [{ label: 'Close', onClick: clearToast }],
+        });
+        return;
+      }
+      openDialog('unlike');
+    });
+  }
+
+  document.addEventListener('yt-navigate-finish', () => {
+    filterState = { query: '', chip: 'all', target: 'both' };
+    document.addEventListener('ytpt-change', syncPage);
+  syncPage();
+  });
+  window.addEventListener('popstate', syncPage);
+  syncPage();
+})();
+
+
+// ---------- Watch Page Playlist Length ----------
+(() => {
+  if (window.self !== window.top) return;
+  const enabled = () => GM_getValue('ytpt.on', true) !== false && GM_getValue('ytpt.playlistLength', true) !== false;
+  const TIME = /^(?:(\d+):)?([0-5]?\d):([0-5]\d)$/;
+  const parse = (text) => {
+    const m = TIME.exec(String(text || '').trim());
+    return m ? (m[1] ? Number(m[1]) : 0) * 3600 + Number(m[2]) * 60 + Number(m[3]) : null;
+  };
+  const fmt = (sec) => {
+    const t = Math.max(0, Math.floor(sec));
+    const h = Math.floor(t / 3600);
+    const m = Math.floor((t % 3600) / 60);
+    const s = t % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+  };
+  function update() {
+    const old = document.getElementById('ytpt-watch-length');
+    if (!enabled() || location.pathname !== '/watch') { old?.remove(); return; }
+    const panel = document.querySelector('ytd-playlist-panel-renderer');
+    if (!panel) { old?.remove(); return; }
+    const items = [...panel.querySelectorAll('ytd-playlist-panel-video-renderer')];
+    if (!items.length) { old?.remove(); return; }
+    let total = 0, left = 0, seenSelected = false, counted = 0;
+    for (const item of items) {
+      if (item.hasAttribute('selected') || item.getAttribute('aria-current') === 'true') seenSelected = true;
+      const t = item.querySelector('ytd-thumbnail-overlay-time-status-renderer, .badge-shape-wiz__text');
+      const sec = parse(t ? t.textContent : '');
+      if (sec !== null) {
+        total += sec;
+        counted++;
+        if (seenSelected) left += sec;
+      }
+    }
+    if (!counted) { old?.remove(); return; }
+    const host = panel.querySelector('.header, #header-contents') || panel;
+    const el = old || document.createElement('div');
+    el.id = 'ytpt-watch-length';
+    el.style.cssText = 'padding:4px 16px 8px;font-size:12px;color:var(--yt-spec-text-secondary,#aaa)';
+    el.textContent = seenSelected
+      ? `${counted} videos · Total ${fmt(total)} · Left ${fmt(left)}`
+      : `${counted} videos · Total ${fmt(total)}`;
+    if (!el.isConnected) host.append(el);
+  }
+  let raf = 0;
+  const schedule = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; update(); }); };
+  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener('yt-navigate-finish', schedule);
+  document.addEventListener('ytpt-change', update);
+  update();
+})();
+
+// ---------- Unified Playlist Tools Settings Panel ----------
+(() => {
+  if (window.self !== window.top) return;
+  const CLEAR_MODES = [['unavailable-only', 'Clear unavailable only'], ['skip-unavailable', 'Skip unavailable'], ['skip-deleted', 'Skip deleted'], ['skip-private', 'Skip private'], ['none', 'Delete all']];
+  const UNLIKE_MODES = [['unavailable-only', 'Unlike unavailable only'], ['unavailable-deleted', 'Unlike deleted only'], ['unavailable-private', 'Unlike private only'], ['skip-unavailable', 'Skip unavailable'], ['none', 'Unlike all']];
+  const FORMATS = [['md', 'Markdown (.md)'], ['txt', 'Plain URLs (.txt)']];
+  const THRESHOLDS = [[50, '50%'], [70, '70%'], [80, '80%'], [90, '90%'], [95, '95%']];
+  const get = (k, d) => { const v = GM_getValue(k, d); return v === undefined || v === null ? d : v; };
+  const put = (k, v) => { GM_setValue(k, v); document.dispatchEvent(new CustomEvent('ytpt-change')); };
+  const enabled = () => get('ytpt.on', true) === true;
+
+  const SUBSECTIONS = [
+    { id: 'wl', title: 'Watch Later (WL)', desc: 'Settings for /playlist?list=WL.', summary: () => (get('ytpt.wlOn', true) ? 'On' : 'Off'), rows: [
+      { key: 'ytpt.wlOn', label: 'Enable on Watch Later', type: 'toggle', def: true },
+      { key: 'ytpt.clearMode', label: 'Default clear mode', type: 'choice', def: 'unavailable-only', options: CLEAR_MODES },
+      { key: 'ytpt.watchedThreshold', label: 'Watched threshold', type: 'choice', def: 80, options: THRESHOLDS },
+      { key: 'ytpt.showFilterBar', label: 'Show search & filter bar', type: 'toggle', def: true },
+      { key: 'ytpt.showDuration', label: 'Show total duration badge', type: 'toggle', def: true },
+    ]},
+    { id: 'normal', title: 'Normal Playlists', desc: 'Settings for regular /playlist?list=... pages.', summary: () => (get('ytpt.normalOn', true) ? 'On' : 'Off'), rows: [
+      { key: 'ytpt.normalOn', label: 'Enable on Normal Playlists', type: 'toggle', def: true },
+      { key: 'ytpt.clearMode', label: 'Default clear mode', type: 'choice', def: 'unavailable-only', options: CLEAR_MODES },
+      { key: 'ytpt.exportFormat', label: 'Default export format', type: 'choice', def: 'md', options: FORMATS },
+      { key: 'ytpt.importSkipExisting', label: 'Skip existing on import', type: 'toggle', def: true },
+      { key: 'ytpt.resolveTitles', label: 'Resolve unavailable titles', type: 'toggle', def: false },
+    ]},
+    { id: 'liked', title: 'Liked Videos (LL)', desc: 'Settings for /playlist?list=LL.', summary: () => (get('ytpt.likedOn', true) ? 'On' : 'Off'), rows: [
+      { key: 'ytpt.likedOn', label: 'Enable on Liked Videos', type: 'toggle', def: true },
+      { key: 'ytlt.clearMode', label: 'Default unlike mode', type: 'choice', def: 'unavailable-only', options: UNLIKE_MODES },
+      { key: 'ytlt.watchedThreshold', label: 'Watched threshold', type: 'choice', def: 80, options: THRESHOLDS },
+      { key: 'ytlt.exportFormat', label: 'Default export format', type: 'choice', def: 'md', options: FORMATS },
+      { key: 'ytlt.showFilterBar', label: 'Show search & filter bar', type: 'toggle', def: true },
+      { key: 'ytlt.showDuration', label: 'Show total duration badge', type: 'toggle', def: true },
+    ]},
+    { id: 'watch', title: 'Watch Page', desc: 'Total and remaining duration inside the watch-page playlist panel.', summary: () => (get('ytpt.playlistLength', true) ? 'Length on' : 'Off'), rows: [
+      { key: 'ytpt.playlistLength', label: 'Show Playlist Length on /watch', type: 'toggle', def: true },
+    ]},
+  ];
+
+  const CSS = `
+#ytpt-cfg-backdrop{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)}
+#ytpt-cfg-panel,#ytpt-cfg-panel *{box-sizing:border-box}
+#ytpt-cfg-panel{width:clamp(320px,88vw,420px);height:min(76dvh,560px);display:flex;flex-direction:column;overflow:hidden;border-radius:14px;background:var(--yt-spec-base-background,#fff);color:var(--yt-spec-text-primary,#0f0f0f);box-shadow:0 16px 40px rgba(0,0,0,.45);font-family:Roboto,Arial,sans-serif}
+#ytpt-cfg-panel .ytp-head{flex:0 0 auto;display:grid;grid-template-columns:36px 1fr 36px;align-items:center;gap:6px;padding:10px 12px 8px;border-bottom:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.2))}
+#ytpt-cfg-panel .ytp-title-wrap{min-width:0;text-align:center}
+#ytpt-cfg-panel .ytp-crumb{display:block;font-size:11px;line-height:1.25;color:var(--yt-spec-text-secondary,#606060);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ytpt-cfg-panel h2{margin:0;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ytpt-cfg-panel .ytp-spacer{width:36px;height:36px}
+#ytpt-cfg-panel .ytp-icon{width:36px;height:36px;min-height:36px;padding:0;justify-content:center;border-radius:50%;font-size:18px}
+#ytpt-cfg-panel .ytp-body{flex:1 1 auto;overflow-y:auto;padding:8px 0 12px}
+#ytpt-cfg-panel .ytp-desc{margin:4px 16px 8px;font-size:12.5px;line-height:1.45;color:var(--yt-spec-text-secondary,#606060)}
+#ytpt-cfg-panel .ytp-section{padding:10px 16px 4px;font-size:12px;font-weight:600;color:var(--yt-spec-text-secondary,#606060);text-transform:uppercase;letter-spacing:.03em}
+#ytpt-cfg-panel hr{margin:6px 0;border:0;border-top:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.2))}
+#ytpt-cfg-panel button{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0 16px;border:0;background:none;color:inherit;font:inherit;font-size:14px;text-align:left;cursor:pointer}
+#ytpt-cfg-panel button:hover:not(:disabled){background:var(--yt-spec-badge-chip-background,rgba(128,128,128,.1))}
+#ytpt-cfg-panel .ytp-group.is-disabled{opacity:.42;pointer-events:none;user-select:none}
+#ytpt-cfg-panel .ytp-val{margin-left:auto;font-size:13px;color:var(--yt-spec-text-secondary,#606060)}
+#ytpt-cfg-panel .ytp-chev{font-size:16px;opacity:.6}
+#ytpt-cfg-panel .ytp-check{margin-left:auto;font-weight:700;color:var(--yt-spec-call-to-action,#3ea6ff)}
+#ytpt-cfg-panel .ytp-reset{color:var(--yt-spec-text-secondary,#606060);font-size:13px}
+#ytpt-cfg-panel .ytp-reset.is-armed{color:#e05a52;font-weight:500}
+`;
+
+  const st = { view: 'home', sub: null, rowKey: null, resetArmed: false };
+  function closeCfg() {
+    st.resetArmed = false;
+    document.removeEventListener('keydown', onKey, true);
+    document.getElementById('ytpt-cfg-backdrop')?.remove();
+    document.getElementById('ytpt-cfg-style')?.remove();
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      st.resetArmed = false;
+      if (st.view === 'options') { st.view = 'sub'; render(); }
+      else if (st.view === 'sub') { st.view = 'home'; render(); }
+      else closeCfg();
+    }
+  }
+  function hdr(title, onBack, crumb) {
+    const h = document.createElement('div');
+    h.className = 'ytp-head';
+    if (onBack) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'ytp-icon'; b.setAttribute('aria-label', 'Back'); b.textContent = '\u2190';
+      b.addEventListener('click', () => { st.resetArmed = false; onBack(); }); h.append(b);
+    } else { const sp = document.createElement('span'); sp.className = 'ytp-spacer'; h.append(sp); }
+    const w = document.createElement('div'); w.className = 'ytp-title-wrap';
+    if (crumb) { const c = document.createElement('span'); c.className = 'ytp-crumb'; c.textContent = crumb; w.append(c); }
+    const h2 = document.createElement('h2'); h2.textContent = title; w.append(h2);
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'ytp-icon'; x.setAttribute('aria-label', 'Close'); x.textContent = '\u00d7';
+    x.addEventListener('click', closeCfg); h.append(w, x); return h;
+  }
+  function btnRow(label, val, onClick, opts = {}) {
+    const b = document.createElement('button'); b.type = 'button';
+    if (opts.disabled) b.disabled = true;
+    if (opts.pressed !== undefined) b.setAttribute('aria-pressed', opts.pressed ? 'true' : 'false');
+    const n = document.createElement('span'); n.textContent = label; b.append(n);
+    if (val !== undefined) { const v = document.createElement('span'); v.className = 'ytp-val'; v.textContent = val; b.append(v); }
+    if (opts.chevron) { const c = document.createElement('span'); c.className = 'ytp-chev'; c.textContent = '\u203a'; b.append(c); }
+    if (opts.checked) { const ck = document.createElement('span'); ck.className = 'ytp-check'; ck.textContent = '\u2713'; b.append(ck); }
+    b.addEventListener('click', () => { if (!opts.keepArmed) st.resetArmed = false; onClick(); });
+    return b;
+  }
+  function render() {
+    const panel = document.getElementById('ytpt-cfg-panel');
+    if (!panel) return;
+    panel.textContent = '';
+    const body = document.createElement('div'); body.className = 'ytp-body';
+    if (st.view === 'home') {
+      panel.append(hdr('YouTube: Playlist Tools'), body);
+      const d = document.createElement('p'); d.className = 'ytp-desc'; d.textContent = 'Manage Watch Later, Normal Playlists, Liked Videos, and Watch Page length.';
+      body.append(d, document.createElement('hr'));
+      const on = enabled();
+      body.append(btnRow('Enabled', on ? 'On' : 'Off', () => { put('ytpt.on', !on); render(); }, { pressed: on }));
+      const g = document.createElement('div'); g.className = on ? 'ytp-group' : 'ytp-group is-disabled';
+      const s = document.createElement('div'); s.className = 'ytp-section'; s.textContent = 'Sub-sections'; g.append(s);
+      for (const sub of SUBSECTIONS) g.append(btnRow(sub.title, sub.summary(), () => { st.view = 'sub'; st.sub = sub.id; render(); }, { chevron: true, disabled: !on }));
+      body.append(g, document.createElement('hr'));
+      const r = btnRow(st.resetArmed ? 'Click again to reset Playlist Tools' : 'Reset Playlist Tools', undefined, () => {
+        if (!st.resetArmed) { st.resetArmed = true; render(); return; }
+        st.resetArmed = false;
+        if (typeof GM_deleteValue === 'function') {
+          GM_deleteValue('ytpt.on');
+          for (const sub of SUBSECTIONS) for (const row of sub.rows) GM_deleteValue(row.key);
+        }
+        document.dispatchEvent(new CustomEvent('ytpt-change'));
+        render();
+      }, { keepArmed: true });
+      r.className = st.resetArmed ? 'ytp-reset is-armed' : 'ytp-reset';
+      body.append(r); return;
+    }
+    const sub = SUBSECTIONS.find((x) => x.id === st.sub);
+    if (!sub) { st.view = 'home'; render(); return; }
+    if (st.view === 'sub') {
+      panel.append(hdr(sub.title, () => { st.view = 'home'; render(); }, 'Playlist Tools'), body);
+      const d = document.createElement('p'); d.className = 'ytp-desc'; d.textContent = sub.desc;
+      body.append(d, document.createElement('hr'));
+      for (const row of sub.rows) {
+        if (row.type === 'toggle') {
+          const on = get(row.key, row.def) === true;
+          body.append(btnRow(row.label, on ? 'On' : 'Off', () => { put(row.key, !on); render(); }, { pressed: on }));
+        } else {
+          const cur = get(row.key, row.def);
+          const hit = row.options.find(([v]) => v === cur);
+          body.append(btnRow(row.label, hit ? hit[1] : String(cur), () => { st.view = 'options'; st.rowKey = row.key; render(); }, { chevron: true }));
+        }
+      }
+      return;
+    }
+    const row = sub.rows.find((x) => x.key === st.rowKey);
+    if (!row) { st.view = 'sub'; render(); return; }
+    panel.append(hdr(row.label, () => { st.view = 'sub'; render(); }, `Playlist Tools \u203a ${sub.title}`), body);
+    const cur = get(row.key, row.def);
+    for (const [val, lbl] of row.options) {
+      body.append(btnRow(lbl, undefined, () => { put(row.key, val); st.view = 'sub'; render(); }, { checked: val === cur }));
+    }
+  }
+  function openCfg() {
+    if (document.getElementById('ytpt-cfg-backdrop')) return;
+    st.view = 'home'; st.sub = null; st.rowKey = null; st.resetArmed = false;
+    const s = document.createElement('style'); s.id = 'ytpt-cfg-style'; s.textContent = CSS; document.head.append(s);
+    const bd = document.createElement('div'); bd.id = 'ytpt-cfg-backdrop'; bd.addEventListener('mousedown', (e) => { if (e.target === bd) closeCfg(); });
+    const p = document.createElement('div'); p.id = 'ytpt-cfg-panel'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-modal', 'true');
+    bd.append(p); document.body.append(bd); document.addEventListener('keydown', onKey, true); render();
+  }
+  if (typeof GM_registerMenuCommand === 'function') {
+    GM_registerMenuCommand('Playlist Tools: Settings', openCfg);
+  }
 })();

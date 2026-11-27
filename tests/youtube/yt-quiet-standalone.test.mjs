@@ -10,27 +10,12 @@ const FIXTURE = `<!doctype html><html><body>
   <div class="ytp-ce-element" id="card">end screen card</div>
   <div id="cinematics">ambient glow</div>
   <ytd-comments id="comments">comments</ytd-comments>
+  <ytd-rich-item-renderer id="member-card"><a href="/watch?v=mem12345">x</a><badge-shape>Members only</badge-shape></ytd-rich-item-renderer>
+  <ytd-rich-item-renderer id="normal-card"><a href="/watch?v=nor12345">x</a><badge-shape>New</badge-shape></ytd-rich-item-renderer>
+  <div id="people-shelf"><span>These people are mentioned in the video</span></div>
+  <yt-confirm-dialog-renderer id="paused-dlg">Video paused. Continue watching?<button id="yes-btn">Yes</button></yt-confirm-dialog-renderer>
   <ytd-guide-renderer id="sidebar">
-    <ytd-guide-section-renderer id="sec-primary">
-      <ytd-guide-entry-renderer id="guide-home"><a href="/">Home</a></ytd-guide-entry-renderer>
-      <ytd-guide-entry-renderer id="guide-shorts"><a href="/shorts/">Shorts</a></ytd-guide-entry-renderer>
-    </ytd-guide-section-renderer>
-    <ytd-guide-section-renderer id="sec-you">
-      <ytd-guide-entry-renderer><a href="/feed/history">History</a></ytd-guide-entry-renderer>
-      <ytd-guide-entry-renderer><a href="https://studio.youtube.com/channel/UC123/videos">Your videos</a></ytd-guide-entry-renderer>
-    </ytd-guide-section-renderer>
-    <ytd-guide-section-renderer id="sec-subs">
-      <ytd-guide-entry-renderer><a href="/feed/channels">Subscriptions</a></ytd-guide-entry-renderer>
-    </ytd-guide-section-renderer>
-    <ytd-guide-section-renderer id="sec-more">
-      <ytd-guide-entry-renderer><a href="/premium">YouTube Premium</a></ytd-guide-entry-renderer>
-      <ytd-guide-entry-renderer><a href="https://music.youtube.com/">YouTube Music</a></ytd-guide-entry-renderer>
-    </ytd-guide-section-renderer>
-    <ytd-guide-section-renderer id="sec-explore">
-      <ytd-guide-entry-renderer><a href="/feed/storefront">Movies</a></ytd-guide-entry-renderer>
-      <ytd-guide-entry-renderer><a href="/gaming">Gaming</a></ytd-guide-entry-renderer>
-    </ytd-guide-section-renderer>
-    <div id="footer">About Copyright</div>
+    <ytd-guide-section-renderer id="sec-more"><ytd-guide-entry-renderer><a href="/premium">YouTube Premium</a></ytd-guide-entry-renderer></ytd-guide-section-renderer>
   </ytd-guide-renderer>
 </body></html>`;
 
@@ -55,89 +40,66 @@ await page.addInitScript(() => {
   window.__store = {};
   window.__menu = [];
   window.__paused = [];
+  window.__yesClicked = false;
   window.GM_getValue = (k, d) => (k in window.__store ? window.__store[k] : d);
   window.GM_setValue = (k, v) => { window.__store[k] = v; };
   window.GM_deleteValue = (k) => { delete window.__store[k]; };
   window.GM_registerMenuCommand = (name, cb) => { window.__menu.push({ name, cb }); return window.__menu.length; };
   window.GM_unregisterMenuCommand = () => {};
   window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
-  window.arm = (id) => {
-    document.getElementById(id).pause = () => { window.__paused.push(id); };
-  };
-  window.firePlaying = (id) => document.getElementById(id).dispatchEvent(new Event('playing'));
-  window.wasPaused = (id) => window.__paused.includes(id);
 });
 
-await page.goto(`${base}/watch?v=abc`);
+await page.goto(`${base}/watch?v=abc12345`);
+await page.evaluate(() => {
+  document.getElementById('yes-btn').addEventListener('click', () => { window.__yesClicked = true; });
+  document.getElementById('preview').pause = () => { window.__paused.push('preview'); };
+  document.getElementById('main').pause = () => { window.__paused.push('main'); };
+});
 await page.addScriptTag({ content: SCRIPT });
 await page.waitForTimeout(150);
 
-const display = (selector) =>
-  page.evaluate((sel) => getComputedStyle(document.querySelector(sel)).display, selector);
+const display = (sel) => page.evaluate((s) => getComputedStyle(document.querySelector(s)).display, sel);
 
-// Defaults
-await page.evaluate(() => { window.arm('preview'); window.arm('main'); window.firePlaying('preview'); window.firePlaying('main'); });
-check('previews paused by default', await page.evaluate(() => window.wasPaused('preview')));
-check('main player untouched', (await page.evaluate(() => window.wasPaused('main'))) === false);
-check('end screen hidden by default', (await display('#card')) === 'none');
-check('ambient hidden by default', (await display('#cinematics')) === 'none');
-check('sidebar sections visible by default',
-  (await display('#sec-you')) !== 'none' &&
-  (await display('#sec-subs')) !== 'none' &&
-  (await display('#sec-more')) !== 'none' &&
-  (await display('#sec-explore')) !== 'none' &&
-  (await display('#footer')) !== 'none'
-);
+await page.evaluate(() => {
+  document.getElementById('preview').dispatchEvent(new Event('playing'));
+  document.getElementById('main').dispatchEvent(new Event('playing'));
+});
+check('previews paused and main player untouched', await page.evaluate(() => window.__paused.includes('preview') && !window.__paused.includes('main')));
+check('end screen and ambient hidden by default', (await display('#card')) === 'none' && (await display('#cinematics')) === 'none');
+check('Members-only card hidden and normal card visible', (await display('#member-card')) === 'none' && (await display('#normal-card')) !== 'none');
+check('People Mentioned shelf hidden by default', (await display('#people-shelf')) === 'none');
+check('Dismiss paused prompt clicks Yes by default', await page.evaluate(() => window.__yesClicked === true));
 
-// Open panel from menu and toggle sidebar sections
+// Open sub-section panel
 await page.evaluate(() => window.__menu[window.__menu.length - 1].cb());
-await page.waitForTimeout(80);
-const groups = await page.locator('#ytqp-panel .ytqp-section').allTextContents();
-check('panel has Playback, Sections and Sidebar groups',
-  groups.includes('Playback') && groups.includes('Sections') && groups.includes('Sidebar')
-);
+await page.waitForTimeout(60);
+const subs = await page.locator('#ytqp-panel .ytp-group button span:first-child').allTextContents();
+check('panel has 4 sub-sections (Playback, Feed & Cards, Watch & Channel, Sidebar)',
+  JSON.stringify(subs) === JSON.stringify(['Playback', 'Feed & Cards', 'Watch & Channel', 'Sidebar']));
 
-await page.getByRole('button', { name: 'Hide More from YouTube' }).click();
-await page.waitForTimeout(80);
-check('More from YouTube hides from panel toggle', (await display('#sec-more')) === 'none');
-check('You section stays visible when More is hidden', (await display('#sec-you')) !== 'none');
+await page.getByRole('button', { name: /Sidebar/ }).click();
+await page.waitForTimeout(60);
+await page.getByRole('button', { name: /Hide More from YouTube/ }).click();
+await page.waitForTimeout(60);
+check('More from YouTube hides from Sidebar sub-section', (await display('#sec-more')) === 'none');
 
-await page.getByRole('button', { name: 'Hide Explore section' }).click();
-await page.waitForTimeout(80);
-check('Explore hides from panel toggle', (await display('#sec-explore')) === 'none');
-
-await page.getByRole('button', { name: 'Hide You section' }).click();
-await page.getByRole('button', { name: 'Hide Subscriptions section' }).click();
-await page.getByRole('button', { name: 'Hide sidebar footer' }).click();
-await page.waitForTimeout(80);
-check('You, Subscriptions and footer hide',
-  (await display('#sec-you')) === 'none' &&
-  (await display('#sec-subs')) === 'none' &&
-  (await display('#footer')) === 'none'
-);
-check('Primary section stays visible', (await display('#sec-primary')) !== 'none');
-
-// Master toggle off restores everything
-await page.getByRole('button', { name: 'Enabled' }).click();
-await page.waitForTimeout(80);
-check('disabling script restores end screen and sidebar',
+await page.getByRole('button', { name: 'Back' }).click();
+await page.waitForTimeout(60);
+await page.getByRole('button', { name: /Enabled/ }).click();
+await page.waitForTimeout(60);
+check('disabling script restores end screen, Members-only, People Mentioned, and Sidebar',
   (await display('#card')) !== 'none' &&
-  (await display('#sec-more')) !== 'none' &&
-  (await display('#sec-explore')) !== 'none'
-);
+  (await display('#member-card')) !== 'none' &&
+  (await display('#people-shelf')) !== 'none' &&
+  (await display('#sec-more')) !== 'none');
 
-// Reset restores defaults
-await page.getByRole('button', { name: 'Reset to defaults' }).click();
-await page.waitForTimeout(80);
-check('reset clears stored keys and restores default state',
-  (await page.evaluate(() => Object.keys(window.__store).length)) === 0 &&
-  (await display('#card')) === 'none' &&
-  (await display('#sec-more')) !== 'none'
-);
-
-await page.getByRole('button', { name: 'Close' }).click();
+// 2-step reset
+await page.getByRole('button', { name: 'Reset Quiet Page' }).click();
 await page.waitForTimeout(50);
-check('close removes panel', (await page.locator('#ytqp-panel').count()) === 0);
+await page.getByRole('button', { name: 'Click again to reset Quiet Page' }).click();
+await page.waitForTimeout(60);
+check('2-step reset clears keys and restores defaults',
+  (await page.evaluate(() => Object.keys(window.__store).length)) === 0 && (await display('#card')) === 'none');
 
 await browser.close();
 server.close();

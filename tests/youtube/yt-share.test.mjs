@@ -95,11 +95,13 @@ check('copy at time floors seconds', await until(() => window.__clip === 'https:
 
 // The address toggle lives in the feature panel
 await menu('YouTube: Custom Collection');
-await page.getByRole('button', { name: /^Clean Share Link/ }).click();
+await page.getByRole('button', { name: /^General Custom/ }).click();
+await page.getByRole('button', { name: /^Share Link/ }).click();
 await page.getByRole('button', { name: 'Clean address bar' }).click();
 check('address toggle comes from the panel row', await until(() => location.search === '?v=aaaaaaaaaaa&t=30'));
 check('the toggle is stored', (await page.evaluate(() => window.__store['ytc.shareAddress'])) === true);
 
+await page.locator('#ytc-panel .ytc-back').click();
 await page.locator('#ytc-panel .ytc-back').click();
 await page.getByRole('button', { name: /^Backup/ }).click();
 await page.locator('#ytc-panel textarea').fill('{"settings":{"shareAddress":false}}');
@@ -110,7 +112,7 @@ await page.keyboard.press('Escape');
 await page.keyboard.press('Escape');
 
 await page.evaluate(() => {
-  window.__store['ytc.shareOn'] = false;
+  window.__store['ytc.cleanShare'] = false;
   document.dispatchEvent(new Event('ytc-change'));
   window.openShare('https://youtu.be/aaaaaaaaaaa?si=XYZ');
 });

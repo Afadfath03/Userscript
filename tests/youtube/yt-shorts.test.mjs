@@ -52,7 +52,7 @@ async function open(store, path = '/watch?v=dQw4w9WgXcQ') {
 
 // Enabled: the Short opens in the watch player
 {
-  const { ctx, page } = await open({ 'ytc.shortsOn': true }, '/shorts/abcdefghijk');
+  const { ctx, page } = await open({ 'ytc.shortsToWatch': true }, '/shorts/abcdefghijk');
   const url = new URL(page.url());
   check('an enabled Short is rewritten to /watch', url.pathname === '/watch' && url.searchParams.get('v') === 'abcdefghijk');
   await ctx.close();
@@ -60,7 +60,7 @@ async function open(store, path = '/watch?v=dQw4w9WgXcQ') {
 
 // A shared start time survives the rewrite
 {
-  const { ctx, page } = await open({ 'ytc.shortsOn': true }, '/shorts/abcdefghijk?t=42');
+  const { ctx, page } = await open({ 'ytc.shortsToWatch': true }, '/shorts/abcdefghijk?t=42');
   const url = new URL(page.url());
   check('the start time is carried over', url.pathname === '/watch' && url.searchParams.get('t') === '42' && url.searchParams.get('v') === 'abcdefghijk');
   await ctx.close();
@@ -68,14 +68,14 @@ async function open(store, path = '/watch?v=dQw4w9WgXcQ') {
 
 // Other pages are left alone
 {
-  const { ctx, page } = await open({ 'ytc.shortsOn': true }, '/feed/subscriptions');
+  const { ctx, page } = await open({ 'ytc.shortsToWatch': true }, '/feed/subscriptions');
   check('a non-Shorts page is untouched', new URL(page.url()).pathname === '/feed/subscriptions');
   await ctx.close();
 }
 
 // An in-page navigation into a Short is rewritten too
 {
-  const { ctx, page } = await open({ 'ytc.shortsOn': true });
+  const { ctx, page } = await open({ 'ytc.shortsToWatch': true });
   await page.evaluate(() => {
     history.pushState({}, '', '/shorts/zyxwvutsrqp');
     document.dispatchEvent(new Event('yt-navigate-finish'));
@@ -91,7 +91,7 @@ async function open(store, path = '/watch?v=dQw4w9WgXcQ') {
   const { ctx, page } = await open({});
   await page.evaluate(() => {
     history.pushState({}, '', '/shorts/abcdefghijk');
-    window.__store['ytc.shortsOn'] = true;
+    window.__store['ytc.shortsToWatch'] = true;
     document.dispatchEvent(new Event('ytc-change'));
   });
   await page.waitForTimeout(400);

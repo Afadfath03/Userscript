@@ -3,12 +3,12 @@ import { readFileSync } from 'node:fs';
 import http from 'node:http';
 
 const COLLECTION = readFileSync(scriptPath('youtube-custom-collection.user.js'), 'utf8');
-const RESOLUTION = readFileSync(scriptPath('youtube-preferred-resolution.user.js'), 'utf8');
-const SHORTS = readFileSync(scriptPath('youtube-shorts-to-watch.user.js'), 'utf8');
-const EXPAND = readFileSync(scriptPath('youtube-expand-description.user.js'), 'utf8');
-const PEOPLE = readFileSync(scriptPath('youtube-hide-people-mentioned.user.js'), 'utf8');
-const PAUSED = readFileSync(scriptPath('youtube-dismiss-paused-prompt.user.js'), 'utf8');
-const PLAYBACK = readFileSync(scriptPath('youtube-playback-defaults.user.js'), 'utf8');
+const RESOLUTION = readFileSync(scriptPath('youtube-playback-custom.user.js'), 'utf8');
+const SHORTS = readFileSync(scriptPath('youtube-general-custom.user.js'), 'utf8');
+const EXPAND = readFileSync(scriptPath('youtube-playback-custom.user.js'), 'utf8');
+const PEOPLE = readFileSync(scriptPath('youtube-quiet-page.user.js'), 'utf8');
+const PAUSED = readFileSync(scriptPath('youtube-quiet-page.user.js'), 'utf8');
+const PLAYBACK = readFileSync(scriptPath('youtube-playback-custom.user.js'), 'utf8');
 const TIMER_TAMER = readFileSync(scriptPath('youtube-timer-tamer.user.js'), 'utf8');
 
 const server = http.createServer((req, res) => {
@@ -157,7 +157,7 @@ async function openPage(script, store = {}, path = '/watch?v=vidA', html = '') {
   const html = `<!doctype html><html><body>
     <a id="slink" href="/shorts/abcdefghijk?t=42">short</a>
   </body></html>`;
-  const { ctx, page } = await openPage(COLLECTION, { 'ytc.shortsOn': true }, '/feed/subscriptions', html);
+  const { ctx, page } = await openPage(COLLECTION, { 'ytc.shortsToWatch': true }, '/feed/subscriptions', html);
   check('collection: shorts rewrites DOM link href when enabled', await page.evaluate(() => document.getElementById('slink').getAttribute('href') === '/watch?v=abcdefghijk&t=42'));
   await page.evaluate(() => window.__menu[0].cb());
   await page.waitForTimeout(80);
@@ -178,7 +178,7 @@ async function openPage(script, store = {}, path = '/watch?v=vidA', html = '') {
 // 5. Standalone: preferred-resolution waits through ad-showing
 {
   const html = `<!doctype html><html><body><div id="movie_player" class="ad-showing"></div></body></html>`;
-  const { ctx, page } = await openPage(RESOLUTION, { quality: 'hd1080' }, '/watch?v=vidA', html);
+  const { ctx, page } = await openPage(RESOLUTION, { 'ytpc.quality': 'hd1080' }, '/watch?v=vidA', html);
   await page.evaluate(() => {
     window.__setQ = null;
     const p = document.getElementById('movie_player');
@@ -196,7 +196,7 @@ async function openPage(script, store = {}, path = '/watch?v=vidA', html = '') {
 // 6. Standalone: shorts-to-watch DOM link rewriting
 {
   const html = `<!doctype html><html><body><a id="slink" href="/shorts/abcdefghijk?t=15">short</a></body></html>`;
-  const { ctx, page } = await openPage(SHORTS, { 'ytsw.on': true }, '/feed/subscriptions', html);
+  const { ctx, page } = await openPage(SHORTS, { 'ytgc.shortsToWatch': true }, '/feed/subscriptions', html);
   check('standalone shorts: rewrites DOM link href when enabled', await page.evaluate(() => document.getElementById('slink').getAttribute('href') === '/watch?v=abcdefghijk&t=15'));
   await ctx.close();
 }
@@ -259,7 +259,7 @@ async function openPage(script, store = {}, path = '/watch?v=vidA', html = '') {
 // 10. Standalone: playback-defaults pauseBlur
 {
   const html = `<!doctype html><html><body><div id="movie_player"><video></video></div></body></html>`;
-  const { ctx, page } = await openPage(PLAYBACK, { 'ytpd.pauseBlur': true }, '/watch?v=vidA', html);
+  const { ctx, page } = await openPage(PLAYBACK, { 'ytpc.pauseBlur': true }, '/watch?v=vidA', html);
   await page.evaluate(() => {
     const v = document.querySelector('video');
     window.__paused = false;

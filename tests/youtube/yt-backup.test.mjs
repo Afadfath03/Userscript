@@ -27,7 +27,7 @@ await page.addInitScript(() => {
   window.__store = {
     'ytc.speed': 1.5,
     'ytc.quality': 'hd1080',
-    'ytc.peopleOn': false,
+    'ytc.quietOn': false,
     'ytc.bogus': 1,
   };
   window.__menu = [];
@@ -59,7 +59,7 @@ await page.waitForTimeout(100);
 const exported = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
 check('copy leaves the import box empty', (await page.locator('#ytc-backup').inputValue()) === '');
 check('export wraps settings', exported.script === 'youtube-custom-collection' && exported.format === 1);
-check('export includes known keys', exported.settings.speed === 1.5 && exported.settings.quality === 'hd1080' && exported.settings.peopleOn === false);
+check('export includes known keys', exported.settings.speed === 1.5 && exported.settings.quality === 'hd1080' && exported.settings.quietOn === false);
 check('export drops unknown keys', !('bogus' in exported.settings));
 const clip = await page.evaluate(() => navigator.clipboard.readText());
 check('clipboard holds the JSON', clip === JSON.stringify(exported, null, 2));
@@ -73,7 +73,7 @@ await page.locator('#ytc-panel textarea').fill(
   JSON.stringify({
     script: 'youtube-custom-collection',
     format: 1,
-    settings: { speed: 2, peopleOn: true, quality: 'ultra', bogus: 5, jumpOn: 'yes' },
+    settings: { speed: 2, quietOn: true, quality: 'ultra', bogus: 5, jumpOn: 'yes' },
   })
 );
 check('the panel is split into export and import sections', (await page.locator('#ytc-panel .ytc-section').allTextContents()).join(',') === 'Export,Import');
@@ -86,7 +86,7 @@ check('nothing imported yet', (await page.evaluate(() => Object.keys(window.__st
 await page.getByRole('button', { name: /Press again to import/ }).click();
 await page.waitForTimeout(100);
 const store = await page.evaluate(() => window.__store);
-check('import applies valid keys', store['ytc.speed'] === 2 && store['ytc.peopleOn'] === true);
+check('import applies valid keys', store['ytc.speed'] === 2 && store['ytc.quietOn'] === true);
 check('import skips invalid values', store['ytc.quality'] === undefined);
 check('import skips unknown keys', store['ytc.bogus'] === undefined && store['ytc.jumpOn'] === undefined);
 check('the export count refreshes after import', (await page.getByRole('button', { name: /^Copy settings JSON/ }).textContent()).includes('2 keys'));

@@ -219,7 +219,9 @@ check('the dialog keeps focus inside', await (async () => {
 await openBookmarkList();
 await page.getByRole('button', { name: 'Back', exact: true }).click();
 await page.waitForTimeout(60);
-check('the list backs out to the feature settings', (await page.locator('#ytc-panel h2').textContent()) === 'YouTube: Bookmark Timestamp');
+check('the list backs out to the feature settings', (await page.locator('#ytc-panel h2').textContent()) === 'Playback Custom');
+await page.getByRole('button', { name: /^Video Bookmarks/ }).click();
+await page.waitForTimeout(60);
 await page.getByRole('button', { name: /^Backup/ }).click();
 await page.waitForTimeout(80);
 check('the feature has its own backup view', (await page.locator('#ytc-panel h2').textContent()) === 'Bookmarks backup');
@@ -230,12 +232,12 @@ check('the feature export names its feature', exported.feature === 'bookmarks' &
 
 await page.getByRole('button', { name: 'Back', exact: true }).click();
 await page.waitForTimeout(60);
-check('back from the feature backup returns to the feature settings', (await page.locator('#ytc-panel h2').textContent()) === 'YouTube: Bookmark Timestamp');
+check('back from the feature backup returns to the feature settings', (await page.locator('#ytc-panel h2').textContent()) === 'Video Bookmarks');
 await page.getByRole('button', { name: /^Backup/ }).click();
 await page.waitForTimeout(60);
 await page.keyboard.press('Escape');
 await page.waitForTimeout(60);
-check('Escape from the feature backup agrees with Back', (await page.locator('#ytc-panel h2').textContent()) === 'YouTube: Bookmark Timestamp');
+check('Escape from the feature backup agrees with Back', (await page.locator('#ytc-panel h2').textContent()) === 'Video Bookmarks');
 await page.getByRole('button', { name: /^Backup/ }).click();
 await page.waitForTimeout(60);
 check('the feature export carries the map', Object.keys(exported.marks).join(',') === 'dQw4w9WgXcQ');

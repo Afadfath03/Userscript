@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      4.9
+// @version      5.0
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -137,128 +137,107 @@
 
   const FEATURES = [
     {
-      id: 'people',
+      id: 'general',
       def: true,
-      title: 'YouTube: Hide "These people are mentioned in the video"',
-      short: 'Hide People Mentioned',
-      desc: 'Removes the shelf under the player that lists people mentioned in the video. YouTube rebuilds that shelf on every page, so the removal runs again each time it appears.',
-      rows: [],
-    },
-    {
-      id: 'members',
-      def: true,
-      title: 'YouTube: Hide Members Only and Premium',
-      short: 'Hide Members Only',
-      desc: 'Hides videos marked Members only or Premium across feeds, search results, sidebars and playlists, and the YouTube featured promo cards. The badge text is what gets matched, so the removal survives markup changes.',
-      rows: [],
-    },
-    {
-      id: 'expand',
-      def: true,
-      title: 'YouTube: Auto Expand Description',
-      short: 'Expand Description',
-      desc: 'Clicks the description expander on the watch page, so chapters and links are visible without the extra click. It retries a few times, then stops.',
-      rows: [],
-    },
-    {
-      id: 'resolution',
-      def: true,
-      title: 'YouTube: Preferred Resolution',
-      short: 'Preferred Resolution',
-      desc: 'Starts each video at the quality you pick. When the video does not offer that level, the highest level below it is used instead.',
-      rows: [{ key: 'quality', label: 'Quality', type: 'choice', def: 'auto', options: QUALITY }],
-    },
-    {
-      id: 'autoplay',
-      def: true,
-      title: 'YouTube: Autoplay Control',
-      short: 'Autoplay Control',
-      desc: 'Decides what happens when a video ends: advance, wait, stop or loop. The limit counts how many videos this tab has advanced through.',
-      rows: [
-        { key: 'behavior', label: 'When a video ends', type: 'choice', def: 'leave', options: BEHAVIORS },
-        { key: 'delay', label: 'Delay', type: 'choice', def: 5, options: DELAYS },
-        { key: 'limit', label: 'Video limit', type: 'choice', def: 0, options: LIMITS },
-        { key: 'hiddenPause', label: 'Pause when tab hidden', type: 'toggle', def: false },
-        { key: 'skipShorts', label: 'Skip Shorts', type: 'toggle', def: false },
+      title: 'YouTube: General Custom',
+      short: 'General Custom',
+      desc: 'Grid layout, Open Shorts in Watch Page, and Clean Share Link in one place.',
+      subsections: [
+        {
+          id: 'grid',
+          title: 'Custom Grid',
+          desc: 'Sets a custom number of videos per row on YouTube grids, scaling cards down uniformly.',
+          rows: [
+            { key: 'gridOn', label: 'Enable Custom Grid', type: 'toggle', def: true },
+            { key: 'gridColumns', label: 'Videos per row', type: 'choice', def: 4, options: GRID_COLUMNS },
+            { key: 'gridHome', label: 'Home', type: 'toggle', group: 'Sections', def: true },
+            { key: 'gridSubscriptions', label: 'Subscriptions', type: 'toggle', group: 'Sections', def: true },
+            { key: 'gridChannel', label: 'Channel', type: 'toggle', group: 'Sections', def: true },
+            { key: 'gridOther', label: 'Other grids', type: 'toggle', group: 'Sections', def: true },
+          ],
+          summary: () => (get('gridOn', true) === true ? `${read(rowOf('gridColumns'))}/row` : 'Off'),
+        },
+        {
+          id: 'shorts',
+          title: 'Shorts',
+          desc: 'Opens Shorts in the normal watch player by rewriting /shorts/ links to /watch.',
+          rows: [{ key: 'shortsToWatch', label: 'Open Shorts in Watch Page', type: 'toggle', def: false }],
+          summary: () => (get('shortsToWatch', false) === true ? 'On' : 'Off'),
+        },
+        {
+          id: 'share',
+          title: 'Share Link',
+          desc: 'Removes si, pp and other tracking parameters from copied share links and optionally the address bar.',
+          rows: [
+            { key: 'cleanShare', label: 'Clean copied share links', type: 'toggle', def: true },
+            { key: 'shareAddress', label: 'Clean address bar', type: 'toggle', def: false },
+          ],
+          summary: () => (get('cleanShare', true) === true ? (get('shareAddress', false) === true ? 'Share + URL' : 'On') : 'Off'),
+        },
       ],
     },
     {
       id: 'playback',
       def: true,
-      title: 'YouTube: Playback Defaults',
-      short: 'Playback Defaults',
-      desc: 'Sets speed, theater mode, volume, subtitles and audio track for every video. Optional hotkeys change speed with [ and ], and auto-pause stops playback while the tab is hidden.',
-      rows: [
-        { key: 'speed', label: 'Speed', type: 'choice', def: 'leave', options: SPEEDS },
-        { key: 'hotkeys', label: 'Speed hotkeys', type: 'toggle', def: false },
-        { key: 'theater', label: 'Theater mode', type: 'choice', def: 'leave', options: THEATERS },
-        { key: 'volume', label: 'Volume', type: 'choice', def: 'leave', options: VOLUMES },
-        { key: 'subtitles', label: 'Subtitles', type: 'choice', def: 'leave', options: SUBTITLES },
-        { key: 'audio', label: 'Audio track', type: 'choice', def: 'leave', options: AUDIOS },
-        { key: 'pauseHidden', label: 'Pause when hidden', type: 'toggle', def: false },
-        { key: 'pauseBlur', label: 'Pause when window loses focus', type: 'toggle', def: false },
-      ],
-    },
-    {
-      id: 'paused',
-      def: true,
-      title: 'YouTube: Dismiss "Video paused. Continue watching?"',
-      short: 'Dismiss Paused Prompt',
-      desc: 'Answers the "Video paused. Continue watching?" and "Are you still watching?" prompts. Pick Yes to carry on playing, No to stay paused, or leave the prompt untouched. Only dialogs containing those phrases are affected.',
-      rows: [{ key: 'answer', label: 'Answer', type: 'choice', def: 'yes', options: PROMPTS }],
-    },
-    {
-      id: 'bookmarks',
-      def: false,
-      title: 'YouTube: Bookmark Timestamp',
-      short: 'Bookmarks',
-      desc: 'Saves time markers on the video you are watching and jumps back to them. The clock pauses while the add dialog is open, and each marker can be retimed or renamed later.',
-      rows: [{ key: 'bookmarks', type: 'list', def: {} }],
-    },
-    {
-      id: 'playlist',
-      def: true,
-      title: 'YouTube: Playlist Length',
-      short: 'Playlist Length',
-      desc: 'Shows how long the playlist is and how much is left from the video you are watching. The numbers are read from the durations YouTube already prints on each item.',
-      rows: [],
-    },
-    {
-      id: 'likedTools',
-      def: true,
-      title: 'YouTube: Liked Videos Tools',
-      short: 'Liked Videos Tools',
-      desc: 'Bulk unlike, in-page search and filter, total duration calculator, export with optional title lookup, and copy to playlist on /playlist?list=LL.',
-      rows: [
+      title: 'YouTube: Playback Custom',
+      short: 'Playback Custom',
+      desc: 'Quality, speed, theater mode, autoplay behavior, watch page tweaks, and video bookmarks.',
+      subsections: [
         {
-          key: 'likedClearMode',
-          label: 'Default clear mode',
-          type: 'choice',
-          def: 'unavailable-only',
-          options: [
-            ['unavailable-only', 'Unlike unavailable only'],
-            ['unavailable-deleted', 'Unlike deleted only'],
-            ['unavailable-private', 'Unlike private only'],
-            ['skip-unavailable', 'Skip unavailable (unlike available)'],
-            ['skip-deleted', 'Skip deleted'],
-            ['skip-private', 'Skip private'],
-            ['none', 'Unlike all'],
+          id: 'video',
+          title: 'Video & Audio',
+          desc: 'Default quality, speed, theater mode, volume, subtitles, and audio track.',
+          rows: [
+            { key: 'quality', label: 'Quality', type: 'choice', def: 'auto', options: QUALITY },
+            { key: 'speed', label: 'Speed', type: 'choice', def: 'leave', options: SPEEDS },
+            { key: 'hotkeys', label: 'Speed hotkeys', type: 'toggle', def: false },
+            { key: 'theater', label: 'Theater mode', type: 'choice', def: 'leave', options: THEATERS },
+            { key: 'volume', label: 'Volume', type: 'choice', def: 'leave', options: VOLUMES },
+            { key: 'subtitles', label: 'Subtitles', type: 'choice', def: 'leave', options: SUBTITLES },
+            { key: 'audio', label: 'Audio track', type: 'choice', def: 'leave', options: AUDIOS },
           ],
+          summary: () => {
+            const q = QUALITY.find(([v]) => v === get('quality', 'auto'))?.[1] || 'Auto';
+            const s = get('speed', 'leave');
+            return s === 'leave' ? q : `${q}, ${s}x`;
+          },
         },
-        { key: 'likedWatchedThreshold', label: 'Watched threshold (%)', type: 'number', min: 10, max: 100, def: 80 },
         {
-          key: 'likedExportFormat',
-          label: 'Default export format',
-          type: 'choice',
-          def: 'md',
-          options: [
-            ['md', 'Markdown (.md)'],
-            ['txt', 'Plain URLs (.txt)'],
+          id: 'autoplay',
+          title: 'Autoplay',
+          desc: 'End-of-video behavior, per-tab limit, Shorts skip, and tab visibility pause.',
+          rows: [
+            { key: 'behavior', label: 'When a video ends', type: 'choice', def: 'leave', options: BEHAVIORS },
+            { key: 'delay', label: 'Delay', type: 'choice', def: 5, options: DELAYS },
+            { key: 'limit', label: 'Video limit', type: 'choice', def: 0, options: LIMITS },
+            { key: 'skipShorts', label: 'Skip Shorts', type: 'toggle', def: false },
+            { key: 'pauseHidden', label: 'Pause when tab hidden', type: 'toggle', def: false },
+            { key: 'pauseBlur', label: 'Pause when window loses focus', type: 'toggle', def: false },
           ],
+          summary: () => BEHAVIORS.find(([v]) => v === get('behavior', 'leave'))?.[1] || 'Leave as-is',
         },
-        { key: 'likedResolveTitles', label: 'Resolve unavailable titles on export', type: 'toggle', def: false },
-        { key: 'likedShowDuration', label: 'Show total duration badge', type: 'toggle', def: true },
-        { key: 'likedShowFilterBar', label: 'Show search & filter bar', type: 'toggle', def: true },
+        {
+          id: 'watch',
+          title: 'Watch Page',
+          desc: 'Automatic watch-page adjustments while opening a video.',
+          rows: [{ key: 'expandDesc', label: 'Auto expand description', type: 'toggle', def: true }],
+          summary: () => (get('expandDesc', true) === true ? 'Expand on' : 'Off'),
+        },
+        {
+          id: 'bookmarks',
+          title: 'Video Bookmarks',
+          desc: 'Save labelled timestamp bookmarks, jump back to them, or copy as chapters.',
+          rows: [
+            { key: 'bookmarksOn', label: 'Enable Video Bookmarks (hotkey b)', type: 'toggle', def: false },
+            { key: 'bookmarks', label: 'Show video bookmarks', type: 'list', def: {} },
+          ],
+          summary: () => {
+            if (get('bookmarksOn', false) !== true) return 'Off';
+            const id = videoIdFromUrl();
+            const count = id ? marksFor(id).length : 0;
+            return count ? `On (${count})` : 'On';
+          },
+        },
       ],
     },
     {
@@ -266,122 +245,230 @@
       def: true,
       title: 'YouTube: Playlist Tools',
       short: 'Playlist Tools',
-      desc: 'Bulk cleanup, search and filter, total duration calculator, export with optional title lookup, and import on /playlist pages.',
-      rows: [
+      desc: 'Watch Later Tools, Playlist Tools, Liked Videos Tools, and Watch Page playlist length.',
+      subsections: [
         {
-          key: 'playlistClearMode',
-          label: 'Default clear mode',
-          type: 'choice',
-          def: 'unavailable-only',
-          options: [
-            ['unavailable-only', 'Clear unavailable only'],
-            ['skip-unavailable', 'Skip unavailable'],
-            ['skip-deleted', 'Skip deleted'],
-            ['skip-private', 'Skip private'],
-            ['none', 'Delete all'],
+          id: 'wl',
+          title: 'Watch Later (WL)',
+          desc: 'Dedicated Watch Later Tools on /playlist?list=WL.',
+          rows: [
+            { key: 'wlOn', label: 'Enable on Watch Later', type: 'toggle', def: true },
+            {
+              key: 'playlistClearMode',
+              label: 'Default clear mode',
+              type: 'choice',
+              def: 'unavailable-only',
+              options: [
+                ['unavailable-only', 'Clear unavailable only'],
+                ['skip-unavailable', 'Skip unavailable'],
+                ['skip-deleted', 'Skip deleted'],
+                ['skip-private', 'Skip private'],
+                ['none', 'Delete all'],
+              ],
+            },
+            { key: 'playlistWatchedThreshold', label: 'Watched threshold (%)', type: 'number', min: 10, max: 100, def: 80 },
+            { key: 'playlistShowFilterBar', label: 'Show search & filter bar', type: 'toggle', def: true },
+            { key: 'playlistShowDuration', label: 'Show total duration badge', type: 'toggle', def: true },
           ],
-        },
-        { key: 'playlistWatchedThreshold', label: 'Watched threshold (%)', type: 'number', min: 10, max: 100, def: 80 },
-        {
-          key: 'playlistExportScope',
-          label: 'Default export scope',
-          type: 'choice',
-          def: 'unavailable-all',
-          options: [
-            ['unavailable-all', 'Unavailable: All'],
-            ['unavailable-deleted', 'Unavailable: Deleted'],
-            ['unavailable-private', 'Unavailable: Private'],
-            ['available', 'Available'],
-            ['all', 'All'],
-          ],
+          summary: () => (get('wlOn', true) === true ? 'On' : 'Off'),
         },
         {
-          key: 'playlistExportFormat',
-          label: 'Default export format',
-          type: 'choice',
-          def: 'md',
-          options: [
-            ['md', 'Markdown (.md)'],
-            ['txt', 'Plain URLs (.txt)'],
+          id: 'normal',
+          title: 'Normal Playlists',
+          desc: 'Bulk cleanup, search and filter, duration, export, and import on regular playlists.',
+          rows: [
+            { key: 'normalOn', label: 'Enable on Normal Playlists', type: 'toggle', def: true },
+            {
+              key: 'playlistExportScope',
+              label: 'Default export scope',
+              type: 'choice',
+              def: 'unavailable-all',
+              options: [
+                ['unavailable-all', 'Unavailable: All'],
+                ['unavailable-deleted', 'Unavailable: Deleted'],
+                ['unavailable-private', 'Unavailable: Private'],
+                ['available', 'Available'],
+                ['all', 'All'],
+              ],
+            },
+            {
+              key: 'playlistExportFormat',
+              label: 'Default export format',
+              type: 'choice',
+              def: 'md',
+              options: [
+                ['md', 'Markdown (.md)'],
+                ['txt', 'Plain URLs (.txt)'],
+              ],
+            },
+            { key: 'playlistResolveTitles', label: 'Resolve unavailable titles', type: 'toggle', def: false },
+            { key: 'playlistImportSkipExisting', label: 'Skip existing on import', type: 'toggle', def: true },
           ],
+          summary: () => (get('normalOn', true) === true ? 'On' : 'Off'),
         },
-        { key: 'playlistResolveTitles', label: 'Resolve unavailable titles', type: 'toggle', def: false },
-        { key: 'playlistImportSkipExisting', label: 'Skip existing on import', type: 'toggle', def: true },
-        { key: 'playlistShowFilterBar', label: 'Show search & filter bar', type: 'toggle', def: true },
-        { key: 'playlistShowDuration', label: 'Show total duration badge', type: 'toggle', def: true },
+        {
+          id: 'liked',
+          title: 'Liked Videos (LL)',
+          desc: 'Dedicated Liked Videos Tools on /playlist?list=LL.',
+          rows: [
+            { key: 'likedOn', label: 'Enable on Liked Videos', type: 'toggle', def: true },
+            {
+              key: 'likedClearMode',
+              label: 'Default clear mode',
+              type: 'choice',
+              def: 'unavailable-only',
+              options: [
+                ['unavailable-only', 'Unlike unavailable only'],
+                ['unavailable-deleted', 'Unlike deleted only'],
+                ['unavailable-private', 'Unlike private only'],
+                ['skip-unavailable', 'Skip unavailable (unlike available)'],
+                ['skip-deleted', 'Skip deleted'],
+                ['skip-private', 'Skip private'],
+                ['none', 'Unlike all'],
+              ],
+            },
+            { key: 'likedWatchedThreshold', label: 'Watched threshold (%)', type: 'number', min: 10, max: 100, def: 80 },
+            {
+              key: 'likedExportFormat',
+              label: 'Default export format',
+              type: 'choice',
+              def: 'md',
+              options: [
+                ['md', 'Markdown (.md)'],
+                ['txt', 'Plain URLs (.txt)'],
+              ],
+            },
+            { key: 'likedResolveTitles', label: 'Resolve unavailable titles on export', type: 'toggle', def: false },
+            { key: 'likedShowDuration', label: 'Show total duration badge', type: 'toggle', def: true },
+            { key: 'likedShowFilterBar', label: 'Show search & filter bar', type: 'toggle', def: true },
+          ],
+          summary: () => (get('likedOn', true) === true ? 'On' : 'Off'),
+        },
+        {
+          id: 'watch',
+          title: 'Watch Page',
+          desc: 'Shows how long the playlist is and how much is left in the watch-page playlist panel.',
+          rows: [{ key: 'playlistLength', label: 'Show Playlist Length on /watch', type: 'toggle', def: true }],
+          summary: () => (get('playlistLength', true) === true ? 'Length on' : 'Off'),
+        },
       ],
-    },
-    {
-      id: 'share',
-      def: true,
-      title: 'YouTube: Clean Share Link',
-      short: 'Clean Share Link',
-      desc: 'Removes si, pp and other tracking parameters from links copied out of the share panel. The address bar can be cleaned too, and the menu copies a link at the current time.',
-      rows: [{ key: 'shareAddress', label: 'Clean address bar', type: 'toggle', def: false }],
-    },
-    {
-      id: 'shorts',
-      def: false,
-      title: 'YouTube: Shorts to Watch',
-      short: 'Shorts to Watch',
-      desc: 'Opens Shorts in the normal watch player by rewriting /shorts/ links to /watch. Off by default, so Shorts stay untouched until you turn it on.',
-      rows: [],
     },
     {
       id: 'quiet',
       def: true,
       title: 'YouTube: Quiet Page',
       short: 'Quiet Page',
-      desc: 'Stops work on the page that plays video you never asked for, and hides the sections that cost the most. Each switch below works on its own.',
-      rows: [
-        { key: 'quietPreviews', label: 'Stop thumbnail previews', type: 'toggle', group: 'Playback', def: true },
-        { key: 'quietEndScreen', label: 'Hide end screen', type: 'toggle', group: 'Playback', def: true },
-        { key: 'quietAmbient', label: 'Disable ambient mode', type: 'toggle', group: 'Playback', def: true },
-        { key: 'quietShorts', label: 'Hide Shorts shelves', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietComments', label: 'Hide comments', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietChat', label: 'Hide live chat', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietPromos', label: 'Hide promo banners', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietMerch', label: 'Hide merch shelf', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietDonation', label: 'Hide donation shelves', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietChips', label: 'Hide filter chips', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietPosts', label: 'Hide community posts', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietClarification', label: 'Hide info panels', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietPlaylist', label: 'Hide playlist panel', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietNudges', label: 'Hide feed nudges', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietChannelVideo', label: 'Hide channel featured video', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietSuggested', label: 'Hide player suggestion bubble', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietInfoPanels', label: 'Hide large info panels', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietMiniplayer', label: 'Hide miniplayer', type: 'toggle', group: 'Sections', def: false },
-        { key: 'quietShortsEntry', label: 'Hide Shorts entry', type: 'toggle', group: 'Sidebar', def: false },
-        { key: 'quietSidebarYou', label: 'Hide You section', type: 'toggle', group: 'Sidebar', def: false },
-        { key: 'quietSidebarSubscriptions', label: 'Hide Subscriptions section', type: 'toggle', group: 'Sidebar', def: false },
-        { key: 'quietSidebarExplore', label: 'Hide Explore section', type: 'toggle', group: 'Sidebar', def: false },
-        { key: 'quietSidebarMore', label: 'Hide More from YouTube', type: 'toggle', group: 'Sidebar', def: false },
-        { key: 'quietSidebarFooter', label: 'Hide sidebar footer', type: 'toggle', group: 'Sidebar', def: false },
-      ],
-    },
-    {
-      id: 'grid',
-      def: true,
-      title: 'YouTube: Custom Grid',
-      short: 'Custom Grid',
-      desc: 'Sets a custom number of videos per row on YouTube grids, scaling cards down uniformly. Toggle which sections use the custom grid.',
-      rows: [
-        { key: 'gridColumns', label: 'Videos per row', type: 'choice', group: 'Layout', def: 4, options: GRID_COLUMNS },
-        { key: 'gridHome', label: 'Home', type: 'toggle', group: 'Sections', def: true },
-        { key: 'gridSubscriptions', label: 'Subscriptions', type: 'toggle', group: 'Sections', def: true },
-        { key: 'gridChannel', label: 'Channel', type: 'toggle', group: 'Sections', def: true },
-        { key: 'gridOther', label: 'Other grids', type: 'toggle', group: 'Sections', def: true },
+      desc: 'Stops previews and paused prompts, hides Members-only cards, People Mentioned, and page/sidebar clutter.',
+      subsections: [
+        {
+          id: 'playback',
+          title: 'Playback',
+          desc: 'Thumbnail previews, end screens, ambient glow, and "Continue watching?" prompts.',
+          rows: [
+            { key: 'quietPreviews', label: 'Stop thumbnail previews', type: 'toggle', def: true },
+            { key: 'quietEndScreen', label: 'Hide end screen', type: 'toggle', def: true },
+            { key: 'quietAmbient', label: 'Disable ambient mode', type: 'toggle', def: true },
+            { key: 'answer', label: 'Dismiss paused prompt', type: 'choice', def: 'yes', options: PROMPTS },
+          ],
+          summary: () => {
+            const t = ['quietPreviews', 'quietEndScreen', 'quietAmbient'].filter((k) => get(k, true) === true).length;
+            const p = get('answer', 'yes') !== 'leave' ? 1 : 0;
+            return `${t + p} of 4 on`;
+          },
+        },
+        {
+          id: 'feed',
+          title: 'Feed & Cards',
+          desc: 'Members-only/Premium, People Mentioned, Shorts shelves, and feed clutter.',
+          rows: [
+            { key: 'quietMembersOnly', label: 'Hide Members-only & Premium', type: 'toggle', def: true },
+            { key: 'quietPeopleMentioned', label: 'Hide People Mentioned', type: 'toggle', def: true },
+            { key: 'quietShorts', label: 'Hide Shorts shelves', type: 'toggle', def: false },
+            { key: 'quietChips', label: 'Hide filter chips', type: 'toggle', def: false },
+            { key: 'quietPosts', label: 'Hide community posts', type: 'toggle', def: false },
+            { key: 'quietNudges', label: 'Hide feed nudges', type: 'toggle', def: false },
+            { key: 'quietPromos', label: 'Hide promo banners', type: 'toggle', def: false },
+          ],
+          summary: () => {
+            const sub = featureById('quiet').subsections[1];
+            return `${sub.rows.filter((r) => get(r.key, r.def) === true).length} of ${sub.rows.length} on`;
+          },
+        },
+        {
+          id: 'watch',
+          title: 'Watch & Channel',
+          desc: 'Optional panels on watch and channel pages.',
+          rows: [
+            { key: 'quietComments', label: 'Hide comments', type: 'toggle', def: false },
+            { key: 'quietChat', label: 'Hide live chat', type: 'toggle', def: false },
+            { key: 'quietMerch', label: 'Hide merch shelf', type: 'toggle', def: false },
+            { key: 'quietDonation', label: 'Hide donation shelves', type: 'toggle', def: false },
+            { key: 'quietClarification', label: 'Hide info panels', type: 'toggle', def: false },
+            { key: 'quietInfoPanels', label: 'Hide large info panels', type: 'toggle', def: false },
+            { key: 'quietPlaylist', label: 'Hide playlist panel', type: 'toggle', def: false },
+            { key: 'quietChannelVideo', label: 'Hide channel featured video', type: 'toggle', def: false },
+            { key: 'quietSuggested', label: 'Hide player suggestion bubble', type: 'toggle', def: false },
+            { key: 'quietMiniplayer', label: 'Hide miniplayer', type: 'toggle', def: false },
+          ],
+          summary: () => {
+            const sub = featureById('quiet').subsections[2];
+            return `${sub.rows.filter((r) => get(r.key, r.def) === true).length} of ${sub.rows.length} on`;
+          },
+        },
+        {
+          id: 'sidebar',
+          title: 'Sidebar',
+          desc: 'Left navigation drawer sections.',
+          rows: [
+            { key: 'quietShortsEntry', label: 'Hide Shorts entry', type: 'toggle', def: false },
+            { key: 'quietSidebarYou', label: 'Hide You section', type: 'toggle', def: false },
+            { key: 'quietSidebarSubscriptions', label: 'Hide Subscriptions section', type: 'toggle', def: false },
+            { key: 'quietSidebarExplore', label: 'Hide Explore section', type: 'toggle', def: false },
+            { key: 'quietSidebarMore', label: 'Hide More from YouTube', type: 'toggle', def: false },
+            { key: 'quietSidebarFooter', label: 'Hide sidebar footer', type: 'toggle', def: false },
+          ],
+          summary: () => {
+            const sub = featureById('quiet').subsections[3];
+            return `${sub.rows.filter((r) => get(r.key, r.def) === true).length} of ${sub.rows.length} on`;
+          },
+        },
       ],
     },
   ];
+  for (const f of FEATURES) f.rows = f.subsections.flatMap((s) => s.rows);
 
   const featureById = (id) => FEATURES.find((f) => f.id === id);
+  const rowOf = (key) => {
+    for (const feature of FEATURES) {
+      for (const row of feature.rows) if (row.key === key) return row;
+    }
+    return null;
+  };
 
-  // One place decides what a feature does when no value is stored yet
-  const featureOn = (id) => {
+  // Maps legacy per-feature checks onto the 4 consolidated modules + sub-toggles
+  const moduleOn = (id) => {
     const feature = featureById(id);
     return get(`${id}On`, feature ? feature.def : true) === true;
+  };
+  const featureOn = (id) => {
+    if (id === 'general' || id === 'playback' || id === 'quiet') return moduleOn(id);
+    if (id === 'grid') return moduleOn('general') && get('gridOn', true) === true;
+    if (id === 'shorts') return moduleOn('general') && get('shortsToWatch', false) === true;
+    if (id === 'share') return moduleOn('general') && get('cleanShare', true) === true;
+    if (id === 'resolution' || id === 'autoplay') return moduleOn('playback');
+    if (id === 'expand') return moduleOn('playback') && get('expandDesc', true) === true;
+    if (id === 'bookmarks') return moduleOn('playback') && get('bookmarksOn', false) === true;
+    if (id === 'playlistTools') {
+      if (!moduleOn('playlistTools')) return false;
+      const list = new URLSearchParams(location.search).get('list') || '';
+      return list === 'WL' ? get('wlOn', true) === true : get('normalOn', true) === true;
+    }
+    if (id === 'likedTools') return moduleOn('playlistTools') && get('likedOn', true) === true;
+    if (id === 'playlist') return moduleOn('playlistTools') && get('playlistLength', true) === true;
+    if (id === 'paused') return moduleOn('quiet');
+    if (id === 'members') return moduleOn('quiet') && get('quietMembersOnly', true) === true;
+    if (id === 'people') return moduleOn('quiet') && get('quietPeopleMentioned', true) === true;
+    return moduleOn(id);
   };
 
   function read(row) {
@@ -409,9 +496,13 @@
 #ytc-panel,#ytc-panel *{box-sizing:border-box}
 #ytc-backdrop{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.68)}
 #ytc-panel{width:clamp(320px,88vw,420px);height:calc(100vh - 24px);height:min(76dvh,560px);overflow:auto;padding:0 0 10px;border-radius:14px;background:var(--yt-spec-base-background,#fff);color:var(--yt-spec-text-primary,#0f0f0f);box-shadow:0 16px 40px rgba(0,0,0,.45);font-family:Roboto,Arial,sans-serif;font-size:14px;scroll-padding-top:63px}
-#ytc-panel .ytc-header{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:6px 8px 6px 20px;background:var(--yt-spec-base-background,#fff);border-bottom:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3))}
-#ytc-panel .ytc-header.with-back{padding-left:8px}
-#ytc-panel h2{flex:1;margin:0;padding:0;font-size:16px;font-weight:600;line-height:1.3}
+#ytc-panel .ytc-header{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:4px;padding:6px 8px;background:var(--yt-spec-base-background,#fff);border-bottom:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.3))}
+#ytc-panel .ytc-title-wrap{min-width:0;text-align:center}
+#ytc-panel .ytc-crumb{display:block;font-size:11px;line-height:1.25;color:var(--yt-spec-text-secondary,#606060);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ytc-panel .ytc-spacer{width:44px;height:44px}
+#ytc-panel h2{margin:0;padding:0;font-size:15px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ytc-panel .ytc-group.is-disabled{opacity:.42;pointer-events:none;user-select:none}
+#ytc-panel .ytc-reset-armed{color:#e05a52;font-weight:500}
 #ytc-panel .ytc-close,#ytc-panel .ytc-back{width:44px;height:44px;min-height:44px;justify-content:center;padding:0;border-radius:50%;font-size:18px;line-height:1}
 #ytc-panel .ytc-close{font-size:22px}
 #ytc-panel .ytc-desc{margin:12px 0 0;padding:0 20px;font-size:13px;line-height:1.5;color:var(--yt-spec-text-secondary,#606060)}
@@ -475,8 +566,14 @@
         render();
         return;
       }
-      if (panelState && (panelState.view === 'featureBackup' || panelState.view === 'number')) {
+      if (panelState && (panelState.view === 'featureBackup' || panelState.view === 'number' || panelState.view === 'options')) {
+        panelState.view = panelState.sub ? 'sub' : 'settings';
+        render();
+        return;
+      }
+      if (panelState && panelState.view === 'sub') {
         panelState.view = 'settings';
+        panelState.sub = null;
         render();
         return;
       }
@@ -544,7 +641,7 @@
     return button;
   }
 
-  function panelHeader(titleText, onBack) {
+  function panelHeader(titleText, onBack, crumb) {
     const bar = document.createElement('div');
     bar.className = onBack ? 'ytc-header with-back' : 'ytc-header';
     if (onBack) {
@@ -555,16 +652,30 @@
       back.textContent = '\u2190';
       back.addEventListener('click', onBack);
       bar.append(back);
+    } else {
+      const spacer = document.createElement('span');
+      spacer.className = 'ytc-spacer';
+      spacer.setAttribute('aria-hidden', 'true');
+      bar.append(spacer);
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'ytc-title-wrap';
+    if (crumb) {
+      const c = document.createElement('span');
+      c.className = 'ytc-crumb';
+      c.textContent = crumb;
+      wrap.append(c);
     }
     const title = document.createElement('h2');
     title.textContent = titleText;
+    wrap.append(title);
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'ytc-close';
     close.setAttribute('aria-label', 'Close');
     close.textContent = '\u00d7';
     close.addEventListener('click', closePanel);
-    bar.append(title, close);
+    bar.append(wrap, close);
     return bar;
   }
 
@@ -624,17 +735,19 @@
     }
     if (panelState.view === 'number') {
       const row = feature.rows.find((r) => r.key === panelState.rowKey);
+      const sub = feature.subsections?.find((s) => s.id === panelState.sub);
+      const backView = sub ? 'sub' : 'settings';
       if (!row) {
-        panelState.view = 'settings';
+        panelState.view = backView;
         render();
         return;
       }
       panel.textContent = '';
       panel.append(
         panelHeader(row.label, () => {
-          panelState.view = 'settings';
+          panelState.view = backView;
           render();
-        })
+        }, sub ? `${feature.short} \u203a ${sub.title}` : feature.short)
       );
       panel.setAttribute('aria-label', row.label);
       const lbl = document.createElement('label');
@@ -653,7 +766,7 @@
       save.addEventListener('click', () => {
         const n = Math.min(row.max, Math.max(row.min, Math.round(Number(inp.value) || row.def)));
         put(row.key, n);
-        panelState.view = 'settings';
+        panelState.view = backView;
         render();
         notifyChange();
       });
@@ -663,17 +776,19 @@
     }
     if (panelState.view === 'options') {
       const row = feature.rows.find((r) => r.key === panelState.rowKey);
+      const sub = feature.subsections?.find((s) => s.id === panelState.sub);
+      const backView = sub ? 'sub' : 'settings';
       if (!row) {
-        panelState.view = 'settings';
+        panelState.view = backView;
         render();
         return;
       }
       panel.textContent = '';
       panel.append(
         panelHeader(row.label, () => {
-          panelState.view = 'settings';
+          panelState.view = backView;
           render();
-        })
+        }, sub ? `${feature.short} \u203a ${sub.title}` : feature.short)
       );
       panel.setAttribute('aria-label', row.label);
 
@@ -682,31 +797,33 @@
         panel.append(
           optionRow(label, current === value, () => {
             put(row.key, value);
-            panelState.view = 'settings';
+            panelState.view = backView;
             render();
             notifyChange();
           })
         );
       }
-    } else {
+    } else if (panelState.view === 'sub') {
+      const sub = feature.subsections?.find((s) => s.id === panelState.sub);
+      if (!sub) {
+        panelState.view = 'settings';
+        render();
+        return;
+      }
       panel.textContent = '';
-      const bar = panelHeader(feature.title, backToHub);
+      const bar = panelHeader(sub.title, () => {
+        panelState.view = 'settings';
+        panelState.sub = null;
+        render();
+      }, feature.short);
       const desc = document.createElement('p');
       desc.className = 'ytc-desc';
-      desc.textContent = feature.desc;
-      const divider = document.createElement('hr');
-      const grouped = feature.rows.some((row) => row.group);
-      const section = document.createElement('p');
-      section.className = 'ytc-section';
-      section.textContent = 'Settings';
-      panel.append(bar, desc, divider);
-      // A feature with no rows is just one switch, so a Settings heading would be noise
-      if (!grouped && feature.rows.length) panel.append(section);
-      panel.setAttribute('aria-label', feature.title);
+      desc.textContent = sub.desc;
+      panel.append(bar, desc, document.createElement('hr'));
+      panel.setAttribute('aria-label', sub.title);
 
-      const rows = [{ key: `${feature.id}On`, label: 'Enabled', type: 'toggle', def: feature.def }, ...feature.rows];
       let group = null;
-      for (const row of rows) {
+      for (const row of sub.rows) {
         if (row.group && row.group !== group) {
           group = row.group;
           const heading = document.createElement('p');
@@ -721,7 +838,6 @@
           () => {
             if (isToggle) {
               put(row.key, !read(row));
-              // Updating in place keeps the panel from rebuilding and scrolling to the top
               button.setAttribute('aria-pressed', String(read(row)));
               notifyChange();
               return;
@@ -743,13 +859,10 @@
           },
           isToggle ? read(row) : undefined
         );
-        // The chevron marks rows that open a subview
         if (!isToggle) button.append(chevron());
         panel.append(button);
       }
-
-      // Bookmarks carry their own data, so the feature gets a scoped backup next to its list
-      if (feature.id === 'bookmarks') {
+      if (sub.id === 'bookmarks') {
         const backup = settingRow('Backup', 'JSON', () => {
           panelState.view = 'featureBackup';
           render();
@@ -757,14 +870,54 @@
         backup.append(chevron());
         panel.append(backup);
       }
+    } else {
+      panel.textContent = '';
+      const bar = panelHeader(feature.short, backToHub, 'Custom Collection');
+      const desc = document.createElement('p');
+      desc.className = 'ytc-desc';
+      desc.textContent = feature.desc;
+      panel.append(bar, desc, document.createElement('hr'));
+      panel.setAttribute('aria-label', feature.title);
+
+      const enabledRow = { key: `${feature.id}On`, label: 'Enabled', type: 'toggle', def: feature.def };
+      const on = read(enabledRow);
+      const toggleBtn = settingRow('Enabled', on ? 'On' : 'Off', () => {
+        armedFeature = null;
+        put(enabledRow.key, !read(enabledRow));
+        notifyChange();
+        render();
+      }, on);
+      panel.append(toggleBtn);
+
+      const groupWrap = document.createElement('div');
+      groupWrap.className = on ? 'ytc-group' : 'ytc-group is-disabled';
+      const secHeading = document.createElement('p');
+      secHeading.className = 'ytc-section';
+      secHeading.textContent = 'Sub-sections';
+      groupWrap.append(secHeading);
+
+      for (const sub of feature.subsections) {
+        const btn = settingRow(sub.title, sub.summary(), () => {
+          armedFeature = null;
+          panelState.view = 'sub';
+          panelState.sub = sub.id;
+          render();
+        });
+        btn.disabled = !on;
+        btn.append(chevron());
+        groupWrap.append(btn);
+      }
+      panel.append(groupWrap, document.createElement('hr'));
 
       const reset = document.createElement('button');
       reset.type = 'button';
-      reset.textContent = armedFeature === feature.id ? 'Press again to reset this feature' : 'Reset this feature';
+      if (armedFeature === feature.id) reset.className = 'ytc-reset-armed';
+      reset.textContent = armedFeature === feature.id ? `Click again to reset ${feature.short}` : `Reset ${feature.short}`;
       reset.addEventListener('click', () => {
         if (armedFeature !== feature.id) {
           armedFeature = feature.id;
-          reset.textContent = 'Press again to reset this feature';
+          reset.className = 'ytc-reset-armed';
+          reset.textContent = `Click again to reset ${feature.short}`;
           return;
         }
         armedFeature = null;
@@ -776,7 +929,6 @@
         drawMenu();
         render();
       });
-      if (feature.rows.length) panel.append(document.createElement('hr'));
       panel.append(reset);
     }
 
@@ -1154,7 +1306,7 @@
       const value = get('limit', 0);
       return LIMITS.some(([v]) => v === value) ? value : 0;
     };
-    const hiddenPause = () => get('hiddenPause', false) === true;
+    const hiddenPause = () => get('pauseHidden', false) === true;
     const skipShorts = () => get('skipShorts', false) === true;
 
     function setAutoplay(on) {
@@ -1868,7 +2020,7 @@
     function apply() {
       const root = document.documentElement;
       const on = enabled();
-      const cols = read(featureById('grid').rows[0]);
+      const cols = read(rowOf('gridColumns'));
       if (on) root.style.setProperty('--ytc-grid-cols', String(cols));
       else root.style.removeProperty('--ytc-grid-cols');
       for (const s of SECTIONS) {
@@ -1889,13 +2041,6 @@
       for (const row of feature.rows) keys.add(row.key);
     }
     return keys;
-  };
-
-  const rowOf = (key) => {
-    for (const feature of FEATURES) {
-      for (const row of feature.rows) if (row.key === key) return row;
-    }
-    return null;
   };
 
   function validValue(key, value) {
@@ -3397,7 +3542,8 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
         if (isHiddenByMembers(it.row)) continue;
         totalVisiblePool++;
         let match = true;
-        if (filterState.chip === 'unwatched') match = it.status === 'available' && it.watchedPct < th;
+        if (filterState.chip === 'available') match = it.status === 'available';
+        else if (filterState.chip === 'unwatched') match = it.status === 'available' && it.watchedPct < th;
         else if (filterState.chip === 'watched') match = it.status === 'available' && it.watchedPct >= th;
         else if (filterState.chip === 'unavailable') match = it.status !== 'available';
 
@@ -3491,6 +3637,10 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
       searchLabel.className = 'ytc-pt-sr';
       searchLabel.setAttribute('for', 'ytc-pt-filter-input');
       searchLabel.textContent = 'Filter playlist';
+      bar.style.flexDirection = 'column';
+      bar.style.alignItems = 'stretch';
+      const topRow = document.createElement('div');
+      topRow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap';
       const searchWrap = document.createElement('div');
       searchWrap.className = 'ytc-pt-search-wrap';
       const input = document.createElement('input');
@@ -3498,20 +3648,45 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
       input.type = 'search';
       input.placeholder = 'Search title or channel...';
       input.value = filterState.query;
-      input.addEventListener('input', () => {
+      const runSearch = () => {
         filterState.query = input.value;
         filterState.target = 'both';
         applyFilter();
+      };
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          runSearch();
+        }
       });
       searchWrap.append(makeSvgIcon(ICON_SEARCH, 15), input);
+
+      const searchBtn = document.createElement('button');
+      searchBtn.type = 'button';
+      searchBtn.className = 'ytc-pt-fbtn';
+      searchBtn.dataset.act = 'search-filter';
+      searchBtn.textContent = 'Search';
+      searchBtn.addEventListener('click', runSearch);
+
+      const resetBtn = document.createElement('button');
+      resetBtn.type = 'button';
+      resetBtn.className = 'ytc-pt-fbtn';
+      resetBtn.dataset.act = 'reset-filter';
+      resetBtn.textContent = 'Reset';
+      resetBtn.addEventListener('click', resetFilter);
+
+      const counter = document.createElement('span');
+      counter.className = 'ytc-pt-counter';
+      topRow.append(searchLabel, searchWrap, searchBtn, resetBtn, counter);
 
       const chips = document.createElement('div');
       chips.className = 'ytc-pt-chips';
       for (const [id, label] of [
         ['all', 'All'],
-        ['unwatched', 'Unwatched'],
-        ['watched', 'Watched'],
+        ['available', 'Available'],
         ['unavailable', 'Unavailable'],
+        ['watched', 'Watched'],
+        ['unwatched', 'Unwatched'],
       ]) {
         const chip = document.createElement('button');
         chip.type = 'button';
@@ -3529,40 +3704,7 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
         chips.append(chip);
       }
 
-      const counter = document.createElement('span');
-      counter.className = 'ytc-pt-counter';
-
-      const expBtn = document.createElement('button');
-      expBtn.type = 'button';
-      expBtn.className = 'ytc-pt-fbtn';
-      expBtn.dataset.act = 'export-filtered';
-      expBtn.textContent = 'Export Filtered';
-      expBtn.addEventListener('click', () => {
-        runExport('filtered', get('playlistExportFormat', 'md'), get('playlistResolveTitles', false));
-      });
-
-      const remBtn = document.createElement('button');
-      remBtn.type = 'button';
-      remBtn.className = 'ytc-pt-fbtn';
-      remBtn.dataset.act = 'remove-filtered';
-      remBtn.textContent = 'Remove Filtered';
-      remBtn.addEventListener('click', () => {
-        const targets = getAllItems().filter((i) => !i.row.hasAttribute(HIDDEN_ATTR) && !isHiddenByMembers(i.row));
-        openDialog('cleanup', {
-          title: 'Remove Filtered',
-          summary: `Remove ${targets.length} currently visible filtered video(s)?`,
-          onConfirm: () => runRemoval(targets, getAllItems().length - targets.length),
-        });
-      });
-
-      const resetBtn = document.createElement('button');
-      resetBtn.type = 'button';
-      resetBtn.className = 'ytc-pt-fbtn';
-      resetBtn.dataset.act = 'reset-filter';
-      resetBtn.textContent = 'Reset';
-      resetBtn.addEventListener('click', resetFilter);
-
-      bar.append(searchLabel, searchWrap, chips, counter, expBtn, remBtn, resetBtn);
+      bar.append(topRow, chips);
       listRoot.before(bar);
       applyFilter();
     }
@@ -3693,7 +3835,8 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
       const btn = document.createElement('button');
       btn.id = BTN_ID;
       btn.type = 'button';
-      btn.append(makeSvgIcon(ICON_TOOLS, 16), document.createTextNode('Playlist Tools'));
+      const titleTxt = currentListId() === 'WL' ? 'Watch Later Tools' : 'Playlist Tools';
+      btn.append(makeSvgIcon(ICON_TOOLS, 16), document.createTextNode(titleTxt));
       btn.addEventListener('click', () => openDialog('cleanup'));
       if (badge && badge.parentElement === anchor) anchor.insertBefore(btn, badge);
       else anchor.append(btn);
@@ -3735,12 +3878,13 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
       dialog.id = DIALOG_ID;
       dialog.setAttribute('role', 'dialog');
       dialog.setAttribute('aria-modal', 'true');
-      dialog.setAttribute('aria-label', 'Playlist Tools');
+      const dlgTitle = currentListId() === 'WL' ? 'Watch Later Tools' : 'Playlist Tools';
+      dialog.setAttribute('aria-label', dlgTitle);
 
       const head = document.createElement('div');
       head.className = 'ytc-pt-dhead';
       const title = document.createElement('h2');
-      title.textContent = 'Playlist Tools';
+      title.textContent = dlgTitle;
       const closeBtn = document.createElement('button');
       closeBtn.type = 'button';
       closeBtn.className = 'ytc-pt-close';
@@ -3926,18 +4070,30 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
         watchH.textContent = 'Remove Watched';
         const watchLbl = document.createElement('label');
         watchLbl.setAttribute('for', 'ytc-pt-threshold');
-        watchLbl.textContent = 'Watched threshold (10-100%)';
+        watchLbl.textContent = 'Watched threshold';
+        const sliderRow = document.createElement('div');
+        sliderRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin:4px 0 8px';
         const watchIn = document.createElement('input');
         watchIn.id = 'ytc-pt-threshold';
-        watchIn.type = 'number';
+        watchIn.type = 'range';
         watchIn.min = '10';
         watchIn.max = '100';
+        watchIn.step = '5';
+        watchIn.style.cssText = 'flex:1;accent-color:var(--yt-spec-call-to-action,#3ea6ff);cursor:pointer';
         watchIn.value = String(get('playlistWatchedThreshold', 80));
+        const watchVal = document.createElement('span');
+        watchVal.style.cssText = 'min-width:40px;text-align:right;font-size:13px;font-weight:600';
+        watchVal.textContent = `${watchIn.value}%`;
+        watchIn.addEventListener('input', () => {
+          watchVal.textContent = `${watchIn.value}%`;
+        });
         watchIn.addEventListener('change', () => {
           const n = Math.min(100, Math.max(10, Math.round(Number(watchIn.value) || 80)));
           watchIn.value = String(n);
+          watchVal.textContent = `${n}%`;
           put('playlistWatchedThreshold', n);
         });
+        sliderRow.append(watchIn, watchVal);
         const watchBtn = document.createElement('button');
         watchBtn.type = 'button';
         watchBtn.className = 'ytc-pt-btn';
@@ -3955,7 +4111,7 @@ html[dark] #${TOAST_ID} button:hover{background:rgba(255,255,255,.22)}
           };
           renderBody();
         });
-        watchCard.append(watchH, watchLbl, watchIn, watchBtn);
+        watchCard.append(watchH, watchLbl, sliderRow, watchBtn);
         body.append(watchCard);
 
         const dupCard = document.createElement('div');
@@ -5295,6 +5451,7 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
     function matchesFilter(item) {
       const chip = filterState.chip;
       const threshold = Number(get('likedWatchedThreshold', 80)) || 80;
+      if (chip === 'available' && item.status !== 'available') return false;
       if (chip === 'unwatched' && item.watchedPct >= threshold) return false;
       if (chip === 'watched' && item.watchedPct < threshold) return false;
       if (chip === 'shorts' && !item.isShort) return false;
@@ -5402,7 +5559,11 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
       ensureStyle();
       const bar = document.createElement('div');
       bar.id = FILTER_ID;
+      bar.style.flexDirection = 'column';
+      bar.style.alignItems = 'stretch';
 
+      const topRow = document.createElement('div');
+      topRow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap';
       const searchLabel = document.createElement('label');
       searchLabel.className = 'ytc-lt-sr';
       searchLabel.setAttribute('for', 'ytc-lt-filter-input');
@@ -5414,21 +5575,47 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
       input.type = 'search';
       input.placeholder = 'Search title or channel...';
       input.value = filterState.query;
-      input.addEventListener('input', () => {
+      const runSearch = () => {
         filterState.query = input.value;
         filterState.target = 'both';
         applyFilter();
+      };
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          runSearch();
+        }
       });
       searchWrap.append(makeSvgIcon(ICON_SEARCH, 15), input);
+
+      const searchBtn = document.createElement('button');
+      searchBtn.type = 'button';
+      searchBtn.className = 'ytc-lt-fbtn';
+      searchBtn.dataset.act = 'search-filter';
+      searchBtn.textContent = 'Search';
+      searchBtn.addEventListener('click', runSearch);
+
+      const resetBtn = document.createElement('button');
+      resetBtn.type = 'button';
+      resetBtn.className = 'ytc-lt-fbtn';
+      resetBtn.dataset.act = 'reset-filter';
+      resetBtn.textContent = 'Reset';
+      resetBtn.hidden = !isFilterActive();
+      resetBtn.addEventListener('click', resetFilter);
+
+      const counter = document.createElement('span');
+      counter.className = 'ytc-lt-counter';
+      topRow.append(searchLabel, searchWrap, searchBtn, resetBtn, counter);
 
       const chips = document.createElement('div');
       chips.className = 'ytc-lt-chips';
       for (const [id, label] of [
         ['all', 'All'],
-        ['unwatched', 'Unwatched'],
-        ['watched', 'Watched'],
-        ['shorts', 'Shorts'],
+        ['available', 'Available'],
         ['unavailable', 'Unavailable'],
+        ['watched', 'Watched'],
+        ['unwatched', 'Unwatched'],
+        ['shorts', 'Shorts'],
       ]) {
         const chip = document.createElement('button');
         chip.type = 'button';
@@ -5446,43 +5633,7 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
         chips.append(chip);
       }
 
-      const expBtn = document.createElement('button');
-      expBtn.type = 'button';
-      expBtn.className = 'ytc-lt-fbtn';
-      expBtn.dataset.act = 'export-filtered';
-      expBtn.textContent = 'Export Filtered';
-      expBtn.hidden = !isFilterActive();
-      expBtn.addEventListener('click', () => {
-        runExport('filtered', get('likedExportFormat', 'md'), get('likedResolveTitles', false) === true);
-      });
-
-      const unlikeBtn = document.createElement('button');
-      unlikeBtn.type = 'button';
-      unlikeBtn.className = 'ytc-lt-fbtn';
-      unlikeBtn.dataset.act = 'unlike-filtered';
-      unlikeBtn.textContent = 'Unlike Filtered';
-      unlikeBtn.hidden = !isFilterActive();
-      unlikeBtn.addEventListener('click', () => {
-        const targets = selectScopeItems('filtered');
-        if (!targets.length) {
-          showToast({ text: 'No filtered liked videos to unlike.', actions: [{ label: 'Close', onClick: clearToast }] });
-          return;
-        }
-        openDialog('unlike', { label: 'Filtered liked videos', items: targets });
-      });
-
-      const resetBtn = document.createElement('button');
-      resetBtn.type = 'button';
-      resetBtn.className = 'ytc-lt-fbtn';
-      resetBtn.dataset.act = 'reset-filter';
-      resetBtn.textContent = 'Reset';
-      resetBtn.hidden = !isFilterActive();
-      resetBtn.addEventListener('click', resetFilter);
-
-      const counter = document.createElement('span');
-      counter.className = 'ytc-lt-counter';
-
-      bar.append(searchLabel, searchWrap, chips, counter, expBtn, unlikeBtn, resetBtn);
+      bar.append(topRow, chips);
       listRoot.before(bar);
       applyFilter();
     }
@@ -5805,21 +5956,30 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
           clearCard.append(clearRow);
 
           const watchedCard = makeCard('Unlike watched videos');
-          const watchedRow = document.createElement('div');
-          watchedRow.className = 'ytc-lt-row';
-          const thLabel = document.createElement('label');
-          thLabel.textContent = 'Watched >= (%)';
+          const sliderRow = document.createElement('div');
+          sliderRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin:4px 0 8px';
           const thInput = document.createElement('input');
-          thInput.type = 'number';
+          thInput.type = 'range';
           thInput.min = '10';
           thInput.max = '100';
+          thInput.step = '5';
           thInput.value = String(get('likedWatchedThreshold', 80));
-          thInput.style.width = '76px';
+          thInput.style.cssText = 'flex:1;accent-color:var(--yt-spec-call-to-action,#3ea6ff);cursor:pointer';
+          const thVal = document.createElement('span');
+          thVal.style.cssText = 'min-width:40px;text-align:right;font-size:13px;font-weight:600';
+          thVal.textContent = `${thInput.value}%`;
+          thInput.addEventListener('input', () => {
+            thVal.textContent = `${thInput.value}%`;
+          });
           thInput.addEventListener('change', () => {
             const n = Math.min(100, Math.max(10, Number.parseInt(thInput.value, 10) || 80));
             thInput.value = String(n);
+            thVal.textContent = `${n}%`;
             put('likedWatchedThreshold', n);
           });
+          sliderRow.append(thInput, thVal);
+          const watchedRow = document.createElement('div');
+          watchedRow.className = 'ytc-lt-row';
           const watchedBtn = document.createElement('button');
           watchedBtn.type = 'button';
           watchedBtn.className = 'ytc-lt-btn danger';
@@ -5829,8 +5989,8 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
             put('likedWatchedThreshold', th);
             askConfirm(`Watched >= ${th}%`, getAllItems().filter((i) => i.watchedPct >= th));
           });
-          watchedRow.append(thLabel, thInput, watchedBtn);
-          watchedCard.append(watchedRow);
+          watchedRow.append(watchedBtn);
+          watchedCard.append(sliderRow, watchedRow);
 
           const quickCard = makeCard('Unlike by keyword, Shorts or filter');
           const kwRow = document.createElement('div');
@@ -6249,7 +6409,7 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
 
   function refreshMarkList() {
     if (!document.getElementById('ytc-panel')) return;
-    if (!panelState || panelState.feature !== 'bookmarks' || panelState.view !== 'list') return;
+    if (!panelState || panelState.view !== 'list') return;
     render();
   }
 
@@ -6545,10 +6705,10 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
     panel.textContent = '';
     panel.append(
       panelHeader('Bookmarks backup', () => {
-        // Opened from the feature settings, so Back returns there, same as Escape
-        panelState.view = 'settings';
+        // Opened from the Video Bookmarks sub-section, so Back returns there, same as Escape
+        panelState.view = panelState.sub ? 'sub' : 'settings';
         render();
-      })
+      }, 'Playback Custom \u203a Video Bookmarks')
     );
     panel.setAttribute('aria-label', 'Bookmarks backup');
 
@@ -6909,7 +7069,7 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
       const badge = document.createElement('span');
       badge.className = 'ytc-play-badge';
       list.append(badge);
-      list.addEventListener('click', () => openPanel('bookmarks', 'list'));
+      list.addEventListener('click', () => openPanel('playback', 'list'));
     }
     if (add.parentElement !== controls || list.parentElement !== controls) controls.prepend(add, list);
 
@@ -6985,34 +7145,20 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
   let armedFeature = null;
 
   function featureSummary(feature) {
-    if (feature.id === 'bookmarks') {
-      const id = videoIdFromUrl();
-      const count = id ? marksFor(id).length : 0;
-      return count ? `${count} mark${count === 1 ? '' : 's'}` : 'None';
-    }
-    if (feature.id === 'resolution') {
-      const hit = QUALITY.find(([value]) => value === get('quality', 'auto'));
-      return hit ? hit[1] : 'Auto';
-    }
-    if (feature.id === 'autoplay') {
-      const hit = BEHAVIORS.find(([value]) => value === get('behavior', 'leave'));
-      return hit ? hit[1] : 'Leave as-is';
+    if (feature.id === 'general') {
+      return get('gridOn', true) === true ? `${read(rowOf('gridColumns'))}/row` : 'On';
     }
     if (feature.id === 'playback') {
+      const q = QUALITY.find(([value]) => value === get('quality', 'auto'));
       const speed = get('speed', 'leave');
-      return speed === 'leave' ? 'Default' : `${speed}x`;
+      const qLabel = q ? q[1] : 'Auto';
+      return speed === 'leave' ? qLabel : `${qLabel}, ${speed}x`;
     }
-    if (feature.id === 'paused') {
-      const hit = PROMPTS.find(([value]) => value === get('answer', 'yes'));
-      return hit ? hit[1] : 'Yes';
+    if (feature.id === 'playlistTools') {
+      return '4 sections';
     }
     if (feature.id === 'quiet') {
-      const on = feature.rows.filter((row) => get(row.key, row.def === true) === true).length;
-      return `${on} on`;
-    }
-    if (feature.id === 'grid') {
-      const cols = read(feature.rows[0]);
-      return `${cols} per row`;
+      return `${quietOn()} on`;
     }
     return 'On';
   }
@@ -7055,14 +7201,17 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
 
     const reset = document.createElement('button');
     reset.type = 'button';
-    reset.textContent = resetArmed ? 'Press again to delete every setting' : 'Reset all settings';
+    if (resetArmed) reset.className = 'ytc-reset-armed';
+    reset.textContent = resetArmed ? 'Click again to reset all settings' : 'Reset all settings';
     reset.addEventListener('click', () => {
       if (!resetArmed) {
         resetArmed = true;
-        reset.textContent = 'Press again to delete every setting';
+        reset.className = 'ytc-reset-armed';
+        reset.textContent = 'Click again to reset all settings';
         return;
       }
       resetArmed = false;
+      reset.className = '';
       if (typeof GM_deleteValue === 'function') {
         for (const key of settingKeys()) GM_deleteValue(`ytc.${key}`);
       }
@@ -7082,7 +7231,9 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
 
   const quietOn = () => {
     const quiet = featureById('quiet');
-    return quiet.rows.filter((row) => get(row.key, row.def === true) === true).length;
+    return quiet.rows.filter((row) =>
+      row.type === 'choice' ? get(row.key, row.def) !== 'leave' : get(row.key, row.def === true) === true
+    ).length;
   };
 
   function diagnosticsRows() {
@@ -7145,7 +7296,7 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
     const id = GM_registerMenuCommand('YouTube: Custom Collection', () => openPanel('hub'));
     if (id !== undefined && id !== null) menuIds.push(id);
     const count = videoIdFromUrl() ? marksFor(videoIdFromUrl()).length : 0;
-    const marks = GM_registerMenuCommand(`Show bookmarks${count ? ` (${count})` : ''}`, () => openPanel('bookmarks', 'list'));
+    const marks = GM_registerMenuCommand(`Show bookmarks${count ? ` (${count})` : ''}`, () => openPanel('playback', 'list'));
     if (marks !== undefined && marks !== null) menuIds.push(marks);
     if (featureOn('share')) {
       const share = GM_registerMenuCommand('Copy link at current time', () => shareCopyAtTime());

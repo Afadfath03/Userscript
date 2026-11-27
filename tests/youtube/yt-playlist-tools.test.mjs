@@ -182,7 +182,12 @@ for (const variant of [
     (await tab.locator(`${ids.filter} .ytpt-counter, ${ids.filter} .ytc-pt-counter`).textContent()) === 'Showing 3 / 6');
   check(`${name}: members-hidden row remains hidden`, await tab.evaluate(() => document.getElementById('row-1').hasAttribute('data-ytc-off')));
 
+  await tab.locator(`${ids.filter} [data-chip="available"]`).click();
+  check(`${name}: Available chip shows 3 available items`,
+    (await tab.locator(`${ids.filter} .ytpt-counter, ${ids.filter} .ytc-pt-counter`).textContent()) === 'Showing 3 / 6');
+
   await tab.locator(`${ids.filter} input[type="search"]`).fill('zzzz-no-match');
+  await tab.locator(`${ids.filter} [data-act="search-filter"]`).click();
   check(`${name}: 0-match shows empty state and Reset`, (await tab.locator(ids.empty).textContent()).includes('No videos match the current filter'));
   await tab.locator(`${ids.empty} button`, { hasText: 'Reset' }).click();
   check(`${name}: Reset restores all visible items`, (await tab.locator(`${ids.filter} .ytpt-counter, ${ids.filter} .ytc-pt-counter`).textContent()) === 'Showing 6 / 6');

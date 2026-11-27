@@ -104,15 +104,16 @@ const set = (key, value) =>
 
 await page.evaluate(() => window.__menu[0].cb());
 await page.waitForTimeout(80);
-await page.getByRole('button', { name: 'Quiet Page' }).click();
+await page.getByRole('button', { name: /Quiet Page/ }).click();
 await page.waitForTimeout(80);
-check('panel lists enabled, twenty-four levers, reset, back and close', (await page.locator('#ytc-panel button').count()) === 28);
-const onCount = await page.locator('#ytc-panel button[aria-pressed="true"]').count();
-const offCount = await page.locator('#ytc-panel button[aria-pressed="false"]').count();
-check('four rows start on: Enabled plus three playback levers', onCount === 4);
-check('twenty-one section and sidebar rows start off', offCount === 21);
-const groups = await page.locator('#ytc-panel .ytc-section').allTextContents();
-check('rows are grouped', groups.includes('Playback') && groups.includes('Sections') && groups.includes('Sidebar') && !groups.includes('Settings'));
+const subs = await page.locator('#ytc-panel .ytc-group button span:first-child').allTextContents();
+check('panel lists 4 sub-sections (Playback, Feed & Cards, Watch & Channel, Sidebar)',
+  JSON.stringify(subs) === JSON.stringify(['Playback', 'Feed & Cards', 'Watch & Channel', 'Sidebar']));
+await page.getByRole('button', { name: /Playback/ }).click();
+await page.waitForTimeout(60);
+check('Playback sub-section has 3 toggles on plus Dismiss paused prompt',
+  (await page.locator('#ytc-panel button[aria-pressed="true"]').count()) === 3 &&
+  (await page.getByRole('button', { name: /Dismiss paused prompt/ }).count()) === 1);
 await page.getByRole('button', { name: 'Close' }).click();
 
 // Defaults: playback levers on, every section visible

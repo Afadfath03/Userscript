@@ -87,10 +87,10 @@ await tab.evaluate(() => {
 await tab.waitForTimeout(400);
 check('no selection counts the whole playlist as left', (await text()) === '3 videos · 6:00 · 6:00 left');
 
-await tab.evaluate(() => { window.__store['ytc.playlistOn'] = false; document.dispatchEvent(new Event('ytc-change')); });
+await tab.evaluate(() => { window.__store['ytc.playlistLength'] = false; document.dispatchEvent(new Event('ytc-change')); });
 await tab.waitForTimeout(400);
 check('turning the feature off removes the line', (await line().count()) === 0);
-await tab.evaluate(() => { window.__store['ytc.playlistOn'] = true; document.dispatchEvent(new Event('ytc-change')); });
+await tab.evaluate(() => { window.__store['ytc.playlistLength'] = true; document.dispatchEvent(new Event('ytc-change')); });
 await tab.waitForTimeout(400);
 check('turning it back on draws it again', (await line().count()) === 1);
 

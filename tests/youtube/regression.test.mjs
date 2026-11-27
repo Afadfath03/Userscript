@@ -65,9 +65,9 @@ check('paused prompt still answered Yes', JSON.stringify(await page.evaluate(() 
 // Per-feature panels still render and trap focus
 await page.evaluate(() => window.__menu[0].cb());
 await page.waitForTimeout(80);
-await page.getByRole('button', { name: 'Playback Defaults' }).click();
+await page.getByRole('button', { name: /Playback Custom/ }).click();
 await page.waitForTimeout(100);
-check('feature panel still opens', (await page.locator('#ytc-panel h2').textContent()) === 'YouTube: Playback Defaults');
+check('feature panel still opens', (await page.locator('#ytc-panel h2').textContent()) === 'Playback Custom');
 const firstFocus = await page.evaluate(() => document.activeElement.textContent.trim());
 check('feature panel focuses its first control', firstFocus.startsWith('Enabled'));
 await page.getByRole('button', { name: /Enabled/ }).click();

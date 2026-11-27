@@ -4,7 +4,7 @@ import http from 'node:http';
 
 
 const SCRIPTS = [
-  { file: 'youtube-hide-members-only.user.js', bundle: false, attr: 'data-ytmp-hidden' },
+  { file: 'youtube-quiet-page.user.js', bundle: true, attr: 'data-ytqp-member-off' },
   { file: 'youtube-custom-collection.user.js', bundle: true, attr: 'data-ytc-off' },
 ];
 

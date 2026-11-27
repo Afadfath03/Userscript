@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import http from 'node:http';
 
 const COLLECTION = readFileSync(scriptPath('youtube-custom-collection.user.js'), 'utf8');
-const MEMBERS = readFileSync(scriptPath('youtube-hide-members-only.user.js'), 'utf8');
+const MEMBERS = readFileSync(scriptPath('youtube-quiet-page.user.js'), 'utf8');
 
 const FIXTURE = `<!doctype html><html><body>
   <ytd-rich-item-renderer id="card">

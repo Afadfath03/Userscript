@@ -23,7 +23,7 @@ const PAGE = (items, selected, related = 'RELATED001') => `<!doctype html><html>
 
 const scripts = {
   collection: readFileSync(scriptPath('youtube-custom-collection.user.js'), 'utf8'),
-  standalone: readFileSync(scriptPath('youtube-autoplay-control.user.js'), 'utf8'),
+  standalone: readFileSync(scriptPath('youtube-playback-custom.user.js'), 'utf8'),
 };
 
 const browser = await chromium.launch({ headless: true });
@@ -104,7 +104,7 @@ const collectionNext = await run({ which: 'collection', items: three, selected: 
 check('collection follows the playlist instead of the sidebar', collectionNext.includes('/watch?v=AAA3') && collectionNext.includes('list=PLtest'));
 check('collection does not fall through to a related video', !collectionNext.includes('RELATED001'));
 
-const standaloneNext = await run({ which: 'standalone', items: three, selected: 1, store: { 'ytac.behavior': 'next' } });
+const standaloneNext = await run({ which: 'standalone', items: three, selected: 1, store: { 'ytpc.behavior': 'next' } });
 check('standalone follows the playlist too', standaloneNext.includes('/watch?v=AAA3') && standaloneNext.includes('list=PLtest'));
 
 const withHidden = await run({
@@ -118,7 +118,7 @@ check('a hidden playlist item is skipped', withHidden.includes('/watch?v=AAA4'))
 const atEnd = await run({ which: 'collection', items: three, selected: 2, store: { 'ytc.behavior': 'next' } });
 check('the end of a playlist falls back to related, like YouTube', atEnd.includes('/watch?v=RELATED001'));
 
-const standaloneEnd = await run({ which: 'standalone', items: three, selected: 2, store: { 'ytac.behavior': 'next' } });
+const standaloneEnd = await run({ which: 'standalone', items: three, selected: 2, store: { 'ytpc.behavior': 'next' } });
 check('standalone end of playlist falls back as well', standaloneEnd.includes('/watch?v=RELATED001'));
 
 const waitMode = await run({
@@ -146,7 +146,7 @@ const staleWaitStandalone = await run({
   which: 'standalone',
   items: four,
   selected: 1,
-  store: { 'ytac.behavior': 'wait', 'ytac.delay': 3 },
+  store: { 'ytpc.behavior': 'wait', 'ytpc.delay': 3 },
   advance: 2,
   wait: 3500,
 });

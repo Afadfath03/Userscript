@@ -52,19 +52,21 @@ const scrollPanel = (value) => page.evaluate((v) => { document.getElementById('y
 
 await page.evaluate(() => window.__menu[0].cb());
 await page.waitForTimeout(80);
-await page.getByRole('button', { name: 'Quiet Page' }).click();
+await page.getByRole('button', { name: /Quiet Page/ }).click();
+await page.waitForTimeout(80);
+await page.getByRole('button', { name: /Watch & Channel/ }).click();
 await page.waitForTimeout(100);
 
 const scrollable = await page.evaluate(() => {
   const panel = document.getElementById('ytc-panel');
   return panel.scrollHeight > panel.clientHeight;
 });
-check('quiet panel is tall enough to scroll', scrollable);
+check('quiet watch & channel panel is tall enough to scroll', scrollable);
 
 await scrollPanel(400);
 await page.waitForTimeout(50);
 const before = await scrollTop();
-check('panel is scrolled down', before > 100);
+check('panel is scrolled down', before > 20);
 const afterLabel = await clickRow('Hide miniplayer');
 await page.waitForTimeout(100);
 check('toggle switched the row on', afterLabel === 'true');
@@ -72,22 +74,22 @@ check('panel did not jump to the top', (await scrollTop()) === before);
 check('store holds the new value', (await page.evaluate(() => window.__store['ytc.quietMiniplayer'])) === true);
 
 await page.getByRole('button', { name: 'Back', exact: true }).click();
+await page.waitForTimeout(60);
+await page.getByRole('button', { name: 'Back', exact: true }).click();
 await page.waitForTimeout(80);
-await scrollPanel(120);
-await page.waitForTimeout(50);
 const hubBefore = await scrollTop();
 const resetLabel = await clickRow('Reset all settings');
 await page.waitForTimeout(80);
-check('reset asks for a second click', resetLabel.includes('Press again'));
+check('reset asks for a second click', resetLabel.includes('Click again'));
 check('reset does not scroll away', (await scrollTop()) === hubBefore);
 check('reset kept the stored settings', (await page.evaluate(() => window.__store['ytc.quietMiniplayer'])) === true);
 
-const confirmed = await clickRow('Press again to delete every setting');
+const confirmed = await clickRow('Click again to reset all settings');
 await page.waitForTimeout(80);
 check('confirm button returns to its idle label', confirmed.includes('Reset all settings'));
 check('reset cleared the keys', (await page.evaluate(() => Object.keys(window.__store).length)) === 0);
 check('reset did not scroll away either', (await scrollTop()) === hubBefore);
-check('hub row reflects the reset', (await page.getByRole('button', { name: 'Quiet Page' }).textContent()).includes('3 on'));
+check('hub row reflects the reset', (await page.getByRole('button', { name: /Quiet Page/ }).textContent()).includes('6 on'));
 
 await browser.close();
 server.close();

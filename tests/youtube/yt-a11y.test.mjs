@@ -44,9 +44,9 @@ const click = (name) => page.getByRole('button', { name, exact: true }).click();
 await page.evaluate(() => window.__menu[0].cb());
 await page.waitForTimeout(80);
 check('hub dialog is labelled after the script', (await dialogLabel()) === 'YouTube: Custom Collection');
-await page.getByRole('button', { name: 'Playback Defaults' }).click();
+await page.getByRole('button', { name: /Playback Custom/ }).click();
 await page.waitForTimeout(60);
-check('feature view relabels the dialog', (await dialogLabel()) === 'YouTube: Playback Defaults');
+check('feature view relabels the dialog', (await dialogLabel()) === 'YouTube: Playback Custom');
 await click('Back');
 await page.waitForTimeout(60);
 check('back restores the hub label', (await dialogLabel()) === 'YouTube: Custom Collection');
@@ -80,13 +80,15 @@ check('focus returns to the element that opened the panel', await page.evaluate(
 
 await page.evaluate(() => window.__menu[0].cb());
 await page.waitForTimeout(60);
-await page.getByRole('button', { name: 'Quiet Page' }).click();
-await page.waitForTimeout(80);
+await page.getByRole('button', { name: /Quiet Page/ }).click();
+await page.waitForTimeout(60);
 const size = await page.evaluate(() => getComputedStyle(document.querySelector('#ytc-panel .ytc-section')).fontSize);
 check('section label is 12px', size === '12px');
+await page.getByRole('button', { name: /Watch & Channel/ }).click();
+await page.waitForTimeout(60);
 const switches = await page.locator('#ytc-panel .ytc-switch').count();
 const toggles = await page.locator('#ytc-panel button[aria-pressed]').count();
-check('every toggle renders a switch', switches === toggles && toggles === 25);
+check('every toggle renders a switch', switches === toggles && toggles === 10);
 check('switches are hidden from the accessibility tree', (await page.locator('#ytc-panel .ytc-switch[aria-hidden="true"]').count()) === switches);
 
 await browser.close();

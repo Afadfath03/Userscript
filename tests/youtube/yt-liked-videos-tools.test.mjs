@@ -2,7 +2,7 @@ import { chromium, scriptPath } from '../harness.mjs';
 import { readFileSync } from 'node:fs';
 import http from 'node:http';
 
-const STANDALONE = readFileSync(scriptPath('youtube-liked-videos-tools.user.js'), 'utf8');
+const STANDALONE = readFileSync(scriptPath('youtube-playlist-tools.user.js'), 'utf8');
 const COLLECTION = readFileSync(scriptPath('youtube-custom-collection.user.js'), 'utf8');
 
 function likedFixtureHtml({ listTotal = 4028, hiddenBanner = false } = {}) {
@@ -183,25 +183,23 @@ for (const [name, script, ids] of [
     !durText.includes('1.25x') && !durText.includes('1.5x') && !durText.includes('2x'));
   check(`${name}: filter bar mounts above item-section contents`, (await tab.locator(ids.filter).count()) === 1);
 
-  // 2. Filter chips & quick action buttons in filter bar
-  check(`${name}: Export Filtered & Unlike Filtered hidden when filter inactive`,
-    (await tab.locator(`${ids.filter} [data-act="export-filtered"]`).isHidden()) &&
-    (await tab.locator(`${ids.filter} [data-act="unlike-filtered"]`).isHidden()));
+  // 2. Filter chips & explicit Search button in filter bar (no action buttons in filter bar)
+  check(`${name}: filter bar omits Export Filtered and Unlike Filtered action buttons`,
+    (await tab.locator(`${ids.filter} [data-act="export-filtered"]`).count()) === 0 &&
+    (await tab.locator(`${ids.filter} [data-act="unlike-filtered"]`).count()) === 0 &&
+    (await tab.locator(`${ids.filter} [data-act="search-filter"]`).count()) === 1);
 
   await tab.locator(`${ids.filter} button`, { hasText: 'Shorts' }).click();
   await tab.waitForTimeout(60);
-  check(`${name}: Shorts chip shows only ll-row-3 and reveals quick actions`,
+  check(`${name}: Shorts chip shows only ll-row-3`,
     (await tab.locator(`#ll-row-3[${ids.hiddenAttr}]`).count()) === 0 &&
-    (await tab.locator(`#ll-row-1[${ids.hiddenAttr}]`).count()) === 1 &&
-    (await tab.locator(`${ids.filter} [data-act="export-filtered"]`).isVisible()) &&
-    (await tab.locator(`${ids.filter} [data-act="unlike-filtered"]`).isVisible()));
+    (await tab.locator(`#ll-row-1[${ids.hiddenAttr}]`).count()) === 1);
 
-  await tab.locator(`${ids.filter} [data-act="unlike-filtered"]`).click();
-  await tab.waitForTimeout(80);
-  check(`${name}: Unlike Filtered opens confirmation for 1 video`,
-    (await tab.locator(`${ids.dialog} button`, { hasText: /Unlike 1 video/ }).count()) === 1);
-  await tab.locator(`${ids.dialog} button`, { hasText: 'Cancel' }).click();
-  await tab.locator(`${ids.dialog} [aria-label="Close"]`).click();
+  await tab.locator(`${ids.filter} [data-chip="available"]`).click();
+  await tab.waitForTimeout(60);
+  check(`${name}: Available chip hides unavailable ll-row-4 and keeps ll-row-1`,
+    (await tab.locator(`#ll-row-4[${ids.hiddenAttr}]`).count()) === 1 &&
+    (await tab.locator(`#ll-row-1[${ids.hiddenAttr}]`).count()) === 0);
 
   await tab.locator(`${ids.filter} button`, { hasText: 'Unavailable' }).click();
   await tab.waitForTimeout(60);
