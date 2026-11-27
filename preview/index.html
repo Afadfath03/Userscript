@@ -1,0 +1,1315 @@
+<!doctype html>
+<html lang="en" data-theme="dark" dark>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Userscripts Preview</title>
+  <style>
+    :root[data-theme="dark"] {
+      --bg: #0f0f0f;
+      --surface: #181818;
+      --surface-2: #242424;
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #f1f1f1;
+      --muted: #aaaaaa;
+      --accent: #3ea6ff;
+      --accent-fg: #0f0f0f;
+      --ok: #2ba640;
+      --yt-spec-base-background: #212121;
+      --yt-spec-text-primary: #f1f1f1;
+      --yt-spec-text-secondary: #aaaaaa;
+      --yt-spec-badge-chip-background: rgba(255, 255, 255, 0.1);
+      --yt-spec-10-percent-layer: rgba(255, 255, 255, 0.14);
+      --yt-spec-call-to-action: #3ea6ff;
+    }
+    :root[data-theme="light"] {
+      --bg: #f9f9f9;
+      --surface: #ffffff;
+      --surface-2: #f2f2f2;
+      --border: rgba(0, 0, 0, 0.12);
+      --text: #0f0f0f;
+      --muted: #606060;
+      --accent: #065fd4;
+      --accent-fg: #ffffff;
+      --ok: #1b7f2a;
+      --yt-spec-base-background: #ffffff;
+      --yt-spec-text-primary: #0f0f0f;
+      --yt-spec-text-secondary: #606060;
+      --yt-spec-badge-chip-background: rgba(0, 0, 0, 0.05);
+      --yt-spec-10-percent-layer: rgba(0, 0, 0, 0.1);
+      --yt-spec-call-to-action: #065fd4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Roboto, system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      flex: 1;
+      min-width: 180px;
+    }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .btn {
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn:hover { border-color: var(--accent); }
+    .btn.active, .btn.primary {
+      background: var(--accent);
+      color: var(--accent-fg);
+      border-color: transparent;
+      font-weight: 600;
+    }
+    main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 64px; }
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 24px 0 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+    .section-head span { font-size: 12px; color: var(--muted); }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .card h3 { margin: 0; font-size: 14.5px; font-weight: 600; }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .badge.bundle { color: var(--accent); border-color: var(--accent); }
+    .card p { margin: 0; font-size: 12.5px; color: var(--muted); }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .chip:hover { border-color: var(--accent); }
+    .status-line {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+    }
+    .stages {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 14px;
+    }
+    .stage {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .stage h3 { margin: 0; font-size: 13.5px; font-weight: 600; }
+    .stage-note { margin: 0; font-size: 12px; color: var(--muted); }
+    .stage-wide { grid-column: 1 / -1; }
+    .pl-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .pl-badge {
+      padding: 5px 10px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .pl-badge strong { color: var(--text); }
+    .pl-search { display: flex; gap: 6px; max-width: 520px; width: 100%; }
+    .pl-search input {
+      flex: 1;
+      min-width: 140px;
+      padding: 6px 11px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font: inherit;
+      font-size: 12.5px;
+    }
+    .pl-list { display: flex; flex-direction: column; gap: 6px; }
+    .pl-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      font-size: 12.5px;
+    }
+    .pl-item.is-unavail { opacity: 0.6; }
+    .pl-item-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .pl-item-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pl-item-sub { font-size: 11.5px; color: var(--muted); }
+    .pl-item-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .pl-tag {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .chip.active {
+      background: var(--text);
+      color: var(--bg);
+      border-color: transparent;
+      font-weight: 600;
+    }
+
+    /* Interactive Playlist Tools dialog fallback for file:// */
+    html:has(#pl-modal-backdrop.open, #lightbox.open, #ytc-backdrop, #ytgc-backdrop, #ytpc-backdrop, #ytpt-backdrop, #ytpt-cfg-backdrop, #ytlt-backdrop, #ytqp-backdrop, #ytmc-backdrop),
+    body:has(#pl-modal-backdrop.open, #lightbox.open, #ytc-backdrop, #ytgc-backdrop, #ytpc-backdrop, #ytpt-backdrop, #ytpt-cfg-backdrop, #ytlt-backdrop, #ytqp-backdrop, #ytmc-backdrop) {
+      overflow: hidden;
+    }
+    #pl-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483646;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 16px;
+      overscroll-behavior: contain;
+    }
+    #pl-modal-backdrop.open { display: flex; }
+    #pl-modal {
+      width: 100%;
+      max-width: min(520px, calc(100vw - 32px));
+      max-height: calc(100vh - 32px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      border-radius: 16px;
+      background: var(--yt-spec-base-background);
+      color: var(--yt-spec-text-primary);
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+      font: 400 13px/1.45 Roboto, Arial, sans-serif;
+    }
+    #pl-modal .pm-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px 14px 20px;
+      background: var(--yt-spec-base-background);
+      border-bottom: 1px solid var(--border);
+    }
+    #pl-modal .pm-head h2 { flex: 1; margin: 0; font-size: 16px; font-weight: 600; }
+    #pl-modal .pm-close {
+      width: 36px;
+      height: 36px;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: inherit;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    #pl-modal .pm-close:hover { background: var(--yt-spec-badge-chip-background); }
+    #pl-modal .pm-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    #pl-modal .pm-tab {
+      padding: 11px 16px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font: 500 13px/1 Roboto, Arial, sans-serif;
+      cursor: pointer;
+    }
+    #pl-modal .pm-tab.active {
+      color: var(--text);
+      border-bottom-color: var(--accent);
+    }
+    #pl-modal .pm-body {
+      padding: 14px 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #pl-modal .pm-card {
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: var(--yt-spec-badge-chip-background);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #pl-modal .pm-card h3 { margin: 0; font-size: 14px; font-weight: 600; }
+    #pl-modal .pm-card label { font-size: 12px; color: var(--muted); }
+    #pl-modal select, #pl-modal input[type="text"], #pl-modal textarea {
+      width: 100%;
+      min-height: 36px;
+      padding: 7px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font: inherit;
+    }
+    #pl-modal textarea { min-height: 88px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    #pl-modal .pm-row { display: flex; align-items: center; gap: 10px; }
+    #pl-modal .pm-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+    #pl-modal .pm-btn {
+      min-height: 36px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: 18px;
+      background: var(--yt-spec-10-percent-layer);
+      color: var(--text);
+      font: 500 13px/1 Roboto, Arial, sans-serif;
+      cursor: pointer;
+    }
+    #pl-modal .pm-btn.primary { background: var(--accent); color: var(--accent-fg); }
+    #pl-modal .pm-btn.danger { background: #ff4e45; color: #0f0f0f; }
+    :root[data-theme="light"] #pl-modal .pm-btn.danger { background: #c00; color: #fff; }
+    #pl-modal .pm-note { margin: 0; font-size: 12px; color: var(--muted); }
+
+    /* Mock YouTube grid */
+    ytd-browse { display: block; width: 100%; }
+    ytd-rich-grid-renderer {
+      display: block;
+      --ytd-rich-grid-items-per-row: 4;
+      --ytd-rich-grid-item-margin: 12px;
+    }
+    ytd-rich-grid-renderer > #contents { display: flex; flex-wrap: wrap; }
+    ytd-rich-item-renderer {
+      display: block;
+      width: calc(100% / var(--ytd-rich-grid-items-per-row) - 12px);
+      margin: 0 6px 12px;
+    }
+    .thumb {
+      aspect-ratio: 16 / 9;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #2a2a2a, #444);
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-end;
+      padding: 4px 6px;
+      color: #fff;
+      font-size: 10.5px;
+      font-weight: 600;
+    }
+    .meta { padding-top: 5px; font-size: 12px; }
+    .meta span { display: block; font-size: 11px; color: var(--muted); }
+
+    /* Mock YouTube Music elements */
+    .ytm-box {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    ytmusic-av-toggle {
+      display: inline-flex;
+      gap: 4px;
+      padding: 3px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      width: fit-content;
+    }
+    ytmusic-av-toggle button {
+      border: 0;
+      border-radius: 999px;
+      padding: 5px 12px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text);
+    }
+    ytmusic-av-toggle button[aria-pressed="true"] {
+      background: var(--text);
+      color: var(--bg);
+      font-weight: 600;
+    }
+    ytmusic-mealbar-promo-renderer,
+    ytmusic-carousel-shelf-renderer {
+      display: block;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      border: 1px dashed var(--border);
+      font-size: 12.5px;
+    }
+    ytmusic-player-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+    }
+    ytmusic-player-bar .title { font-size: 13px; font-weight: 600; display: block; }
+    ytmusic-player-bar .byline { font-size: 11.5px; color: var(--muted); display: block; }
+    ytmusic-you-there-renderer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--accent);
+      font-size: 12.5px;
+    }
+
+    /* Gallery */
+    .gallery-section { margin-top: 28px; }
+    .gallery-section h3 {
+      font-size: 14px;
+      margin: 0 0 12px;
+      color: var(--text);
+    }
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 14px;
+    }
+    figure {
+      margin: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: zoom-in;
+    }
+    figure img { display: block; width: 100%; height: auto; }
+    figcaption { padding: 8px 10px; font-size: 12px; color: var(--muted); }
+    #lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483647;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 24px;
+      cursor: zoom-out;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox img {
+      max-width: 96vw;
+      max-height: 92vh;
+      border-radius: 10px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Userscripts Preview</h1>
+    <div class="toolbar">
+      <button class="btn active" data-site-filter="all">All (11)</button>
+      <button class="btn" data-site-filter="youtube">YouTube (6)</button>
+      <button class="btn" data-site-filter="youtube-music">YouTube Music (5)</button>
+      <button class="btn primary" id="toggle-theme">Theme: Dark</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="section-head" data-site="youtube">
+      <h2>YouTube Scripts</h2>
+      <span>Loaded directly from ../scripts/youtube/</span>
+    </div>
+    <div class="cards" id="cards-youtube" data-site="youtube"></div>
+
+    <div class="section-head" data-site="youtube-music">
+      <h2>YouTube Music Scripts</h2>
+      <span>Loaded directly from ../scripts/youtube-music/</span>
+    </div>
+    <div class="cards" id="cards-youtube-music" data-site="youtube-music"></div>
+
+    <div class="section-head">
+      <h2>Live Interactive Stage</h2>
+      <span>Test grid columns, Music toggles, Skip by Keyword, Paused Prompt, and Timer Tamer</span>
+    </div>
+    <div class="stages">
+      <div class="stage stage-wide" data-site="youtube">
+        <h3>YouTube Playlist Tools (Watch Later, Normal Playlist, Liked Videos)</h3>
+        <p class="stage-note">Switch between the 3 playlist types, filter items live, or open each interactive Tools dialog.</p>
+        <div class="pl-toolbar">
+          <button type="button" class="chip active" data-pl-type="wl">Watch Later (WL)</button>
+          <button type="button" class="chip" data-pl-type="normal">Normal Playlist (PL)</button>
+          <button type="button" class="chip" data-pl-type="liked">Liked Videos (LL)</button>
+          <span class="pl-badge" id="pl-duration-badge">Total duration (1x): <strong>1h 47m</strong> · 6 videos</span>
+        </div>
+        <div class="pl-toolbar">
+          <button type="button" class="btn primary" id="pl-open-dialog">Open Watch Later Tools</button>
+          <button type="button" class="btn" id="pl-open-settings">Playlist Tools: Settings</button>
+        </div>
+        <form class="pl-search" id="pl-filter-form">
+          <input id="pl-search-input" type="text" placeholder="Search title or channel in playlist..." />
+          <button type="submit" class="chip">Search</button>
+          <button type="button" class="chip hidden" id="pl-search-clear">Clear</button>
+        </form>
+        <div class="chip-row" id="pl-filter-chips">
+          <button type="button" class="chip active" data-pl-filter="all" aria-pressed="true">All</button>
+          <button type="button" class="chip" data-pl-filter="available" aria-pressed="false">Available</button>
+          <button type="button" class="chip" data-pl-filter="unavailable" aria-pressed="false">Unavailable</button>
+          <button type="button" class="chip" data-pl-filter="watched" aria-pressed="false">Watched &gt;=80%</button>
+          <button type="button" class="chip" data-pl-filter="shorts" aria-pressed="false">Shorts</button>
+        </div>
+        <div class="pl-list" id="pl-items"></div>
+        <div class="status-line" id="pl-status">Active playlist: Watch Later (/playlist?list=WL).</div>
+      </div>
+
+      <div class="stage" data-site="youtube">
+        <h3>YouTube Home Grid</h3>
+        <p class="stage-note">Open General Custom or Custom Collection -&gt; Custom Grid to change columns live.</p>
+        <ytd-browse page-subtype="home">
+          <ytd-rich-grid-renderer>
+            <div id="contents"></div>
+          </ytd-rich-grid-renderer>
+        </ytd-browse>
+      </div>
+
+      <div class="stage" data-site="youtube-music">
+        <h3>YouTube Music Sandbox</h3>
+        <p class="stage-note">Toggle standalone YouTube Music menu commands above to see live DOM effects.</p>
+        <div class="ytm-box">
+          <div>
+            <ytmusic-av-toggle is-audio-playback-mode-selected="true">
+              <button type="button" class="song-button" aria-pressed="true">Song</button>
+              <button type="button" class="video-button" aria-pressed="false">Video</button>
+            </ytmusic-av-toggle>
+          </div>
+          <ytmusic-mealbar-promo-renderer>
+            YouTube Music Premium Promo Banner (hidden when Quiet Page promos is on)
+          </ytmusic-mealbar-promo-renderer>
+          <ytmusic-carousel-shelf-renderer>
+            <span class="title">Shorts</span>
+            <div class="stage-note">Shorts shelf (hidden when Quiet Page Shorts is on)</div>
+          </ytmusic-carousel-shelf-renderer>
+          <ytmusic-player-bar>
+            <div>
+              <span class="title" id="ytm-track-title">Midnight City (Live)</span>
+              <span class="byline" id="ytm-track-artist">Sample Artist</span>
+            </div>
+            <button type="button" class="chip next-button" id="ytm-next-btn">Next</button>
+          </ytmusic-player-bar>
+          <div class="chip-row">
+            <button type="button" class="chip" id="ytm-spawn-prompt">Spawn "Are you still listening?"</button>
+            <button type="button" class="chip" id="ytm-cycle-track">Cycle sample track</button>
+          </div>
+          <div id="ytm-prompt-slot"></div>
+          <div class="status-line" id="ytm-log">Ready. Set keywords in Skip by Keyword or spawn the paused prompt.</div>
+        </div>
+      </div>
+
+      <div class="stage" data-site="youtube">
+        <h3>Timer Tamer Status</h3>
+        <p class="stage-note">Runs with @grant none and aligns timers to animation frames while a video ticks.</p>
+        <div class="status-line" id="yttm-status">Checking window.__yttm...</div>
+        <div class="chip-row">
+          <button type="button" class="chip" id="yttm-test">Simulate timeupdate + 5 timers</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-head">
+      <h2>Captured Screenshots</h2>
+      <span>Generated by capture.mjs (click any image to zoom)</span>
+    </div>
+    <div id="galleries"></div>
+  </main>
+
+  <div id="pl-modal-backdrop" role="dialog" aria-modal="true" aria-label="Playlist Tools preview">
+    <div id="pl-modal"></div>
+  </div>
+
+  <div id="lightbox" role="dialog" aria-modal="true" aria-label="Zoomed preview">
+    <img id="lightbox-img" alt="Zoomed preview" />
+  </div>
+
+  <script>
+    const SCRIPTS = [
+      {
+        id: 'yt-collection',
+        site: 'youtube',
+        kind: 'Bundle',
+        name: 'YouTube: Custom Collection',
+        file: '../scripts/youtube/youtube-custom-collection.user.js',
+        desc: 'All four YouTube modules in one install with hub panel, JSON backup, and diagnostics.',
+      },
+      {
+        id: 'yt-general',
+        site: 'youtube',
+        kind: 'Standalone',
+        name: 'YouTube: General Custom',
+        file: '../scripts/youtube/youtube-general-custom.user.js',
+        desc: 'Custom video grid columns, Open Shorts in Watch Page, and Clean Share Link.',
+      },
+      {
+        id: 'yt-playback',
+        site: 'youtube',
+        kind: 'Standalone',
+        name: 'YouTube: Playback Custom',
+        file: '../scripts/youtube/youtube-playback-custom.user.js',
+        desc: 'Preferred resolution, playback defaults, autoplay control, auto-expand description, and bookmarks.',
+      },
+      {
+        id: 'yt-playlist',
+        site: 'youtube',
+        kind: 'Standalone',
+        name: 'YouTube: Playlist Tools',
+        file: '../scripts/youtube/youtube-playlist-tools.user.js',
+        desc: 'Watch Later, Normal Playlists, Liked Videos cleanup/filter/export/import, and Watch Page length.',
+      },
+      {
+        id: 'yt-quiet',
+        site: 'youtube',
+        kind: 'Standalone',
+        name: 'YouTube: Quiet Page',
+        file: '../scripts/youtube/youtube-quiet-page.user.js',
+        desc: 'Stops previews and paused prompts; hides Members-only, People Mentioned, feed, watch, and sidebar clutter.',
+      },
+      {
+        id: 'yt-timer',
+        site: 'youtube',
+        kind: 'No-UI',
+        name: 'YouTube: Timer Tamer',
+        file: '../scripts/youtube/youtube-timer-tamer.user.js',
+        desc: 'Batches page timers onto the next animation frame while a video plays to cut idle CPU.',
+      },
+      {
+        id: 'ytm-collection',
+        site: 'youtube-music',
+        kind: 'Bundle',
+        name: 'YouTube Music: Custom Collection',
+        file: '../scripts/youtube-music/youtube-music-custom-collection.user.js',
+        desc: 'All four YouTube Music scripts in one install with per-feature settings, JSON backup, and diagnostics.',
+      },
+      {
+        id: 'ytm-paused',
+        site: 'youtube-music',
+        kind: 'Menu-only',
+        name: 'YouTube Music: Dismiss Paused Prompt',
+        file: '../scripts/youtube-music/youtube-music-dismiss-paused-prompt.user.js',
+        desc: 'Answers Yes to "Are you still listening?" / "Continue watching?" prompts and resumes playback.',
+      },
+      {
+        id: 'ytm-song',
+        site: 'youtube-music',
+        kind: 'Menu-only',
+        name: 'YouTube Music: Prefer Song',
+        file: '../scripts/youtube-music/youtube-music-prefer-song.user.js',
+        desc: 'Keeps playback on the Song version instead of the Music Video and hides the Song/Video toggle.',
+      },
+      {
+        id: 'ytm-quiet',
+        site: 'youtube-music',
+        kind: 'Menu-only',
+        name: 'YouTube Music: Quiet Page',
+        file: '../scripts/youtube-music/youtube-music-quiet-page.user.js',
+        desc: 'Hides Premium promo banners and Shorts shelves on YouTube Music.',
+      },
+      {
+        id: 'ytm-skip',
+        site: 'youtube-music',
+        kind: 'Menu-only',
+        name: 'YouTube Music: Skip by Keyword',
+        file: '../scripts/youtube-music/youtube-music-skip-by-keyword.user.js',
+        desc: 'Skips tracks whose title (and optionally artist) contains a configured keyword.',
+      },
+    ];
+
+    const GALLERY_GROUPS = [
+      {
+        site: 'all',
+        title: 'Preview Overview',
+        items: [
+          ['00-preview-overview-dark.png', 'Preview Page (Dark)'],
+          ['00-preview-overview-light.png', 'Preview Page (Light)'],
+          ['00-preview-live-stage-dark.png', 'Live Interactive Stage (Playlist, Grid, Music, Timer Tamer)'],
+        ],
+      },
+      {
+        site: 'youtube',
+        title: 'YouTube: Custom Collection',
+        items: [
+          ['01-yt-collection-hub-dark.png', 'Collection Hub (Dark)'],
+          ['02-yt-collection-hub-light.png', 'Collection Hub (Light)'],
+          ['03-yt-collection-playback-dark.png', 'Collection -> Playback Custom'],
+          ['04-yt-collection-backup-dark.png', 'Collection -> Backup'],
+          ['05-yt-collection-diagnostics-dark.png', 'Collection -> Diagnostics'],
+        ],
+      },
+      {
+        site: 'youtube',
+        title: 'YouTube: General Custom',
+        items: [
+          ['06-yt-general-home-dark.png', 'General Custom Home'],
+          ['07-yt-general-grid-dark.png', 'General Custom -> Custom Grid'],
+          ['08-yt-general-shorts-dark.png', 'General Custom -> Shorts'],
+          ['09-yt-general-share-dark.png', 'General Custom -> Share Link'],
+        ],
+      },
+      {
+        site: 'youtube',
+        title: 'YouTube: Playback Custom',
+        items: [
+          ['10-yt-playback-home-dark.png', 'Playback Custom Home'],
+          ['11-yt-playback-video-dark.png', 'Playback Custom -> Video & Audio'],
+          ['12-yt-playback-autoplay-dark.png', 'Playback Custom -> Autoplay'],
+          ['13-yt-playback-watch-dark.png', 'Playback Custom -> Watch Page'],
+          ['14-yt-playback-bookmarks-dark.png', 'Playback Custom -> Video Bookmarks'],
+        ],
+      },
+      {
+        site: 'youtube',
+        title: 'YouTube: Playlist Tools',
+        items: [
+          ['15-yt-playlist-settings-dark.png', 'Playlist Tools Settings Home'],
+          ['16-yt-playlist-wl-dialog-dark.png', 'In-Page Dialog: Watch Later Tools (WL)'],
+          ['17-yt-playlist-normal-dialog-dark.png', 'In-Page Dialog: Normal Playlist Tools'],
+          ['18-yt-playlist-liked-dialog-dark.png', 'In-Page Dialog: Liked Videos Tools (LL)'],
+        ],
+      },
+      {
+        site: 'youtube',
+        title: 'YouTube: Quiet Page',
+        items: [
+          ['19-yt-quiet-home-dark.png', 'Quiet Page Home'],
+          ['20-yt-quiet-playback-dark.png', 'Quiet Page -> Playback'],
+          ['21-yt-quiet-feed-dark.png', 'Quiet Page -> Feed & Cards'],
+          ['22-yt-quiet-watch-dark.png', 'Quiet Page -> Watch & Channel'],
+          ['23-yt-quiet-sidebar-dark.png', 'Quiet Page -> Sidebar'],
+        ],
+      },
+      {
+        site: 'youtube-music',
+        title: 'YouTube Music: Custom Collection',
+        items: [
+          ['24-ytm-collection-hub-dark.png', 'Music Collection Hub (Dark)'],
+          ['25-ytm-collection-hub-light.png', 'Music Collection Hub (Light)'],
+          ['26-ytm-collection-song-dark.png', 'Music Collection -> Prefer Song'],
+          ['27-ytm-collection-quiet-dark.png', 'Music Collection -> Quiet Page'],
+          ['28-ytm-collection-paused-dark.png', 'Music Collection -> Dismiss Paused Prompt'],
+          ['29-ytm-collection-skip-dark.png', 'Music Collection -> Skip by Keyword'],
+          ['30-ytm-collection-backup-dark.png', 'Music Collection -> Backup'],
+          ['31-ytm-collection-diagnostics-dark.png', 'Music Collection -> Diagnostics'],
+        ],
+      },
+    ];
+
+    // GM_* shims with per-script menu command tracking
+    window.__store = {};
+    window.GM_getValue = (k, d) => (k in window.__store ? window.__store[k] : d);
+    window.GM_setValue = (k, v) => { window.__store[k] = v; };
+    window.GM_deleteValue = (k) => { delete window.__store[k]; };
+    window.GM_listValues = () => Object.keys(window.__store);
+    window.GM_info = { script: { version: 'preview' } };
+
+    let activeScriptId = null;
+    let nextMenuId = 1;
+    const menuItems = new Map();
+    const idToScript = new Map();
+
+    function renderScriptMenus(scriptId) {
+      const container = document.getElementById(`menu-${scriptId}`);
+      if (!container) return;
+      container.textContent = '';
+      const entries = [...menuItems.values()].filter((m) => m.scriptId === scriptId);
+      if (!entries.length) {
+        const span = document.createElement('span');
+        span.className = 'stage-note';
+        span.textContent = 'No menu commands (runs automatically).';
+        container.append(span);
+        return;
+      }
+      for (const item of entries) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chip';
+        btn.textContent = item.label;
+        btn.addEventListener('click', () => {
+          activeScriptId = scriptId;
+          try {
+            item.fn();
+          } finally {
+            activeScriptId = null;
+          }
+          renderScriptMenus(scriptId);
+        });
+        container.append(btn);
+      }
+    }
+
+    window.GM_registerMenuCommand = (label, fn) => {
+      const id = nextMenuId++;
+      const owner = activeScriptId || 'unknown';
+      menuItems.set(id, { id, scriptId: owner, label, fn });
+      idToScript.set(id, owner);
+      renderScriptMenus(owner);
+      return id;
+    };
+
+    window.GM_unregisterMenuCommand = (id) => {
+      const owner = idToScript.get(id);
+      menuItems.delete(id);
+      idToScript.delete(id);
+      if (owner) renderScriptMenus(owner);
+    };
+
+    // Render script cards
+    for (const script of SCRIPTS) {
+      const host = document.getElementById(`cards-${script.site}`);
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="card-top">
+          <h3>${script.name}</h3>
+          <span class="badge ${script.kind === 'Bundle' ? 'bundle' : ''}">${script.kind}</span>
+        </div>
+        <p>${script.desc}</p>
+        <div class="chip-row" id="menu-${script.id}"></div>
+      `;
+      host.append(card);
+    }
+
+    // Populate mock YouTube Home Grid
+    const grid = document.querySelector('ytd-rich-grid-renderer > #contents');
+    for (let i = 1; i <= 8; i++) {
+      const el = document.createElement('ytd-rich-item-renderer');
+      el.innerHTML = `<div id="content"><div class="thumb">12:3${i}</div><div class="meta"><strong>Sample Video #${i}</strong><span>Channel Name · 42K views</span></div></div>`;
+      grid.append(el);
+    }
+
+    // Theme toggle (syncs both data-theme and html[dark])
+    const themeBtn = document.getElementById('toggle-theme');
+    themeBtn.addEventListener('click', () => {
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
+      document.documentElement.toggleAttribute('dark', next === 'dark');
+      themeBtn.textContent = `Theme: ${next === 'dark' ? 'Dark' : 'Light'}`;
+    });
+
+    // Site filter tabs
+    const filterBtns = [...document.querySelectorAll('[data-site-filter]')];
+    for (const btn of filterBtns) {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.siteFilter;
+        for (const b of filterBtns) b.classList.toggle('active', b === btn);
+        for (const el of document.querySelectorAll('[data-site]')) {
+          const match = target === 'all' || el.dataset.site === 'all' || el.dataset.site === target;
+          el.classList.toggle('hidden', !match);
+        }
+      });
+    }
+
+    // YouTube Playlist Stage (Watch Later / Normal / Liked Videos)
+    const PL_META = {
+      wl: {
+        label: 'Watch Later',
+        listParam: 'WL',
+        btnText: 'Open Watch Later Tools',
+        menuPattern: /^Playlist Tools\.\.\.$/,
+        shot: '16-yt-playlist-wl-dialog-dark.png',
+        items: [
+          { title: 'Building Fast Browser Extensions', channel: 'Dev Channel', sec: 1420, watched: 92, avail: true, shorts: false },
+          { title: 'CSS Grid Layout Deep Dive', channel: 'Frontend Lab', sec: 1860, watched: 35, avail: true, shorts: false },
+          { title: '[Deleted video]', channel: 'Unavailable', sec: 0, watched: 0, avail: false, shorts: false },
+          { title: 'Quick Keyboard Shortcut Trick #shorts', channel: 'Tips Daily', sec: 48, watched: 100, avail: true, shorts: true },
+          { title: 'Linux Shell Productivity Setup', channel: 'Terminal Craft', sec: 2140, watched: 84, avail: true, shorts: false },
+          { title: 'Understanding JavaScript Timers', channel: 'JS Internals', sec: 952, watched: 10, avail: true, shorts: false },
+        ],
+      },
+      normal: {
+        label: 'Normal Playlist',
+        listParam: 'PLpreview123',
+        btnText: 'Open Playlist Tools (Normal)',
+        menuPattern: /^Playlist Tools\.\.\.$/,
+        shot: '17-yt-playlist-normal-dialog-dark.png',
+        items: [
+          { title: 'Ambient Coding Mix Vol. 1', channel: 'Focus Beats', sec: 3600, watched: 85, avail: true, shorts: false },
+          { title: 'Ambient Coding Mix Vol. 1', channel: 'Focus Beats', sec: 3600, watched: 0, avail: true, shorts: false, dup: true },
+          { title: '[Private video]', channel: 'Unavailable', sec: 0, watched: 0, avail: false, shorts: false },
+          { title: 'Synthwave Live Loop #shorts', channel: 'Retro Sound', sec: 55, watched: 40, avail: true, shorts: true },
+          { title: 'Lo-fi Rain Session', channel: 'Night Radio', sec: 2700, watched: 15, avail: true, shorts: false },
+        ],
+      },
+      liked: {
+        label: 'Liked Videos',
+        listParam: 'LL',
+        btnText: 'Open Liked Videos Tools',
+        menuPattern: /^Liked Videos Tools\.\.\.$/,
+        shot: '18-yt-playlist-liked-dialog-dark.png',
+        items: [
+          { title: 'Mechanical Keyboard Sound Test', channel: 'Switch Studio', sec: 615, watched: 100, avail: true, shorts: false },
+          { title: 'Tokyo Rain Walk 4K', channel: 'City Walks', sec: 2450, watched: 88, avail: true, shorts: false },
+          { title: 'One-Minute Espresso Dial-In #shorts', channel: 'Coffee Notes', sec: 58, watched: 100, avail: true, shorts: true },
+          { title: '[Unavailable video]', channel: 'Unavailable', sec: 0, watched: 0, avail: false, shorts: false },
+          { title: 'Minimal Desk Setup Tour', channel: 'Workspace Log', sec: 840, watched: 45, avail: true, shorts: false },
+        ],
+      },
+    };
+
+    const plState = { type: 'wl', filter: 'all', query: '' };
+    const formatDuration = (totalSec) => {
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      if (h > 0) return `${h}h ${m}m`;
+      if (m > 0) return `${m}m ${s}s`;
+      return `${s}s`;
+    };
+
+    function renderPlaylistStage() {
+      const meta = PL_META[plState.type];
+      const q = plState.query.trim().toLowerCase();
+      const filtered = meta.items.filter((item) => {
+        if (plState.filter === 'available' && !item.avail) return false;
+        if (plState.filter === 'unavailable' && item.avail) return false;
+        if (plState.filter === 'watched' && item.watched < 80) return false;
+        if (plState.filter === 'shorts' && !item.shorts) return false;
+        if (q && !`${item.title} ${item.channel}`.toLowerCase().includes(q)) return false;
+        return true;
+      });
+
+      const totalSec = filtered.reduce((acc, it) => acc + it.sec, 0);
+      document.getElementById('pl-duration-badge').innerHTML =
+        `Total duration (1x): <strong>${formatDuration(totalSec)}</strong> · ${filtered.length} of ${meta.items.length} videos`;
+      document.getElementById('pl-open-dialog').textContent = meta.btnText;
+      document.getElementById('pl-search-clear').classList.toggle('hidden', !q);
+
+      const listEl = document.getElementById('pl-items');
+      listEl.textContent = '';
+      if (!filtered.length) {
+        const empty = document.createElement('div');
+        empty.className = 'stage-note';
+        empty.textContent = 'No videos match the current filter.';
+        listEl.append(empty);
+      } else {
+        for (const item of filtered) {
+          const row = document.createElement('div');
+          row.className = `pl-item${item.avail ? '' : ' is-unavail'}`;
+          const tags = [];
+          if (!item.avail) tags.push('Unavailable');
+          if (item.shorts) tags.push('Shorts');
+          if (item.dup) tags.push('Duplicate');
+          if (item.watched >= 80) tags.push(`Watched ${item.watched}%`);
+          else if (item.watched > 0) tags.push(`${item.watched}%`);
+          if (item.sec > 0) tags.push(formatDuration(item.sec));
+          row.innerHTML = `
+            <div class="pl-item-main">
+              <span class="pl-item-title">${item.title}</span>
+              <span class="pl-item-sub">${item.channel}</span>
+            </div>
+            <div class="pl-item-meta">${tags.map((t) => `<span class="pl-tag">${t}</span>`).join('')}</div>
+          `;
+          listEl.append(row);
+        }
+      }
+      document.getElementById('pl-status').textContent =
+        `Active playlist: ${meta.label} (/playlist?list=${meta.listParam}).`;
+    }
+
+    for (const btn of document.querySelectorAll('[data-pl-type]')) {
+      btn.addEventListener('click', () => {
+        plState.type = btn.dataset.plType;
+        for (const b of document.querySelectorAll('[data-pl-type]')) {
+          b.classList.toggle('active', b === btn);
+        }
+        renderPlaylistStage();
+      });
+    }
+
+    for (const btn of document.querySelectorAll('[data-pl-filter]')) {
+      btn.addEventListener('click', () => {
+        plState.filter = btn.dataset.plFilter;
+        for (const b of document.querySelectorAll('[data-pl-filter]')) {
+          const active = b === btn;
+          b.classList.toggle('active', active);
+          b.setAttribute('aria-pressed', active ? 'true' : 'false');
+        }
+        renderPlaylistStage();
+      });
+    }
+
+    document.getElementById('pl-filter-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      plState.query = document.getElementById('pl-search-input').value;
+      renderPlaylistStage();
+    });
+    document.getElementById('pl-search-clear').addEventListener('click', () => {
+      document.getElementById('pl-search-input').value = '';
+      plState.query = '';
+      renderPlaylistStage();
+    });
+
+    function runScriptMenu(scriptId, pattern) {
+      const hit = [...menuItems.values()].find((m) => m.scriptId === scriptId && pattern.test(m.label));
+      if (!hit) return false;
+      activeScriptId = scriptId;
+      try {
+        hit.fn();
+      } finally {
+        activeScriptId = null;
+      }
+      renderScriptMenus(scriptId);
+      return true;
+    }
+
+    document.getElementById('pl-open-settings').addEventListener('click', () => {
+      runScriptMenu('yt-playlist', /Playlist Tools: Settings/);
+    });
+
+    const plModalBackdrop = document.getElementById('pl-modal-backdrop');
+    const plModal = document.getElementById('pl-modal');
+    const closePlModal = () => plModalBackdrop.classList.remove('open');
+    plModalBackdrop.addEventListener('mousedown', (e) => { if (e.target === plModalBackdrop) closePlModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePlModal(); });
+
+    function openInteractivePlModal(type, activeTab) {
+      const meta = PL_META[type];
+      const isLiked = type === 'liked';
+      const title = type === 'wl' ? 'Watch Later Tools' : isLiked ? 'Liked Videos Tools' : 'Playlist Tools';
+      const tabs = isLiked
+        ? [['unlike', 'Unlike'], ['copy', 'Copy to Playlist'], ['export', 'Export']]
+        : [['cleanup', 'Cleanup'], ['export', 'Export'], ['import', 'Import']];
+      const tab = activeTab || tabs[0][0];
+      const totalSec = meta.items.reduce((a, b) => a + b.sec, 0);
+
+      let bodyHtml = `<p class="pm-note">Loaded: ${meta.items.length} videos · Total duration: ${formatDuration(totalSec)}</p>`;
+      if (tab === 'cleanup') {
+        bodyHtml += `
+          <div class="pm-card">
+            <h3>Clear Playlist</h3>
+            <label>Clear mode</label>
+            <select id="pm-clear-mode">
+              <option value="unavailable">Clear unavailable only</option>
+              <option value="all">Clear all videos</option>
+            </select>
+            <button type="button" class="pm-btn danger" data-pm-action="clear">Clear Playlist</button>
+          </div>
+          <div class="pm-card">
+            <h3>Remove Watched</h3>
+            <label>Watched threshold</label>
+            <div class="pm-row">
+              <input type="range" id="pm-thresh" min="10" max="100" step="5" value="80" />
+              <strong id="pm-thresh-val">80%</strong>
+            </div>
+            <button type="button" class="pm-btn" data-pm-action="watched">Remove Watched</button>
+          </div>
+          <div class="pm-card">
+            <h3>Remove Duplicates</h3>
+            <label>Keep copy</label>
+            <select id="pm-dup-keep">
+              <option value="first">Keep first</option>
+              <option value="last">Keep last</option>
+            </select>
+            <button type="button" class="pm-btn" data-pm-action="dups">Remove Duplicates</button>
+          </div>
+          <div class="pm-card">
+            <h3>Remove by Keyword</h3>
+            <input type="text" id="pm-kw" placeholder="e.g. shorts, live, remix" />
+            <button type="button" class="pm-btn" data-pm-action="kw">Remove Matching</button>
+          </div>`;
+      } else if (tab === 'unlike') {
+        bodyHtml += `
+          <div class="pm-card">
+            <h3>Unlike Videos</h3>
+            <label>Clear mode</label>
+            <select id="pm-clear-mode">
+              <option value="unavailable">Unavailable only</option>
+              <option value="all">All liked videos</option>
+            </select>
+            <button type="button" class="pm-btn danger" data-pm-action="unlike">Unlike Selected</button>
+          </div>
+          <div class="pm-card">
+            <h3>Unlike by Keyword</h3>
+            <input type="text" id="pm-kw" placeholder="Match title or channel..." />
+            <button type="button" class="pm-btn" data-pm-action="kw">Unlike Matching</button>
+          </div>`;
+      } else if (tab === 'copy') {
+        bodyHtml += `
+          <div class="pm-card">
+            <h3>Copy Liked Videos to Playlist</h3>
+            <label>Target playlist</label>
+            <select id="pm-copy-target">
+              <option>Favorites Archive</option>
+              <option>Watch Later (WL)</option>
+              <option>Music & Coding Mix</option>
+            </select>
+            <button type="button" class="pm-btn primary" data-pm-action="copy">Copy ${meta.items.filter((i) => i.avail).length} Available Videos</button>
+          </div>`;
+      } else if (tab === 'export') {
+        bodyHtml += `
+          <div class="pm-card">
+            <h3>Export Playlist</h3>
+            <label>Format</label>
+            <select id="pm-exp-fmt">
+              <option value="json">JSON (title, channel, URL, duration)</option>
+              <option value="csv">CSV</option>
+              <option value="txt">Plain URLs (.txt)</option>
+            </select>
+            <button type="button" class="pm-btn primary" data-pm-action="export">Export ${meta.items.length} Videos</button>
+          </div>`;
+      } else if (tab === 'import') {
+        bodyHtml += `
+          <div class="pm-card">
+            <h3>Import Videos</h3>
+            <label>Paste YouTube URLs or video IDs (one per line)</label>
+            <textarea id="pm-imp-text" placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"></textarea>
+            <button type="button" class="pm-btn primary" data-pm-action="import">Import to ${meta.label}</button>
+          </div>`;
+      }
+
+      bodyHtml += `<div class="status-line" id="pm-feedback">Interactive preview (${meta.label}).</div>`;
+
+      plModal.innerHTML = `
+        <div class="pm-head">
+          <h2>${title}</h2>
+          <button type="button" class="pm-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="pm-tabs">
+          ${tabs.map(([id, lbl]) => `<button type="button" class="pm-tab${id === tab ? ' active' : ''}" data-pm-tab="${id}">${lbl}</button>`).join('')}
+        </div>
+        <div class="pm-body">${bodyHtml}</div>
+      `;
+
+      plModal.querySelector('.pm-close').addEventListener('click', closePlModal);
+      for (const t of plModal.querySelectorAll('[data-pm-tab]')) {
+        t.addEventListener('click', () => openInteractivePlModal(type, t.dataset.pmTab));
+      }
+      const thresh = plModal.querySelector('#pm-thresh');
+      if (thresh) {
+        thresh.addEventListener('input', () => {
+          plModal.querySelector('#pm-thresh-val').textContent = `${thresh.value}%`;
+        });
+      }
+      for (const actBtn of plModal.querySelectorAll('[data-pm-action]')) {
+        actBtn.addEventListener('click', () => {
+          const fb = plModal.querySelector('#pm-feedback');
+          const act = actBtn.dataset.pmAction;
+          if (act === 'clear' || act === 'unlike') {
+            const mode = plModal.querySelector('#pm-clear-mode').value;
+            const count = mode === 'all' ? meta.items.length : meta.items.filter((i) => !i.avail).length;
+            fb.textContent = `Simulated ${act}: ${count} video(s) matched (${mode}).`;
+          } else if (act === 'watched') {
+            const pct = Number(plModal.querySelector('#pm-thresh').value);
+            const count = meta.items.filter((i) => i.watched >= pct).length;
+            fb.textContent = `Simulated Remove Watched: ${count} video(s) at >=${pct}%.`;
+          } else if (act === 'dups') {
+            const count = meta.items.filter((i) => i.dup).length;
+            fb.textContent = `Simulated Remove Duplicates: ${count} duplicate(s) found.`;
+          } else if (act === 'kw') {
+            const kw = plModal.querySelector('#pm-kw').value.trim().toLowerCase();
+            const count = kw ? meta.items.filter((i) => `${i.title} ${i.channel}`.toLowerCase().includes(kw)).length : 0;
+            fb.textContent = kw ? `Simulated keyword "${kw}": ${count} video(s) matched.` : 'Enter a keyword first.';
+          } else if (act === 'copy') {
+            const target = plModal.querySelector('#pm-copy-target').value;
+            fb.textContent = `Simulated copy to "${target}" (${meta.items.filter((i) => i.avail).length} available videos).`;
+          } else if (act === 'export') {
+            const fmt = plModal.querySelector('#pm-exp-fmt').value.toUpperCase();
+            fb.textContent = `Simulated ${fmt} export for ${meta.items.length} videos.`;
+          } else if (act === 'import') {
+            const lines = plModal.querySelector('#pm-imp-text').value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+            fb.textContent = lines.length ? `Simulated import of ${lines.length} line(s) into ${meta.label}.` : 'Paste at least one URL or ID.';
+          }
+        });
+      }
+      plModalBackdrop.classList.add('open');
+    }
+
+    document.getElementById('pl-open-dialog').addEventListener('click', () => {
+      const meta = PL_META[plState.type];
+      const status = document.getElementById('pl-status');
+      if (location.protocol === 'file:') {
+        openInteractivePlModal(plState.type);
+        status.textContent = `Opened interactive ${meta.label} Tools dialog.`;
+        return;
+      }
+      const prevUrl = location.pathname + location.search + location.hash;
+      try {
+        history.replaceState(null, '', `/playlist?list=${meta.listParam}`);
+        runScriptMenu('yt-playlist', meta.menuPattern);
+        status.textContent = `Opened live ${meta.label} Tools dialog (/playlist?list=${meta.listParam}).`;
+      } finally {
+        history.replaceState(null, '', prevUrl);
+      }
+    });
+
+    renderPlaylistStage();
+
+    // YouTube Music sandbox interactions
+    const SAMPLE_TRACKS = [
+      ['Midnight City (Live)', 'Sample Artist'],
+      ['Neon Lights (Sped Up)', 'Nightcore DJ'],
+      ['Acoustic Morning', 'Studio Band'],
+      ['Summer Drive (Remix)', 'Club Producer'],
+    ];
+    let trackIndex = 0;
+    const ytmLog = document.getElementById('ytm-log');
+    const setTrack = (idx) => {
+      trackIndex = (idx + SAMPLE_TRACKS.length) % SAMPLE_TRACKS.length;
+      const [title, artist] = SAMPLE_TRACKS[trackIndex];
+      document.getElementById('ytm-track-title').textContent = title;
+      document.getElementById('ytm-track-artist').textContent = artist;
+    };
+    document.getElementById('ytm-next-btn').addEventListener('click', () => {
+      const skippedTitle = SAMPLE_TRACKS[trackIndex][0];
+      setTrack(trackIndex + 1);
+      ytmLog.textContent = `Skipped "${skippedTitle}" -> now playing "${SAMPLE_TRACKS[trackIndex][0]}".`;
+    });
+    document.getElementById('ytm-cycle-track').addEventListener('click', () => {
+      setTrack(trackIndex + 1);
+      ytmLog.textContent = `Switched track to "${SAMPLE_TRACKS[trackIndex][0]}".`;
+    });
+    document.getElementById('ytm-spawn-prompt').addEventListener('click', () => {
+      const slot = document.getElementById('ytm-prompt-slot');
+      slot.innerHTML = '';
+      const dialog = document.createElement('ytmusic-you-there-renderer');
+      dialog.innerHTML = '<span>Video paused. Continue watching?</span><button type="button" class="chip">Yes</button>';
+      dialog.querySelector('button').addEventListener('click', () => {
+        dialog.remove();
+        ytmLog.textContent = 'Prompt answered ("Yes" clicked automatically or manually).';
+      });
+      slot.append(dialog);
+    });
+
+    // Timer Tamer test button
+    document.getElementById('yttm-test').addEventListener('click', () => {
+      const status = document.getElementById('yttm-status');
+      const v = document.createElement('video');
+      document.body.append(v);
+      v.dispatchEvent(new Event('timeupdate'));
+      v.remove();
+      const times = [];
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+          times.push(Math.round(performance.now()));
+          if (times.length === 5) {
+            const spread = Math.max(...times) - Math.min(...times);
+            status.textContent = `window.__yttm = ${Boolean(window.__yttm)} | 5 timers flushed within ${spread}ms on one animation frame.`;
+          }
+        }, i * 3);
+      }
+    });
+
+    // Render screenshot gallery + lightbox
+    const galleryRoot = document.getElementById('galleries');
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    lightbox.addEventListener('click', () => lightbox.classList.remove('open'));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') lightbox.classList.remove('open');
+    });
+
+    for (const group of GALLERY_GROUPS) {
+      const sec = document.createElement('section');
+      sec.className = 'gallery-section';
+      sec.dataset.site = group.site;
+      sec.innerHTML = `<h3>${group.title}</h3>`;
+      const gridEl = document.createElement('div');
+      gridEl.className = 'gallery';
+      for (const [file, label] of group.items) {
+        const fig = document.createElement('figure');
+        fig.innerHTML = `<img src="screenshots/${file}" alt="${label}" loading="lazy" /><figcaption>${label}</figcaption>`;
+        fig.addEventListener('click', () => {
+          lightboxImg.src = `screenshots/${file}`;
+          lightbox.classList.add('open');
+        });
+        gridEl.append(fig);
+      }
+      sec.append(gridEl);
+      galleryRoot.append(sec);
+    }
+
+    // Sequentially load every real userscript so menu commands bind to their owner card
+    async function loadAllScripts() {
+      for (const script of SCRIPTS) {
+        await new Promise((resolve) => {
+          activeScriptId = script.id;
+          const el = document.createElement('script');
+          el.src = script.file;
+          el.onload = () => {
+            activeScriptId = null;
+            renderScriptMenus(script.id);
+            resolve();
+          };
+          el.onerror = () => {
+            activeScriptId = null;
+            resolve();
+          };
+          document.body.append(el);
+        });
+      }
+      document.getElementById('yttm-status').textContent =
+        `window.__yttm = ${Boolean(window.__yttm)} (active: wrapping setTimeout / setInterval)`;
+    }
+
+    loadAllScripts();
+  </script>
+</body>
+</html>
