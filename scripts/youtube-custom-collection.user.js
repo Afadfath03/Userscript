@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      4.4
+// @version      4.5
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -2475,13 +2475,14 @@ html[dark] #${DURATION_ID} .ytc-pt-dur-pill b{color:#aaa}
 #${DURATION_ID} button:hover{background:rgba(0,0,0,.14)}
 html[dark] #${DURATION_ID} button{background:rgba(255,255,255,.14)}
 html[dark] #${DURATION_ID} button:hover{background:rgba(255,255,255,.22)}
-#${FILTER_ID}{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 12px;padding:6px 0;border:0;background:transparent;color:#0f0f0f;font:400 13px/1.4 Roboto,Arial,sans-serif;box-sizing:border-box;max-width:100%}
+#${FILTER_ID}{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px;padding:4px 24px 8px;border:0;background:transparent;color:#0f0f0f;font:400 13px/1.4 Roboto,Arial,sans-serif;box-sizing:border-box;max-width:100%}
+@media (max-width:600px){#${FILTER_ID}{padding:4px 12px 8px}}
 html[dark] #${FILTER_ID}{color:#f1f1f1}
 #${FILTER_ID} .ytc-pt-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-#${FILTER_ID} .ytc-pt-search-wrap{position:relative;display:flex;align-items:center;flex:1 1 200px;min-width:150px;max-width:340px;height:36px;padding:0 12px;border:1px solid transparent;border-radius:18px;background:rgba(0,0,0,.05);transition:border-color .15s,background .15s}
-html[dark] #${FILTER_ID} .ytc-pt-search-wrap{background:rgba(255,255,255,.08)}
-#${FILTER_ID} .ytc-pt-search-wrap:focus-within{border-color:#065fd4;background:#fff}
-html[dark] #${FILTER_ID} .ytc-pt-search-wrap:focus-within{border-color:#3ea6ff;background:#121212}
+#${FILTER_ID} .ytc-pt-search-wrap{position:relative;display:flex;align-items:center;flex:1 1 200px;min-width:150px;max-width:280px;height:32px;padding:0 10px;border:1px solid rgba(0,0,0,.18);border-radius:8px;background:#fff;box-sizing:border-box;transition:border-color .15s,background .15s,box-shadow .15s}
+html[dark] #${FILTER_ID} .ytc-pt-search-wrap{border-color:rgba(255,255,255,.16);background:#121212}
+#${FILTER_ID} .ytc-pt-search-wrap:focus-within{border-color:#065fd4;box-shadow:0 0 0 1px #065fd4}
+html[dark] #${FILTER_ID} .ytc-pt-search-wrap:focus-within{border-color:#3ea6ff;box-shadow:0 0 0 1px #3ea6ff}
 #${FILTER_ID} .ytc-pt-search-wrap svg{color:#606060;margin-right:8px}
 html[dark] #${FILTER_ID} .ytc-pt-search-wrap svg{color:#aaa}
 #${FILTER_ID} input[type="search"]{flex:1;min-width:0;height:100%;border:0;background:transparent;color:inherit;font:inherit;outline:none}
@@ -2495,12 +2496,12 @@ html[dark] #${FILTER_ID} .ytc-pt-chip:hover{background:rgba(255,255,255,.18)}
 html[dark] #${FILTER_ID} .ytc-pt-chip[aria-pressed="true"]{background:#f1f1f1;color:#0f0f0f}
 #${FILTER_ID} .ytc-pt-counter{font-size:12px;font-variant-numeric:tabular-nums;color:#606060;margin-left:auto;padding:0 4px}
 html[dark] #${FILTER_ID} .ytc-pt-counter{color:#aaa}
-#${FILTER_ID} .ytc-pt-fbtn{min-height:32px;padding:0 12px;border:0;border-radius:16px;background:rgba(0,0,0,.06);color:inherit;font:500 12px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s}
+#${FILTER_ID} .ytc-pt-fbtn{min-height:32px;padding:0 12px;border:0;border-radius:8px;background:rgba(0,0,0,.06);color:inherit;font:500 12px/1 Roboto,Arial,sans-serif;cursor:pointer;transition:background .15s}
 #${FILTER_ID} .ytc-pt-fbtn:hover{background:rgba(0,0,0,.12)}
 html[dark] #${FILTER_ID} .ytc-pt-fbtn{background:rgba(255,255,255,.12)}
 html[dark] #${FILTER_ID} .ytc-pt-fbtn:hover{background:rgba(255,255,255,.2)}
 #${FILTER_ID} .ytc-pt-fbtn:disabled,#${DIALOG_ID} button:disabled,#${TOAST_ID} button:disabled{opacity:.45;cursor:not-allowed}
-#${EMPTY_ID}{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;padding:24px 16px;margin:8px 0;border:0;border-radius:12px;background:rgba(0,0,0,.04);color:#606060;font:400 13px/1.4 Roboto,Arial,sans-serif}
+#${EMPTY_ID}{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;padding:24px 16px;margin:8px 24px;border:0;border-radius:12px;background:rgba(0,0,0,.04);color:#606060;font:400 13px/1.4 Roboto,Arial,sans-serif}
 html[dark] #${EMPTY_ID}{background:rgba(255,255,255,.05);color:#aaa}
 [${HIDDEN_ATTR}]{display:none!important}
 #${BACKDROP_ID}{position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);padding:16px;box-sizing:border-box}
