@@ -5,12 +5,12 @@ Rules for this repository: how files are named, how scripts are structured, and 
 ## Scripts
 
 - English only: code, comments, `@name`, `@description`, and file names. Text a script matches on a page stays in that site's language.
-- All scripts live in `scripts/`.
+- All scripts live in `scripts/<site>/` (`scripts/youtube/`, `scripts/youtube-music/`), icons in `assets/icons/<site>/` (with SVG sources in `assets/icons/src/`), and tests in `tests/<site>/`.
 - File names follow `<site>-<action>.user.js`.
 - Userscript names use Title Case: every word capitalized and separated by spaces, not hyphens (for example `YouTube: Playback Defaults`).
 - Quoted UI text inside a name keeps its original casing, because it is the exact string shown on the site: `YouTube: Hide "These people are mentioned in the video"`.
 - No build step; each file is a standalone script.
-- The script table in the README is sorted alphabetically by name.
+- The script tables in the README are grouped by site and sorted alphabetically by name within each table.
 
 ## Commits
 

@@ -1,17 +1,27 @@
-// Runs every *.test.mjs in this folder, one process each, and reports a summary
+// Runs every *.test.mjs in this folder and its subfolders, one process each, and reports a summary
 import { readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const dir = fileURLToPath(new URL('.', import.meta.url));
-const files = readdirSync(dir)
-  .filter((name) => name.endsWith('.test.mjs'))
-  .sort();
+
+function collect(base, prefix = '') {
+  const found = [];
+  for (const entry of readdirSync(base, { withFileTypes: true })) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) found.push(...collect(join(base, entry.name), rel));
+    else if (entry.name.endsWith('.test.mjs')) found.push(rel);
+  }
+  return found;
+}
+
+const files = collect(dir).sort();
 
 let failed = 0;
 for (const file of files) {
   console.log(`\n=== ${file} ===`);
-  const run = spawnSync(process.execPath, [`${dir}${file}`], { stdio: 'inherit' });
+  const run = spawnSync(process.execPath, [join(dir, file)], { stdio: 'inherit' });
   if (run.status !== 0) failed++;
 }
 

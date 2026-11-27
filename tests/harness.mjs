@@ -34,4 +34,9 @@ function load() {
 const { chromium } = load();
 
 export { chromium };
-export const scriptPath = (file) => fileURLToPath(new URL(`../scripts/${file}`, import.meta.url));
+export const scriptPath = (file) => {
+  const rel = file.includes('/')
+    ? file
+    : `${file.startsWith('youtube-music-') ? 'youtube-music' : 'youtube'}/${file}`;
+  return fileURLToPath(new URL(`../scripts/${rel}`, import.meta.url));
+};
