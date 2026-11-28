@@ -369,6 +369,89 @@
     .meta { padding-top: 5px; font-size: 12px; }
     .meta span { display: block; font-size: 11px; color: var(--muted); }
 
+    /* Mock YouTube Video Filter Player Stage */
+    #movie_player.vf-mock-player {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      min-height: 290px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000;
+      border: 1px solid var(--border);
+    }
+    #movie_player.vf-mock-player video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    #movie_player.vf-mock-player .ytp-chrome-bottom {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 44px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(transparent, rgba(0, 0, 0, .82));
+      color: #fff;
+      font-size: 12px;
+    }
+    #movie_player.vf-mock-player .ytp-right-controls {
+      display: inline-flex;
+      align-items: center;
+      height: 100%;
+    }
+    #movie_player.vf-mock-player .ytp-button.ytp-settings-button,
+    #movie_player.vf-mock-player .ytp-button.ytp-fullscreen-button {
+      width: 40px;
+      height: 100%;
+      border: 0;
+      background: none;
+      color: #fff;
+      cursor: pointer;
+      opacity: .85;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #movie_player.vf-mock-player.ad-showing::after {
+      content: 'Ad · Filter suspended';
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255, 193, 7, .92);
+      color: #111;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    #movie_player.vf-mock-player[data-vf-source="standalone"] #ytc-vf-btn { display: none !important; }
+    #movie_player.vf-mock-player[data-vf-source="collection"] #ytvf-btn { display: none !important; }
+    .card-right { display: inline-flex; align-items: center; gap: 6px; }
+    .toggle-pill {
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--muted);
+      font: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .toggle-pill.is-on {
+      background: var(--ok);
+      color: #fff;
+      border-color: transparent;
+    }
+    .card.is-off { opacity: 0.62; }
+
     /* Mock YouTube Music elements */
     .ytm-box {
       display: flex;
@@ -479,8 +562,8 @@
   <header>
     <h1>Userscripts Preview</h1>
     <div class="toolbar">
-      <button class="btn active" data-site-filter="all">All (11)</button>
-      <button class="btn" data-site-filter="youtube">YouTube (6)</button>
+      <button class="btn active" data-site-filter="all">All (12)</button>
+      <button class="btn" data-site-filter="youtube">YouTube (7)</button>
       <button class="btn" data-site-filter="youtube-music">YouTube Music (5)</button>
       <button class="btn primary" id="toggle-theme">Theme: Dark</button>
     </div>
@@ -531,6 +614,29 @@
         </div>
         <div class="pl-list" id="pl-items"></div>
         <div class="status-line" id="pl-status">Active playlist: Watch Later (/playlist?list=WL).</div>
+      </div>
+
+      <div class="stage stage-wide" id="vf-stage" data-site="youtube">
+        <h3>YouTube Video Filter Player</h3>
+        <p class="stage-note">Click the sliders icon next to Settings in the player control bar to adjust Brightness, Contrast, Saturation, Hue, Sepia, Grayscale, Invert, Gamma, and Sharpness live.</p>
+        <div class="chip-row" style="margin-bottom:10px">
+          <button type="button" class="chip active" data-vf-source="standalone">Source: Standalone</button>
+          <button type="button" class="chip" data-vf-source="collection">Source: Collection</button>
+          <button type="button" class="chip active" data-vf-vid="demoVF001" data-vf-title="Scenic Sunset Demo (Video A)">Video A (demoVF001)</button>
+          <button type="button" class="chip" data-vf-vid="demoVF002" data-vf-title="Neon City Demo (Video B)">Video B (demoVF002)</button>
+          <button type="button" class="chip" id="vf-toggle-ad">Simulate Ad (.ad-showing)</button>
+        </div>
+        <div id="movie_player" class="vf-mock-player" data-preview-vid="demoVF001" data-vf-source="standalone">
+          <video id="vf-demo-video" muted playsinline></video>
+          <div class="ytp-chrome-bottom">
+            <span id="vf-player-label">01:24 / 10:00 · Scenic Sunset Demo (Video A)</span>
+            <div class="ytp-right-controls">
+              <button type="button" class="ytp-button ytp-settings-button" aria-label="Settings" title="Settings">⚙</button>
+              <button type="button" class="ytp-button ytp-fullscreen-button" aria-label="Full screen" title="Full screen">⛶</button>
+            </div>
+          </div>
+        </div>
+        <ytd-watch-metadata style="display:none"><h1 id="vf-meta-title">Scenic Sunset Demo (Video A)</h1></ytd-watch-metadata>
       </div>
 
       <div class="stage" data-site="youtube">
@@ -602,6 +708,67 @@
   </div>
 
   <script>
+    const PREVIEW_BASE = new URL('.', location.href).href;
+    if (location.protocol !== 'file:') {
+      history.replaceState(null, '', '/watch?v=demoVF001');
+    }
+    // Paint a colorful poster SVG onto the mock <video> so every filter slider is visibly clear
+    {
+      const posterSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1a2a6c"/>
+            <stop offset="55%" stop-color="#b21f1f"/>
+            <stop offset="100%" stop-color="#fdbb2d"/>
+          </linearGradient>
+        </defs>
+        <rect width="960" height="540" fill="url(#sky)"/>
+        <circle cx="710" cy="175" r="72" fill="#fff4b8"/>
+        <polygon points="0,410 210,235 420,410" fill="#23395d"/>
+        <polygon points="280,430 540,190 830,430" fill="#182848"/>
+        <polygon points="560,440 790,260 960,440" fill="#101b33"/>
+        <rect y="405" width="960" height="135" fill="#0d1b2a"/>
+        <g opacity="0.9">
+          <rect x="44" y="42" width="44" height="28" rx="4" fill="#ef4444"/>
+          <rect x="96" y="42" width="44" height="28" rx="4" fill="#22c55e"/>
+          <rect x="148" y="42" width="44" height="28" rx="4" fill="#3b82f6"/>
+          <rect x="200" y="42" width="44" height="28" rx="4" fill="#eab308"/>
+          <rect x="252" y="42" width="44" height="28" rx="4" fill="#ec4899"/>
+          <rect x="304" y="42" width="44" height="28" rx="4" fill="#f8fafc"/>
+        </g>
+        <text x="44" y="108" fill="#ffffff" font-family="sans-serif" font-size="22" font-weight="600">Video Filter Live Preview</text>
+      </svg>`;
+      document.getElementById('vf-demo-video').poster = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(posterSvg);
+      const vidBtns = [...document.querySelectorAll('[data-vf-vid]')];
+      for (const b of vidBtns) {
+        b.addEventListener('click', () => {
+          for (const x of vidBtns) x.classList.toggle('active', x === b);
+          const id = b.dataset.vfVid;
+          const title = b.dataset.vfTitle;
+          document.getElementById('vf-meta-title').textContent = title;
+          document.getElementById('vf-player-label').textContent = `01:24 / 10:00 · ${title}`;
+          document.getElementById('movie_player').dataset.previewVid = id;
+          if (location.protocol !== 'file:') history.replaceState(null, '', `/watch?v=${id}`);
+          document.dispatchEvent(new Event('yt-navigate-finish'));
+        });
+      }
+      document.getElementById('vf-toggle-ad').addEventListener('click', (e) => {
+        const mp = document.getElementById('movie_player');
+        const on = mp.classList.toggle('ad-showing');
+        e.currentTarget.classList.toggle('active', on);
+      });
+      const srcBtns = [...document.querySelectorAll('[data-vf-source]')];
+      for (const b of srcBtns) {
+        b.addEventListener('click', () => {
+          const src = b.dataset.vfSource;
+          for (const x of srcBtns) x.classList.toggle('active', x === b);
+          document.getElementById('movie_player').dataset.vfSource = src;
+          document.getElementById('ytvf-popover')?.remove();
+          document.getElementById('ytc-vf-popover')?.remove();
+        });
+      }
+    }
+
     const SCRIPTS = [
       {
         id: 'yt-collection',
@@ -609,7 +776,7 @@
         kind: 'Bundle',
         name: 'YouTube: Custom Collection',
         file: '../scripts/youtube/youtube-custom-collection.user.js',
-        desc: 'All four YouTube modules in one install with hub panel, JSON backup, and diagnostics.',
+        desc: 'All five YouTube modules in one install with hub panel, JSON backup, and diagnostics.',
       },
       {
         id: 'yt-general',
@@ -650,6 +817,14 @@
         name: 'YouTube: Timer Tamer',
         file: '../scripts/youtube/youtube-timer-tamer.user.js',
         desc: 'Batches page timers onto the next animation frame while a video plays to cut idle CPU.',
+      },
+      {
+        id: 'yt-video-filter',
+        site: 'youtube',
+        kind: 'Standalone',
+        name: 'YouTube: Video Filter',
+        file: '../scripts/youtube/youtube-video-filter.user.js',
+        desc: 'Real-time video visual filters (7 CSS + Gamma & Sharpness) with presets, global defaults, and per-video overrides.',
       },
       {
         id: 'ytm-collection',
@@ -757,6 +932,15 @@
         ],
       },
       {
+        site: 'youtube',
+        title: 'YouTube: Video Filter',
+        items: [
+          ['32-yt-video-filter-popover-dark.png', 'Video Filter Player Popover (Live Preview)'],
+          ['33-yt-video-filter-settings-dark.png', 'Video Filter Settings Panel'],
+          ['34-yt-collection-video-filter-dark.png', 'Custom Collection -> Video Filter'],
+        ],
+      },
+      {
         site: 'youtube-music',
         title: 'YouTube Music: Custom Collection',
         items: [
@@ -831,19 +1015,50 @@
       if (owner) renderScriptMenus(owner);
     };
 
+    const STANDALONE_TOGGLE_KEYS = {
+      'yt-general': ['ytgc.on'],
+      'yt-playback': ['ytpc.on'],
+      'yt-playlist': ['ytpt.on'],
+      'yt-quiet': ['ytqp.on'],
+      'yt-video-filter': ['ytvf.on'],
+      'ytm-paused': ['ytmdp.on'],
+      'ytm-song': ['ytso.on'],
+      'ytm-quiet': ['ytq.promos', 'ytq.shorts'],
+      'ytm-skip': ['ytsk.on'],
+    };
+
     // Render script cards
     for (const script of SCRIPTS) {
       const host = document.getElementById(`cards-${script.site}`);
       const card = document.createElement('div');
       card.className = 'card';
+      const toggleKeys = STANDALONE_TOGGLE_KEYS[script.id];
+      const toggleHtml = toggleKeys
+        ? `<button type="button" class="toggle-pill is-on" data-script-toggle="${script.id}" aria-pressed="true">On</button>`
+        : '';
       card.innerHTML = `
         <div class="card-top">
           <h3>${script.name}</h3>
-          <span class="badge ${script.kind === 'Bundle' ? 'bundle' : ''}">${script.kind}</span>
+          <span class="card-right">
+            ${toggleHtml}
+            <span class="badge ${script.kind === 'Bundle' ? 'bundle' : ''}">${script.kind}</span>
+          </span>
         </div>
         <p>${script.desc}</p>
         <div class="chip-row" id="menu-${script.id}"></div>
       `;
+      if (toggleKeys) {
+        const tbtn = card.querySelector(`[data-script-toggle="${script.id}"]`);
+        tbtn.addEventListener('click', () => {
+          const next = !tbtn.classList.contains('is-on');
+          tbtn.classList.toggle('is-on', next);
+          tbtn.setAttribute('aria-pressed', String(next));
+          tbtn.textContent = next ? 'On' : 'Off';
+          card.classList.toggle('is-off', !next);
+          for (const k of toggleKeys) window.GM_setValue(k, next);
+          document.dispatchEvent(new Event('yt-navigate-finish'));
+        });
+      }
       host.append(card);
     }
 
@@ -1285,9 +1500,10 @@
       gridEl.className = 'gallery';
       for (const [file, label] of group.items) {
         const fig = document.createElement('figure');
-        fig.innerHTML = `<img src="screenshots/${file}" alt="${label}" loading="lazy" /><figcaption>${label}</figcaption>`;
+        const shotUrl = new URL(`screenshots/${file}`, PREVIEW_BASE).href;
+        fig.innerHTML = `<img src="${shotUrl}" alt="${label}" loading="lazy" /><figcaption>${label}</figcaption>`;
         fig.addEventListener('click', () => {
-          lightboxImg.src = `screenshots/${file}`;
+          lightboxImg.src = shotUrl;
           lightbox.classList.add('open');
         });
         gridEl.append(fig);
@@ -1302,7 +1518,7 @@
         await new Promise((resolve) => {
           activeScriptId = script.id;
           const el = document.createElement('script');
-          el.src = script.file;
+          el.src = new URL(script.file, PREVIEW_BASE).href;
           el.onload = () => {
             activeScriptId = null;
             renderScriptMenus(script.id);

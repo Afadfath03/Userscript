@@ -76,7 +76,7 @@ async function closeOverlays() {
     for (const id of [
       'ytc-backdrop', 'ytgc-backdrop', 'ytpc-backdrop',
       'ytpt-backdrop', 'ytpt-cfg-backdrop', 'ytlt-backdrop',
-      'ytqp-backdrop', 'ytmc-backdrop',
+      'ytqp-backdrop', 'ytvf-backdrop', 'ytmc-backdrop',
     ]) {
       document.getElementById(id)?.remove();
     }
@@ -151,7 +151,7 @@ try {
 
   // 4. YouTube: Playlist Tools (Settings + 3 In-Page Dialogs over live Playlist Stage)
   await closeOverlays();
-  await page.locator('.stage-wide').scrollIntoViewIfNeeded();
+  await page.locator('.stage-wide').first().scrollIntoViewIfNeeded();
   await page.waitForTimeout(60);
   await page.click('#pl-open-settings');
   await page.waitForTimeout(70);
@@ -227,11 +227,33 @@ try {
   await clickIn('#menu-ytm-collection', /^YouTube Music: Custom Collection$/);
   await snap('25-ytm-collection-hub-light.png');
 
+  // 6b. YouTube: Video Filter (Player Popover + Settings Panel + Collection Module)
+  await loadPreview('dark');
+  await page.locator('#vf-stage').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(80);
+  await page.click('#ytvf-btn');
+  await page.waitForTimeout(80);
+  await page.selectOption('#ytvf-mode', 'vivid');
+  await page.waitForTimeout(80);
+  await snap('32-yt-video-filter-popover-dark.png');
+
+  await page.keyboard.press('Escape');
+  await closeOverlays();
+  await clickIn('#menu-yt-video-filter', /Video Filter/);
+  await page.waitForTimeout(80);
+  await snap('33-yt-video-filter-settings-dark.png');
+
+  await closeOverlays();
+  await clickIn('#menu-yt-collection', /^YouTube: Custom Collection$/);
+  await page.locator('#ytc-panel').getByRole('button', { name: /Video Filter/ }).click();
+  await page.waitForTimeout(80);
+  await snap('34-yt-collection-video-filter-dark.png');
+
   // 7. Preview Overview & Live Interactive Stage (captured last so all gallery thumbnails exist)
   await loadPreview('dark');
   await snap('00-preview-overview-dark.png');
 
-  await page.locator('.stage-wide').scrollIntoViewIfNeeded();
+  await page.locator('.stage-wide').first().scrollIntoViewIfNeeded();
   await page.waitForTimeout(80);
   await snap('00-preview-live-stage-dark.png');
 
