@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: General Custom
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.0
+// @version      1.1
 // @description  Custom video grid columns per section, Open Shorts in Watch Page, and Clean Share Link in one YouTube script
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -111,7 +111,8 @@
       `${sel(`${item}>#content`)},${sel(`${item} ytd-rich-grid-media`)},${sel(`${item} yt-lockup-view-model`)}{` +
       `width:100%!important;max-width:100%!important;min-width:0!important}` +
       `${sel('ytd-rich-section-renderer')},${sel('ytd-continuation-item-renderer')}{` +
-      `width:100%!important;flex:0 0 100%!important}`;
+      `width:100%!important;flex:0 0 100%!important}` +
+      `${sel('ytd-rich-item-renderer:has(ytd-ad-slot-renderer)')}{display:none!important}`;
     document.documentElement.append(style);
   }
 

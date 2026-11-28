@@ -20,9 +20,15 @@ const FIXTURE = `<!doctype html><html><head><style>
   ytd-rich-section-renderer { display: block; width: 100%; height: 40px; }
 </style></head><body>
   <ytd-browse page-subtype="home"><ytd-rich-grid-renderer><div id="contents">
-    <ytd-rich-grid-row><div id="contents">${card('h1', 'is-in-first-column')}${card('h2')}</div></ytd-rich-grid-row>
+    <ytd-rich-grid-row><div id="contents">
+      <ytd-rich-item-renderer id="h-ad"><div id="content"><ytd-ad-slot-renderer></ytd-ad-slot-renderer></div></ytd-rich-item-renderer>
+      ${card('h1', 'is-in-first-column')}${card('h2')}
+    </div></ytd-rich-grid-row>
     <ytd-rich-grid-row><div id="contents">${card('h3', 'is-in-first-column')}${card('h4')}</div></ytd-rich-grid-row>
-    <ytd-rich-grid-row><div id="contents">${card('h5', 'is-in-first-column')}${card('h6')}</div></ytd-rich-grid-row>
+    <ytd-rich-grid-row><div id="contents">
+      ${card('h5', 'is-in-first-column')}${card('h6')}
+      <ytd-rich-item-renderer id="h-mem"><div id="content"><yt-lockup-view-model id="h-mem-lockup"><a href="/watch?v=mem99999">x</a><badge-shape>Members only</badge-shape></yt-lockup-view-model></div></ytd-rich-item-renderer>
+    </div></ytd-rich-grid-row>
     <ytd-rich-section-renderer id="h-shelf">Shelf</ytd-rich-section-renderer>
   </div></ytd-rich-grid-renderer></ytd-browse>
   <a id="short-link" href="/shorts/abcdef12345?t=12">Short</a>
@@ -85,6 +91,8 @@ async function setup(script, url = `${base}/`) {
   const { ctx, page } = await setup(STANDALONE);
   const row4 = await measureRow(page, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
   check('standalone: defaults to 4 per row uniformly', row4.count === 4 && row4.diff < 1);
+  check('standalone: collapses ad-slot wrapper in grid',
+    (await page.evaluate(() => getComputedStyle(document.getElementById('h-ad')).display)) === 'none');
   check('standalone: share url strips si parameter',
     (await page.locator('#share-url').inputValue()) === 'https://youtu.be/abcdef12345?t=45');
   await page.click('#copy-button');
@@ -136,6 +144,12 @@ async function setup(script, url = `${base}/`) {
   const { ctx, page } = await setup(COLLECTION);
   const row4 = await measureRow(page, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
   check('collection: General Custom defaults to 4 per row uniformly', row4.count === 4 && row4.diff < 1);
+  check('collection: collapses ad-slot wrapper and nested Members-only lockup outer card',
+    await page.evaluate(() =>
+      getComputedStyle(document.getElementById('h-ad')).display === 'none' &&
+      getComputedStyle(document.getElementById('h-mem')).display === 'none' &&
+      !document.getElementById('h-mem-lockup').hasAttribute('data-ytc-off')
+    ));
   await page.evaluate(() => window.__menu[0].cb());
   await page.waitForTimeout(60);
   await page.getByRole('button', { name: /General Custom/ }).click();

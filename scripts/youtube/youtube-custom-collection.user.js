@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      5.1
+// @version      5.2
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -1058,15 +1058,16 @@
     const squash = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase();
     const LABELS = new Set(['members only', 'premium', 'khusus anggota', 'youtube featured']);
     const BADGE = 'yt-badge-shape, badge-shape, ytd-badge-supported-renderer';
-    const CARD = [
+    const OUTER_CARD = [
       'ytd-rich-item-renderer',
       'ytd-video-renderer',
       'ytd-compact-video-renderer',
       'ytd-grid-video-renderer',
       'ytd-playlist-video-renderer',
       'ytd-playlist-panel-video-renderer',
-      'yt-lockup-view-model',
     ].join(',');
+    // Home feed wraps yt-lockup-view-model inside ytd-rich-item-renderer; prefer the outer wrapper so the grid slot collapses too
+    const cardOf = (el) => el.closest(OUTER_CARD) || el.closest('yt-lockup-view-model');
 
     const enabled = () => isTop && featureOn('members');
     const hidden = new Map();
@@ -1124,11 +1125,11 @@
       if (!root.isConnected) return;
       const cards = new Set();
       for (const badge of root.querySelectorAll(BADGE)) {
-        const card = badge.closest(CARD);
+        const card = cardOf(badge);
         if (card) cards.add(card);
       }
       if (root.matches(BADGE)) {
-        const card = root.closest(CARD);
+        const card = cardOf(root);
         if (card) cards.add(card);
       }
       for (const card of cards) markCard(card);
@@ -2014,7 +2015,8 @@
       `${sel(`${item}>#content`)},${sel(`${item} ytd-rich-grid-media`)},${sel(`${item} yt-lockup-view-model`)}{` +
       `width:100%!important;max-width:100%!important;min-width:0!important}` +
       `${sel('ytd-rich-section-renderer')},${sel('ytd-continuation-item-renderer')}{` +
-      `width:100%!important;flex:0 0 100%!important}`;
+      `width:100%!important;flex:0 0 100%!important}` +
+      `${sel('ytd-rich-item-renderer:has(ytd-ad-slot-renderer)')}{display:none!important}`;
     document.documentElement.append(style);
 
     function apply() {

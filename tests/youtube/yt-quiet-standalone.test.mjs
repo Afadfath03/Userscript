@@ -11,6 +11,8 @@ const FIXTURE = `<!doctype html><html><body>
   <div id="cinematics">ambient glow</div>
   <ytd-comments id="comments">comments</ytd-comments>
   <ytd-rich-item-renderer id="member-card"><a href="/watch?v=mem12345">x</a><badge-shape>Members only</badge-shape></ytd-rich-item-renderer>
+  <ytd-rich-item-renderer id="nested-member-card"><div id="content"><yt-lockup-view-model id="nested-lockup"><a href="/watch?v=nes12345">x</a><badge-shape>Members only</badge-shape></yt-lockup-view-model></div></ytd-rich-item-renderer>
+  <yt-lockup-view-model id="standalone-lockup"><a href="/watch?v=std12345">x</a><badge-shape>Members only</badge-shape></yt-lockup-view-model>
   <ytd-rich-item-renderer id="normal-card"><a href="/watch?v=nor12345">x</a><badge-shape>New</badge-shape></ytd-rich-item-renderer>
   <div id="people-shelf"><span>These people are mentioned in the video</span></div>
   <yt-confirm-dialog-renderer id="paused-dlg">Video paused. Continue watching?<button id="yes-btn">Yes</button></yt-confirm-dialog-renderer>
@@ -67,6 +69,10 @@ await page.evaluate(() => {
 check('previews paused and main player untouched', await page.evaluate(() => window.__paused.includes('preview') && !window.__paused.includes('main')));
 check('end screen and ambient hidden by default', (await display('#card')) === 'none' && (await display('#cinematics')) === 'none');
 check('Members-only card hidden and normal card visible', (await display('#member-card')) === 'none' && (await display('#normal-card')) !== 'none');
+check('nested lockup hides outer ytd-rich-item-renderer and standalone lockup still hides',
+  (await display('#nested-member-card')) === 'none' &&
+  (await page.locator('#nested-lockup').getAttribute('data-ytqp-member-off')) === null &&
+  (await display('#standalone-lockup')) === 'none');
 check('People Mentioned shelf hidden by default', (await display('#people-shelf')) === 'none');
 check('Dismiss paused prompt clicks Yes by default', await page.evaluate(() => window.__yesClicked === true));
 

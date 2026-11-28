@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Quiet Page
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      2.0
+// @version      2.1
 // @description  Stops previews and paused prompts, hides Members-only/Premium cards, People Mentioned, and page/sidebar clutter on YouTube
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -163,15 +163,16 @@
 
   const MEMBER_LABELS = new Set(['members only', 'premium', 'khusus anggota', 'youtube featured']);
   const BADGE = 'yt-badge-shape, badge-shape, ytd-badge-supported-renderer';
-  const CARD = [
+  const OUTER_CARD = [
     'ytd-rich-item-renderer',
     'ytd-video-renderer',
     'ytd-compact-video-renderer',
     'ytd-grid-video-renderer',
     'ytd-playlist-video-renderer',
     'ytd-playlist-panel-video-renderer',
-    'yt-lockup-view-model',
   ].join(',');
+  // Home feed wraps yt-lockup-view-model inside ytd-rich-item-renderer; prefer the outer wrapper so the grid slot collapses too
+  const cardOf = (el) => el.closest(OUTER_CARD) || el.closest('yt-lockup-view-model');
   const hiddenCards = new Map();
 
   function videoIdOf(card) {
@@ -221,11 +222,11 @@
     if (!flag('membersOnly') || !root || !root.isConnected) return;
     const cards = new Set();
     for (const badge of root.querySelectorAll(BADGE)) {
-      const card = badge.closest(CARD);
+      const card = cardOf(badge);
       if (card) cards.add(card);
     }
     if (root.matches && root.matches(BADGE)) {
-      const card = root.closest(CARD);
+      const card = cardOf(root);
       if (card) cards.add(card);
     }
     for (const card of cards) judgeCard(card);
