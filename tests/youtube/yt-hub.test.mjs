@@ -50,8 +50,8 @@ check('first entry is named after the script', menu[0] === 'YouTube: Custom Coll
 await openHub();
 await page.waitForTimeout(80);
 check('hub opens from its entry', (await title()) === 'YouTube: Custom Collection');
-check('hub lists 4 consolidated modules plus backup, diagnostics, reset and close', (await page.locator('#ytc-panel button').count()) === 8);
-check('hub rows carry chevrons', (await page.locator('#ytc-panel .ytc-chevron').count()) === 6);
+check('hub lists 5 consolidated modules plus backup, diagnostics, reset and close', (await page.locator('#ytc-panel button').count()) === 9);
+check('hub rows carry chevrons', (await page.locator('#ytc-panel .ytc-chevron').count()) === 7);
 
 await page.getByRole('button', { name: /Playback Custom/ }).click();
 await page.waitForTimeout(80);
@@ -80,7 +80,7 @@ check('second click clears every key', (await page.evaluate(() => Object.keys(wi
 await page.getByRole('button', { name: 'Diagnostics' }).click();
 await page.waitForTimeout(80);
 const info = await page.locator('#ytc-panel .ytc-info').allTextContents();
-check('diagnostics shows 4 of 4 enabled modules', info.some((t) => t.includes('Enabled features 4 of 4')));
+check('diagnostics shows 5 of 5 enabled modules', info.some((t) => t.includes('Enabled features 5 of 5')));
 
 await browser.close();
 server.close();

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      5.3
+// @version      5.4
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -40,7 +40,11 @@
   let shareCopyAtTime = () => {};
   let openPlaylistToolsDialog = () => {};
   let openLikedToolsDialog = () => {};
-  const videoIdFromUrl = () => (location.pathname === '/watch' ? new URLSearchParams(location.search).get('v') || '' : '');
+  const videoIdFromUrl = () => {
+    if (location.pathname === '/watch') return new URLSearchParams(location.search).get('v') || '';
+    if (location.protocol === 'file:') return playerEl()?.dataset.previewVid || '';
+    return '';
+  };
   const onWatchPage = () => !!videoIdFromUrl();
   const MARK_LIMIT = 50;
 
@@ -101,6 +105,129 @@
     if (list.length) all[id] = list.slice().sort((a, b) => a.t - b.t);
     else delete all[id];
     put('bookmarks', all);
+  }
+
+  const VF_LIMIT = 255;
+  const VF_PARAMS = [
+    { key: 'brightness', label: 'Brightness', min: 0, max: 200, step: 1, def: 100, unit: '%' },
+    { key: 'contrast', label: 'Contrast', min: 0, max: 200, step: 1, def: 100, unit: '%' },
+    { key: 'saturation', label: 'Saturation', min: 0, max: 200, step: 1, def: 100, unit: '%' },
+    { key: 'hue', label: 'Hue', min: -180, max: 180, step: 1, def: 0, unit: 'deg' },
+    { key: 'sepia', label: 'Sepia', min: 0, max: 100, step: 1, def: 0, unit: '%' },
+    { key: 'grayscale', label: 'Grayscale', min: 0, max: 100, step: 1, def: 0, unit: '%' },
+    { key: 'invert', label: 'Invert', min: 0, max: 100, step: 1, def: 0, unit: '%' },
+    { key: 'gamma', label: 'Gamma', min: 0.2, max: 3.0, step: 0.05, def: 1.0, unit: '' },
+    { key: 'sharpness', label: 'Sharpness', min: 0, max: 100, step: 1, def: 0, unit: '%' },
+  ];
+  const VF_PARAM_KEYS = new Set(VF_PARAMS.map((p) => p.key));
+  const VF_NEUTRAL = { ...Object.fromEntries(VF_PARAMS.map((p) => [p.key, p.def])), disabled: [] };
+  const VF_PRESETS = [
+    { id: 'normal', label: 'Normal', values: {} },
+    { id: 'vivid', label: 'Vivid', values: { brightness: 103, contrast: 112, saturation: 125, sharpness: 20 } },
+    { id: 'cinema', label: 'Cinema', values: { brightness: 96, contrast: 115, saturation: 92, gamma: 1.1 } },
+    { id: 'warm', label: 'Warm / Night', values: { brightness: 88, contrast: 95, saturation: 90, sepia: 25, gamma: 0.95 } },
+  ];
+  const vfClamp = (num, min, max) => Math.min(max, Math.max(min, num));
+  const vfRound = (p, val) => (p.step < 1 ? Math.round(val * 100) / 100 : Math.round(val));
+  function vfNormalize(raw) {
+    const out = { ...VF_NEUTRAL, disabled: [] };
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    for (const p of VF_PARAMS) {
+      const v = Number(raw[p.key]);
+      if (Number.isFinite(v)) out[p.key] = vfRound(p, vfClamp(v, p.min, p.max));
+    }
+    if (Array.isArray(raw.disabled)) {
+      out.disabled = [...new Set(raw.disabled.filter((k) => VF_PARAM_KEYS.has(k)))].sort();
+    }
+    return out;
+  }
+  const vfIsOff = (f, key) => Array.isArray(f.disabled) && f.disabled.includes(key);
+  const vfIsNeutral = (f) => VF_PARAMS.every((p) => vfIsOff(f, p.key) || f[p.key] === p.def);
+  const vfEqual = (a, b) => {
+    const da = Array.isArray(a.disabled) ? a.disabled : [];
+    const db = Array.isArray(b.disabled) ? b.disabled : [];
+    return da.length === db.length && da.every((k, i) => k === db[i]) && VF_PARAMS.every((p) => a[p.key] === b[p.key]);
+  };
+  const vfFormat = (p, val) => `${p.step < 1 ? Number(val).toFixed(2) : String(val)}${p.unit}`;
+  function vfSummarize(f) {
+    const parts = [];
+    for (const p of VF_PARAMS) if (!vfIsOff(f, p.key) && f[p.key] !== p.def) parts.push(`${p.label} ${vfFormat(p, f[p.key])}`);
+    return parts.length ? parts.join(', ') : 'Neutral';
+  }
+  function vfValidFilter(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    if ('disabled' in value && (!Array.isArray(value.disabled) || !value.disabled.every((k) => VF_PARAM_KEYS.has(k)))) return false;
+    return VF_PARAMS.every((p) => {
+      if (!(p.key in value)) return true;
+      const v = value[p.key];
+      return typeof v === 'number' && Number.isFinite(v) && v >= p.min && v <= p.max;
+    });
+  }
+  function vfValidVideos(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const entries = Object.entries(value);
+    if (entries.length > VF_LIMIT) return false;
+    return entries.every(([id, entry]) =>
+      VIDEO_ID.test(id) &&
+      vfValidFilter(entry) &&
+      (!('at' in entry) || (typeof entry.at === 'number' && Number.isFinite(entry.at))) &&
+      (!('title' in entry) || (typeof entry.title === 'string' && entry.title.length <= 120))
+    );
+  }
+  const vfReadGlobal = () => vfNormalize(get('vfGlobal', VF_NEUTRAL));
+  const vfWriteGlobal = (f) => put('vfGlobal', vfNormalize(f));
+  function vfReadVideos() {
+    const raw = get('vfVideos', {});
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+    const out = {};
+    for (const [id, entry] of Object.entries(raw)) {
+      if (!VIDEO_ID.test(id) || !entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+      const at = Number(entry.at);
+      out[id] = {
+        ...vfNormalize(entry),
+        at: Number.isFinite(at) ? at : 0,
+        title: typeof entry.title === 'string' ? entry.title.slice(0, 120) : '',
+      };
+    }
+    return out;
+  }
+  const vfWriteVideos = (map) => put('vfVideos', map);
+  function vfPageTitle() {
+    const h1 = document.querySelector('ytd-watch-metadata h1, #title h1');
+    return (h1?.textContent || document.title || '').replace(/\s*-\s*YouTube\s*$/, '').trim().slice(0, 120);
+  }
+  function vfSaveVideo(id, f, title = '') {
+    if (!VIDEO_ID.test(id)) return;
+    const map = vfReadVideos();
+    map[id] = {
+      ...vfNormalize(f),
+      at: Date.now(),
+      title: (title || map[id]?.title || vfPageTitle() || '').slice(0, 120),
+    };
+    const keys = Object.keys(map);
+    if (keys.length > VF_LIMIT) {
+      keys.sort((a, b) => (map[a].at || 0) - (map[b].at || 0));
+      for (let i = 0; i < keys.length - VF_LIMIT; i++) delete map[keys[i]];
+    }
+    vfWriteVideos(map);
+  }
+  function vfDeleteVideo(id) {
+    const map = vfReadVideos();
+    if (!(id in map)) return;
+    delete map[id];
+    vfWriteVideos(map);
+  }
+  let vfRefreshAll = () => {};
+  const vfPanelFilter = { query: '', sort: 'newest' };
+  function vfDetectMode(values, includeGlobal) {
+    if (includeGlobal) {
+      const glob = vfReadGlobal();
+      if (!vfIsNeutral(glob) && vfEqual(values, glob)) return 'global';
+    }
+    for (const preset of VF_PRESETS) {
+      if (vfEqual(values, vfNormalize({ ...VF_NEUTRAL, ...preset.values }))) return preset.id;
+    }
+    return 'custom';
   }
 
   const QUALITY = [
@@ -434,6 +561,29 @@
         },
       ],
     },
+    {
+      id: 'videoFilter',
+      def: true,
+      title: 'YouTube: Video Filter',
+      short: 'Video Filter',
+      desc: 'Real-time video visual filters (brightness, contrast, saturation, hue, sepia, grayscale, invert, gamma, sharpness) with presets, global defaults, and per-video overrides.',
+      subsections: [
+        {
+          id: 'vf-global',
+          title: 'Global Default',
+          desc: 'Applies to every watch page unless that video has a saved override.',
+          rows: [],
+          summary: () => (vfIsNeutral(vfReadGlobal()) ? 'Neutral' : 'Custom'),
+        },
+        {
+          id: 'vf-videos',
+          title: 'Saved Videos',
+          desc: 'Manage per-video filter overrides (up to 255 saved videos).',
+          rows: [],
+          summary: () => `${Object.keys(vfReadVideos()).length}/${VF_LIMIT}`,
+        },
+      ],
+    },
   ];
   for (const f of FEATURES) f.rows = f.subsections.flatMap((s) => s.rows);
 
@@ -537,6 +687,25 @@
 #ytc-panel input:focus-visible{outline:2px solid var(--yt-spec-call-to-action,#065fd4);outline-offset:-2px}
 #ytc-panel .ytc-empty{margin:0;padding:10px 20px 16px;font-size:13px;line-height:1.5;color:var(--yt-spec-text-secondary,#606060)}
 #ytc-panel .ytc-error{margin:0;padding:0 20px 8px;font-size:12px;line-height:1.4;color:#c00}
+#ytc-panel .ytc-vf-box{padding:8px 20px 12px;display:flex;flex-direction:column;gap:10px}
+#ytc-panel .ytc-vf-mode-row{display:grid;grid-template-columns:56px 1fr;align-items:center;gap:8px}
+#ytc-panel .ytc-vf-mode-row label{font-size:13px}
+#ytc-panel .ytc-vf-select,#ytc-panel .ytc-vf-search{min-height:34px;margin:0;padding:4px 10px;border-radius:8px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.32));background:var(--yt-spec-badge-chip-background,rgba(128,128,128,.08));color:inherit;font:inherit;font-size:13px}
+#ytc-panel .ytc-vf-srow{display:grid;grid-template-columns:18px 76px 1fr 52px;align-items:center;gap:6px}
+#ytc-panel .ytc-vf-srow.is-muted label{opacity:.48;text-decoration:line-through}
+#ytc-panel .ytc-vf-srow.is-muted input[type="range"],#ytc-panel .ytc-vf-srow.is-muted .ytc-vf-sval{opacity:.42}
+#ytc-panel .ytc-vf-srow input[type="checkbox"]{width:15px;height:15px;min-height:15px;margin:0;padding:0;accent-color:var(--yt-spec-call-to-action,#3ea6ff);cursor:pointer}
+#ytc-panel .ytc-vf-srow label{font-size:13px;cursor:pointer;user-select:none}
+#ytc-panel .ytc-vf-srow input[type="range"]{width:100%;min-height:24px;margin:0;padding:0;border:0;background:none;accent-color:var(--yt-spec-call-to-action,#3ea6ff)}
+#ytc-panel .ytc-vf-sval{width:auto;min-height:24px;padding:0;justify-content:flex-end;font-size:12px;color:var(--yt-spec-text-secondary,#606060);font-variant-numeric:tabular-nums}
+#ytc-panel .ytc-vf-vbar{display:flex;gap:8px;padding:8px 20px 6px}
+#ytc-panel .ytc-vf-vbar .ytc-vf-search{flex:1 1 auto;min-width:0;width:auto}
+#ytc-panel .ytc-vf-vbar .ytc-vf-select{flex:0 0 auto;max-width:136px}
+#ytc-panel .ytc-vf-vitem{display:flex;align-items:center;gap:8px;padding:8px 20px;border-bottom:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.14))}
+#ytc-panel .ytc-vf-vinfo{flex:1 1 auto;min-width:0}
+#ytc-panel .ytc-vf-vtitle{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ytc-panel .ytc-vf-vmeta{font-size:11.5px;color:var(--yt-spec-text-secondary,#606060);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ytc-panel .ytc-vf-vrm{width:auto;min-height:30px;padding:0 10px;border-radius:8px;font-size:12px;color:#e05a52}
 @media (prefers-reduced-motion:reduce){#ytc-panel .ytc-switch,#ytc-panel .ytc-switch::after{transition:none}}
 `;
 
@@ -821,6 +990,210 @@
       desc.textContent = sub.desc;
       panel.append(bar, desc, document.createElement('hr'));
       panel.setAttribute('aria-label', sub.title);
+
+      if (sub.id === 'vf-global') {
+        const box = document.createElement('div');
+        box.className = 'ytc-vf-box';
+        let glob = vfReadGlobal();
+        const commitGlobal = (next) => {
+          glob = vfNormalize(next);
+          vfWriteGlobal(glob);
+          notifyChange();
+        };
+        const modeRow = document.createElement('div');
+        modeRow.className = 'ytc-vf-mode-row';
+        const modeLab = document.createElement('label');
+        modeLab.htmlFor = 'ytc-vf-g-mode';
+        modeLab.textContent = 'Mode';
+        const modeSelect = document.createElement('select');
+        modeSelect.id = 'ytc-vf-g-mode';
+        modeSelect.className = 'ytc-vf-select';
+        modeSelect.setAttribute('aria-label', 'Global filter mode');
+        for (const [val, label] of [...VF_PRESETS.map((pr) => [pr.id, pr.label]), ['custom', 'Custom']]) {
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = label;
+          modeSelect.append(opt);
+        }
+        modeSelect.value = vfDetectMode(glob, false);
+        modeSelect.addEventListener('change', () => {
+          if (modeSelect.value === 'custom') return;
+          const preset = VF_PRESETS.find((pr) => pr.id === modeSelect.value);
+          if (!preset) return;
+          commitGlobal({ ...VF_NEUTRAL, ...preset.values });
+          render();
+        });
+        modeRow.append(modeLab, modeSelect);
+        box.append(modeRow);
+        for (const p of VF_PARAMS) {
+          const off = vfIsOff(glob, p.key);
+          const row = document.createElement('div');
+          row.className = off ? 'ytc-vf-srow is-muted' : 'ytc-vf-srow';
+          const chk = document.createElement('input');
+          chk.type = 'checkbox';
+          chk.id = `ytc-vf-ge-${p.key}`;
+          chk.checked = !off;
+          chk.setAttribute('aria-label', `Toggle ${p.label}`);
+          const lab = document.createElement('label');
+          lab.htmlFor = `ytc-vf-ge-${p.key}`;
+          lab.title = `Click to toggle ${p.label}`;
+          lab.textContent = p.label;
+          const input = document.createElement('input');
+          input.type = 'range';
+          input.id = `ytc-vf-g-${p.key}`;
+          input.min = String(p.min);
+          input.max = String(p.max);
+          input.step = String(p.step);
+          input.value = String(glob[p.key]);
+          const valBtn = document.createElement('button');
+          valBtn.type = 'button';
+          valBtn.className = 'ytc-vf-sval';
+          valBtn.textContent = vfFormat(p, glob[p.key]);
+          const syncRow = () => {
+            const muted = vfIsOff(glob, p.key);
+            row.className = muted ? 'ytc-vf-srow is-muted' : 'ytc-vf-srow';
+            chk.checked = !muted;
+            input.value = String(glob[p.key]);
+            valBtn.textContent = vfFormat(p, glob[p.key]);
+            modeSelect.value = vfDetectMode(glob, false);
+          };
+          chk.addEventListener('change', () => {
+            const nextDisabled = new Set(glob.disabled || []);
+            if (chk.checked) nextDisabled.delete(p.key);
+            else nextDisabled.add(p.key);
+            commitGlobal({ ...glob, disabled: [...nextDisabled] });
+            syncRow();
+          });
+          const update = (v) => {
+            const nextDisabled = (glob.disabled || []).filter((k) => k !== p.key);
+            commitGlobal({ ...glob, [p.key]: v, disabled: nextDisabled });
+            syncRow();
+          };
+          input.addEventListener('input', () => update(Number(input.value)));
+          valBtn.addEventListener('click', () => update(p.def));
+          row.append(chk, lab, input, valBtn);
+          box.append(row);
+        }
+        panel.append(box);
+        return;
+      }
+
+      if (sub.id === 'vf-videos') {
+        const allEntries = Object.entries(vfReadVideos());
+        if (!allEntries.length) {
+          const empty = document.createElement('p');
+          empty.className = 'ytc-empty';
+          empty.textContent = 'No per-video filters saved yet. Use the Video Filter button in the player to save one.';
+          panel.append(empty);
+        } else {
+          const vbar = document.createElement('div');
+          vbar.className = 'ytc-vf-vbar';
+          const search = document.createElement('input');
+          search.type = 'search';
+          search.id = 'ytc-vf-vsearch';
+          search.className = 'ytc-vf-search';
+          search.placeholder = 'Search title, ID, or filter...';
+          search.setAttribute('aria-label', 'Search saved videos');
+          search.value = vfPanelFilter.query;
+
+          const sortSel = document.createElement('select');
+          sortSel.id = 'ytc-vf-vsort';
+          sortSel.className = 'ytc-vf-select';
+          sortSel.setAttribute('aria-label', 'Sort saved videos');
+          for (const [val, label] of [
+            ['newest', 'Newest saved'],
+            ['oldest', 'Oldest saved'],
+            ['az', 'Title A-Z'],
+            ['za', 'Title Z-A'],
+          ]) {
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = label;
+            sortSel.append(opt);
+          }
+          sortSel.value = vfPanelFilter.sort;
+          vbar.append(search, sortSel);
+          panel.append(vbar);
+
+          const listBox = document.createElement('div');
+          listBox.id = 'ytc-vf-vlist';
+          panel.append(listBox);
+
+          const drawList = () => {
+            listBox.textContent = '';
+            const q = vfPanelFilter.query.trim().toLowerCase();
+            let filtered = Object.entries(vfReadVideos());
+            if (q) {
+              filtered = filtered.filter(([id, entry]) =>
+                id.toLowerCase().includes(q) ||
+                (entry.title || '').toLowerCase().includes(q) ||
+                vfSummarize(entry).toLowerCase().includes(q)
+              );
+            }
+            filtered.sort((a, b) => {
+              if (vfPanelFilter.sort === 'oldest') return (a[1].at || 0) - (b[1].at || 0);
+              if (vfPanelFilter.sort === 'az') return (a[1].title || a[0]).localeCompare(b[1].title || b[0], 'en', { sensitivity: 'base' });
+              if (vfPanelFilter.sort === 'za') return (b[1].title || b[0]).localeCompare(a[1].title || a[0], 'en', { sensitivity: 'base' });
+              return (b[1].at || 0) - (a[1].at || 0);
+            });
+            if (!filtered.length) {
+              const none = document.createElement('p');
+              none.className = 'ytc-empty';
+              none.textContent = 'No matching saved videos.';
+              listBox.append(none);
+              return;
+            }
+            for (const [id, entry] of filtered) {
+              const item = document.createElement('div');
+              item.className = 'ytc-vf-vitem';
+              const info = document.createElement('div');
+              info.className = 'ytc-vf-vinfo';
+              const t = document.createElement('div');
+              t.className = 'ytc-vf-vtitle';
+              t.textContent = entry.title || id;
+              const m = document.createElement('div');
+              m.className = 'ytc-vf-vmeta';
+              m.textContent = `${id} · ${vfSummarize(entry)}`;
+              info.append(t, m);
+              const rm = document.createElement('button');
+              rm.type = 'button';
+              rm.className = 'ytc-vf-vrm';
+              rm.textContent = 'Remove';
+              rm.addEventListener('click', () => {
+                vfDeleteVideo(id);
+                notifyChange();
+                if (!Object.keys(vfReadVideos()).length) render();
+                else drawList();
+              });
+              item.append(info, rm);
+              listBox.append(item);
+            }
+          };
+
+          search.addEventListener('input', () => {
+            vfPanelFilter.query = search.value;
+            drawList();
+          });
+          sortSel.addEventListener('change', () => {
+            vfPanelFilter.sort = sortSel.value;
+            drawList();
+          });
+          drawList();
+
+          const clearAll = document.createElement('button');
+          clearAll.type = 'button';
+          clearAll.className = 'ytc-reset-armed';
+          clearAll.textContent = 'Clear all saved videos';
+          clearAll.addEventListener('click', () => {
+            vfWriteVideos({});
+            vfPanelFilter.query = '';
+            notifyChange();
+            render();
+          });
+          panel.append(document.createElement('hr'), clearAll);
+        }
+        return;
+      }
 
       let group = null;
       for (const row of sub.rows) {
@@ -2067,12 +2440,16 @@
       keys.add(`${feature.id}On`);
       for (const row of feature.rows) keys.add(row.key);
     }
+    keys.add('vfGlobal');
+    keys.add('vfVideos');
     return keys;
   };
 
   function validValue(key, value) {
     if (key.endsWith('On')) return typeof value === 'boolean';
     if (key === 'bookmarks') return isMarkMap(value);
+    if (key === 'vfGlobal') return vfValidFilter(value);
+    if (key === 'vfVideos') return vfValidVideos(value);
     const row = rowOf(key);
     if (!row) return false;
     if (row.type === 'toggle') return typeof value === 'boolean';
@@ -7148,6 +7525,479 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
     drawMenu();
   });
 
+  // ---------- video filter ----------
+
+  const VF_PLAYER_CSS = `
+#ytc-vf-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;width:48px;height:100%;padding:0;border:0;background:none;color:#fff;cursor:pointer;opacity:.9;vertical-align:top}
+#ytc-vf-btn:hover,#ytc-vf-btn[aria-expanded="true"]{opacity:1}
+#ytc-vf-btn:focus-visible{outline:2px solid #fff;outline-offset:-4px}
+#ytc-vf-btn svg{width:22px;height:22px;display:block}
+#ytc-vf-btn .ytc-vf-dot{position:absolute;top:10px;right:10px;width:6px;height:6px;border-radius:50%;background:#3ea6ff;pointer-events:none}
+#ytc-vf-btn .ytc-vf-dot[hidden]{display:none}
+#ytc-vf-popover,#ytc-vf-popover *{box-sizing:border-box}
+#ytc-vf-popover{position:absolute;right:12px;bottom:56px;z-index:2050;width:310px;max-height:min(70vh,460px);display:flex;flex-direction:column;border-radius:12px;background:rgba(28,28,28,.95);color:#f1f1f1;border:1px solid rgba(255,255,255,.14);box-shadow:0 12px 32px rgba(0,0,0,.6);font-family:Roboto,Arial,sans-serif;font-size:13px;line-height:1.4;backdrop-filter:blur(8px);overflow:hidden}
+#ytc-vf-popover .ytc-vf-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.1)}
+#ytc-vf-popover .ytc-vf-title{font-weight:600;font-size:13.5px}
+#ytc-vf-popover .ytc-vf-pill{font-size:11px;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.1);color:#ccc}
+#ytc-vf-popover .ytc-vf-pill.is-video{background:rgba(62,166,255,.22);color:#7cc2ff}
+#ytc-vf-popover .ytc-vf-pill.is-dirty{background:rgba(255,193,7,.2);color:#ffd54f}
+#ytc-vf-popover .ytc-vf-close{margin-left:auto;width:28px;height:28px;border:0;border-radius:50%;background:none;color:#ddd;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+#ytc-vf-popover .ytc-vf-close:hover{background:rgba(255,255,255,.12)}
+#ytc-vf-popover .ytc-vf-body{flex:1 1 auto;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+#ytc-vf-popover .ytc-vf-mode-row{display:grid;grid-template-columns:52px 1fr;align-items:center;gap:8px}
+#ytc-vf-popover .ytc-vf-mode-row label{font-size:12px;color:#d6d6d6}
+#ytc-vf-popover .ytc-vf-select{width:100%;min-height:30px;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#181818;color:#f1f1f1;font:inherit;font-size:12px;cursor:pointer}
+#ytc-vf-popover .ytc-vf-select:focus-visible{outline:2px solid #3ea6ff;outline-offset:1px}
+#ytc-vf-popover .ytc-vf-sliders{display:flex;flex-direction:column;gap:8px}
+#ytc-vf-popover .ytc-vf-row{display:grid;grid-template-columns:16px 70px 1fr 48px;align-items:center;gap:6px}
+#ytc-vf-popover .ytc-vf-row.is-muted label{opacity:.48;text-decoration:line-through}
+#ytc-vf-popover .ytc-vf-row.is-muted input[type="range"],#ytc-vf-popover .ytc-vf-row.is-muted .ytc-vf-val{opacity:.42}
+#ytc-vf-popover .ytc-vf-row input[type="checkbox"]{width:14px;height:14px;margin:0;accent-color:#3ea6ff;cursor:pointer}
+#ytc-vf-popover .ytc-vf-row label{font-size:12px;color:#d6d6d6;white-space:nowrap;cursor:pointer;user-select:none}
+#ytc-vf-popover .ytc-vf-row input[type="range"]{width:100%;margin:0;accent-color:#3ea6ff;cursor:pointer}
+#ytc-vf-popover .ytc-vf-val{font-size:11.5px;color:#aaa;text-align:right;font-variant-numeric:tabular-nums;border:0;background:none;padding:2px 0;cursor:pointer}
+#ytc-vf-popover .ytc-vf-val:hover{color:#fff;text-decoration:underline}
+#ytc-vf-popover .ytc-vf-foot{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.1);background:rgba(18,18,18,.6)}
+#ytc-vf-popover .ytc-vf-act{flex:1 1 auto;min-height:30px;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08);color:#f1f1f1;font:inherit;font-size:11.5px;cursor:pointer;white-space:nowrap}
+#ytc-vf-popover .ytc-vf-act:hover{background:rgba(255,255,255,.16)}
+#ytc-vf-popover .ytc-vf-act.is-primary{background:#3ea6ff;color:#0f0f0f;border-color:transparent;font-weight:600}
+#ytc-vf-popover .ytc-vf-act.is-primary:hover{background:#65b8ff}
+`;
+
+  const vfLive = { videoId: '', values: { ...VF_NEUTRAL }, dirty: false };
+
+  function vfResolveSaved(id) {
+    const videos = vfReadVideos();
+    if (id && videos[id]) return { source: 'video', values: vfNormalize(videos[id]) };
+    const glob = vfReadGlobal();
+    return { source: vfIsNeutral(glob) ? 'default' : 'global', values: glob };
+  }
+
+  function vfLoadCurrent() {
+    const id = videoIdFromUrl();
+    vfLive.videoId = id;
+    vfLive.values = vfResolveSaved(id).values;
+    vfLive.dirty = false;
+  }
+
+  function vfEnsureSvg(gamma, sharpness) {
+    let svg = document.getElementById('ytc-vf-svg');
+    if (!svg) {
+      svg = document.createElementNS(SVG_NS, 'svg');
+      svg.id = 'ytc-vf-svg';
+      svg.setAttribute('aria-hidden', 'true');
+      svg.style.cssText = 'position:fixed;width:0;height:0;pointer-events:none;opacity:0';
+      const defs = document.createElementNS(SVG_NS, 'defs');
+      const filter = document.createElementNS(SVG_NS, 'filter');
+      filter.id = 'ytc-vf-svg-filter';
+      filter.setAttribute('color-interpolation-filters', 'sRGB');
+      const ct = document.createElementNS(SVG_NS, 'feComponentTransfer');
+      ct.id = 'ytc-vf-gamma';
+      for (const tag of ['feFuncR', 'feFuncG', 'feFuncB']) {
+        const fn = document.createElementNS(SVG_NS, tag);
+        fn.setAttribute('type', 'gamma');
+        fn.setAttribute('amplitude', '1');
+        fn.setAttribute('exponent', '1');
+        fn.setAttribute('offset', '0');
+        ct.append(fn);
+      }
+      const conv = document.createElementNS(SVG_NS, 'feConvolveMatrix');
+      conv.id = 'ytc-vf-sharp';
+      conv.setAttribute('order', '3');
+      conv.setAttribute('preserveAlpha', 'true');
+      conv.setAttribute('kernelMatrix', '0 0 0 0 1 0 0 0 0');
+      filter.append(ct, conv);
+      defs.append(filter);
+      svg.append(defs);
+      (document.body || document.documentElement).append(svg);
+    }
+    const safeGamma = vfClamp(Number.isFinite(gamma) ? gamma : 1, 0.2, 3.0);
+    const exp = (1 / safeGamma).toFixed(4);
+    for (const fn of svg.querySelectorAll('#ytc-vf-gamma > *')) fn.setAttribute('exponent', exp);
+    const sharp = vfClamp(Number.isFinite(sharpness) ? sharpness : 0, 0, 100);
+    const conv = svg.querySelector('#ytc-vf-sharp');
+    if (conv) {
+      if (sharp <= 0) conv.setAttribute('kernelMatrix', '0 0 0 0 1 0 0 0 0');
+      else {
+        const k = (sharp / 100) * 1.5;
+        const c = (1 + 4 * k).toFixed(4);
+        const s = (-k).toFixed(4);
+        conv.setAttribute('kernelMatrix', `0 ${s} 0 ${s} ${c} ${s} 0 ${s} 0`);
+      }
+    }
+  }
+
+  function vfBuildFilter(f) {
+    if (vfIsNeutral(f)) return '';
+    const parts = [];
+    if (!vfIsOff(f, 'brightness') && f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
+    if (!vfIsOff(f, 'contrast') && f.contrast !== 100) parts.push(`contrast(${f.contrast}%)`);
+    if (!vfIsOff(f, 'saturation') && f.saturation !== 100) parts.push(`saturate(${f.saturation}%)`);
+    if (!vfIsOff(f, 'hue') && f.hue !== 0) parts.push(`hue-rotate(${f.hue}deg)`);
+    if (!vfIsOff(f, 'sepia') && f.sepia !== 0) parts.push(`sepia(${f.sepia}%)`);
+    if (!vfIsOff(f, 'grayscale') && f.grayscale !== 0) parts.push(`grayscale(${f.grayscale}%)`);
+    if (!vfIsOff(f, 'invert') && f.invert !== 0) parts.push(`invert(${f.invert}%)`);
+    const effGamma = vfIsOff(f, 'gamma') ? 1 : f.gamma;
+    const effSharp = vfIsOff(f, 'sharpness') ? 0 : f.sharpness;
+    if (effGamma !== 1 || effSharp > 0) {
+      vfEnsureSvg(effGamma, effSharp);
+      parts.push('url(#ytc-vf-svg-filter)');
+    }
+    return parts.join(' ');
+  }
+
+  function vfStatus() {
+    const id = videoIdFromUrl();
+    const hasOverride = !!(id && vfReadVideos()[id]);
+    if (vfLive.dirty) return { text: 'Unsaved', cls: 'is-dirty', hasOverride };
+    if (hasOverride) return { text: 'Saved for video', cls: 'is-video', hasOverride: true };
+    if (!vfIsNeutral(vfLive.values)) return { text: 'Global', cls: '', hasOverride: false };
+    return { text: 'Default', cls: '', hasOverride: false };
+  }
+
+  function vfUpdateBtn() {
+    const btn = document.getElementById('ytc-vf-btn');
+    if (!btn) return;
+    const active = !vfIsNeutral(vfLive.values);
+    const dot = btn.querySelector('.ytc-vf-dot');
+    if (dot) dot.hidden = !active;
+    const st = vfStatus();
+    btn.title = active ? `Video Filter (${st.text})` : 'Video Filter';
+    btn.setAttribute('aria-label', btn.title);
+    btn.setAttribute('aria-expanded', document.getElementById('ytc-vf-popover') ? 'true' : 'false');
+  }
+
+  function vfApply() {
+    const video = currentVideo();
+    if (!video) return;
+    const player = playerEl();
+    if (!isTop || !moduleOn('videoFilter') || !onWatchPage() || (player && player.classList.contains('ad-showing'))) {
+      video.style.filter = '';
+      vfUpdateBtn();
+      return;
+    }
+    const id = videoIdFromUrl();
+    if (id !== vfLive.videoId) vfLoadCurrent();
+    video.style.filter = vfBuildFilter(vfLive.values);
+    vfUpdateBtn();
+  }
+
+  function vfClosePopover() {
+    document.removeEventListener('pointerdown', vfOutsidePointer, true);
+    document.removeEventListener('keydown', vfPopoverKey, true);
+    document.getElementById('ytc-vf-popover')?.remove();
+    vfUpdateBtn();
+  }
+
+  function vfOutsidePointer(e) {
+    const pop = document.getElementById('ytc-vf-popover');
+    const btn = document.getElementById('ytc-vf-btn');
+    if (!pop) return;
+    if (pop.contains(e.target) || (btn && btn.contains(e.target))) return;
+    vfClosePopover();
+  }
+
+  function vfPopoverKey(e) {
+    const pop = document.getElementById('ytc-vf-popover');
+    if (!pop) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      vfClosePopover();
+      document.getElementById('ytc-vf-btn')?.focus();
+    }
+  }
+
+  function vfRenderPopover() {
+    const player = playerEl();
+    if (!player) return;
+    let pop = document.getElementById('ytc-vf-popover');
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.id = 'ytc-vf-popover';
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-label', 'Video Filter');
+      for (const evt of ['click', 'mousedown', 'pointerdown', 'keydown', 'keyup']) {
+        pop.addEventListener(evt, (e) => {
+          if (evt === 'keydown' && e.key === 'Escape') return;
+          e.stopPropagation();
+        });
+      }
+      player.append(pop);
+    }
+    pop.textContent = '';
+
+    const st = vfStatus();
+    const head = document.createElement('div');
+    head.className = 'ytc-vf-head';
+    const title = document.createElement('span');
+    title.className = 'ytc-vf-title';
+    title.textContent = 'Video Filter';
+    const pill = document.createElement('span');
+    pill.className = `ytc-vf-pill ${st.cls}`.trim();
+    pill.textContent = st.text;
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'ytc-vf-close';
+    closeBtn.setAttribute('aria-label', 'Close Video Filter');
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', vfClosePopover);
+    head.append(title, pill, closeBtn);
+
+    const body = document.createElement('div');
+    body.className = 'ytc-vf-body';
+
+    const modeRow = document.createElement('div');
+    modeRow.className = 'ytc-vf-mode-row';
+    const modeLab = document.createElement('label');
+    modeLab.htmlFor = 'ytc-vf-mode';
+    modeLab.textContent = 'Mode';
+    const modeSelect = document.createElement('select');
+    modeSelect.id = 'ytc-vf-mode';
+    modeSelect.className = 'ytc-vf-select';
+    modeSelect.setAttribute('aria-label', 'Filter mode');
+    for (const [val, label] of [['global', 'Global'], ...VF_PRESETS.map((pr) => [pr.id, pr.label]), ['custom', 'Custom']]) {
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = label;
+      modeSelect.append(opt);
+    }
+    modeSelect.value = vfDetectMode(vfLive.values, true);
+    modeSelect.addEventListener('change', () => {
+      const choice = modeSelect.value;
+      if (choice === 'custom') return;
+      if (choice === 'global') {
+        vfLive.values = vfReadGlobal();
+      } else {
+        const preset = VF_PRESETS.find((pr) => pr.id === choice);
+        if (!preset) return;
+        vfLive.values = vfNormalize({ ...VF_NEUTRAL, ...preset.values });
+      }
+      vfLive.dirty = !vfEqual(vfLive.values, vfResolveSaved(videoIdFromUrl()).values);
+      vfApply();
+      vfRenderPopover();
+    });
+    modeRow.append(modeLab, modeSelect);
+    body.append(modeRow);
+
+    const sliders = document.createElement('div');
+    sliders.className = 'ytc-vf-sliders';
+    for (const p of VF_PARAMS) {
+      const off = vfIsOff(vfLive.values, p.key);
+      const row = document.createElement('div');
+      row.className = off ? 'ytc-vf-row is-muted' : 'ytc-vf-row';
+      const chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.id = `ytc-vf-en-${p.key}`;
+      chk.checked = !off;
+      chk.setAttribute('aria-label', `Toggle ${p.label}`);
+      chk.title = `Toggle ${p.label}`;
+      const lab = document.createElement('label');
+      lab.htmlFor = `ytc-vf-en-${p.key}`;
+      lab.title = `Click to toggle ${p.label}`;
+      lab.textContent = p.label;
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.id = `ytc-vf-sl-${p.key}`;
+      input.min = String(p.min);
+      input.max = String(p.max);
+      input.step = String(p.step);
+      input.value = String(vfLive.values[p.key]);
+      input.setAttribute('aria-label', p.label);
+      const valBtn = document.createElement('button');
+      valBtn.type = 'button';
+      valBtn.className = 'ytc-vf-val';
+      valBtn.title = `Reset ${p.label}`;
+      valBtn.textContent = vfFormat(p, vfLive.values[p.key]);
+
+      const syncRow = () => {
+        const muted = vfIsOff(vfLive.values, p.key);
+        row.className = muted ? 'ytc-vf-row is-muted' : 'ytc-vf-row';
+        chk.checked = !muted;
+        input.value = String(vfLive.values[p.key]);
+        valBtn.textContent = vfFormat(p, vfLive.values[p.key]);
+        modeSelect.value = vfDetectMode(vfLive.values, true);
+        vfLive.dirty = !vfEqual(vfLive.values, vfResolveSaved(videoIdFromUrl()).values);
+        const nextSt = vfStatus();
+        pill.textContent = nextSt.text;
+        pill.className = `ytc-vf-pill ${nextSt.cls}`.trim();
+        vfApply();
+      };
+      chk.addEventListener('change', () => {
+        const nextDisabled = new Set(vfLive.values.disabled || []);
+        if (chk.checked) nextDisabled.delete(p.key);
+        else nextDisabled.add(p.key);
+        vfLive.values = vfNormalize({ ...vfLive.values, disabled: [...nextDisabled] });
+        syncRow();
+      });
+      const onUpdate = (nextNum) => {
+        const nextDisabled = (vfLive.values.disabled || []).filter((k) => k !== p.key);
+        vfLive.values = vfNormalize({ ...vfLive.values, [p.key]: nextNum, disabled: nextDisabled });
+        syncRow();
+      };
+      input.addEventListener('input', () => onUpdate(Number(input.value)));
+      valBtn.addEventListener('click', () => onUpdate(p.def));
+      row.append(chk, lab, input, valBtn);
+      sliders.append(row);
+    }
+    body.append(sliders);
+
+    const foot = document.createElement('div');
+    foot.className = 'ytc-vf-foot';
+
+    const saveVid = document.createElement('button');
+    saveVid.type = 'button';
+    saveVid.className = 'ytc-vf-act is-primary';
+    saveVid.textContent = 'Save for this video';
+    saveVid.addEventListener('click', () => {
+      const id = videoIdFromUrl();
+      if (!id) return;
+      vfSaveVideo(id, vfLive.values);
+      vfLive.dirty = false;
+      vfApply();
+      vfRenderPopover();
+    });
+
+    const saveGlob = document.createElement('button');
+    saveGlob.type = 'button';
+    saveGlob.className = 'ytc-vf-act';
+    saveGlob.textContent = 'Save as global';
+    saveGlob.addEventListener('click', () => {
+      vfWriteGlobal(vfLive.values);
+      const id = videoIdFromUrl();
+      if (id && vfReadVideos()[id]) vfSaveVideo(id, vfLive.values);
+      vfLive.dirty = false;
+      vfApply();
+      vfRenderPopover();
+    });
+
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.className = 'ytc-vf-act';
+    resetBtn.textContent = 'Reset';
+    resetBtn.addEventListener('click', () => {
+      vfLive.values = { ...VF_NEUTRAL };
+      vfLive.dirty = !vfEqual(vfLive.values, vfResolveSaved(videoIdFromUrl()).values);
+      vfApply();
+      vfRenderPopover();
+    });
+
+    foot.append(saveVid, saveGlob, resetBtn);
+
+    if (st.hasOverride) {
+      const useGlob = document.createElement('button');
+      useGlob.type = 'button';
+      useGlob.className = 'ytc-vf-act';
+      useGlob.textContent = 'Use global';
+      useGlob.addEventListener('click', () => {
+        const id = videoIdFromUrl();
+        if (id) vfDeleteVideo(id);
+        vfLoadCurrent();
+        vfApply();
+        vfRenderPopover();
+      });
+      foot.append(useGlob);
+    }
+
+    pop.append(head, body, foot);
+    vfUpdateBtn();
+  }
+
+  function vfIcon() {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('fill', 'currentColor');
+    path.setAttribute('d', 'M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z');
+    svg.append(path);
+    return svg;
+  }
+
+  let vfAdObserver = null;
+  let vfObservedPlayer = null;
+  function vfAttachAdObserver() {
+    const player = playerEl();
+    if (!player || player === vfObservedPlayer) return;
+    if (vfAdObserver) vfAdObserver.disconnect();
+    vfObservedPlayer = player;
+    vfAdObserver = new MutationObserver(() => vfApply());
+    vfAdObserver.observe(player, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  function vfSyncButton() {
+    const wanted = isTop && moduleOn('videoFilter') && onWatchPage();
+    if (!wanted) {
+      vfClosePopover();
+      document.getElementById('ytc-vf-btn')?.remove();
+      document.getElementById('ytc-vf-style')?.remove();
+      return;
+    }
+    const controls = document.querySelector('#movie_player .ytp-right-controls');
+    if (!controls) return;
+    if (!document.getElementById('ytc-vf-style')) {
+      const style = document.createElement('style');
+      style.id = 'ytc-vf-style';
+      style.textContent = VF_PLAYER_CSS;
+      document.head.append(style);
+    }
+    let btn = document.getElementById('ytc-vf-btn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'ytc-vf-btn';
+      btn.className = 'ytp-button';
+      btn.setAttribute('aria-controls', 'ytc-vf-popover');
+      btn.append(vfIcon());
+      const dot = document.createElement('span');
+      dot.className = 'ytc-vf-dot';
+      dot.hidden = true;
+      btn.append(dot);
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (document.getElementById('ytc-vf-popover')) {
+          vfClosePopover();
+          return;
+        }
+        if (videoIdFromUrl() !== vfLive.videoId) vfLoadCurrent();
+        vfRenderPopover();
+        document.addEventListener('pointerdown', vfOutsidePointer, true);
+        document.addEventListener('keydown', vfPopoverKey, true);
+      });
+    }
+    const settingsBtn = controls.querySelector('.ytp-settings-button');
+    if (settingsBtn && settingsBtn.parentElement === controls) {
+      if (btn.nextElementSibling !== settingsBtn) controls.insertBefore(btn, settingsBtn);
+    } else if (btn.parentElement !== controls) {
+      controls.prepend(btn);
+    }
+    vfUpdateBtn();
+  }
+
+  vfRefreshAll = () => {
+    vfAttachAdObserver();
+    if (!vfLive.dirty) vfLoadCurrent();
+    vfSyncButton();
+    vfApply();
+    if (document.getElementById('ytc-vf-popover')) vfRenderPopover();
+  };
+
+  document.addEventListener('yt-navigate-finish', () => {
+    if (!isTop) return;
+    vfClosePopover();
+    vfLoadCurrent();
+    vfRefreshAll();
+    setTimeout(vfRefreshAll, 1000);
+  });
+
+  document.addEventListener('ytc-change', () => {
+    if (!isTop) return;
+    vfLive.dirty = false;
+    vfLoadCurrent();
+    vfRefreshAll();
+  });
+
   // ---------- overview and diagnostics ----------
 
   const version = () =>
@@ -7186,6 +8036,11 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
     }
     if (feature.id === 'quiet') {
       return `${quietOn()} on`;
+    }
+    if (feature.id === 'videoFilter') {
+      const n = Object.keys(vfReadVideos()).length;
+      if (n) return `${n} saved`;
+      return vfIsNeutral(vfReadGlobal()) ? 'Neutral' : 'Global';
     }
     return 'On';
   }
@@ -7344,6 +8199,7 @@ html[dark] #${DIALOG_ID} .ytc-lt-confirm-list{background:rgba(255,255,255,.05);c
 
   drawMenu();
   syncPlayButtons();
+  vfRefreshAll();
   // The player sometimes builds its control bar after the first paint
-  setTimeout(syncPlayButtons, 1500);
+  setTimeout(() => { syncPlayButtons(); vfRefreshAll(); }, 1500);
 })();

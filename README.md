@@ -12,12 +12,13 @@ Every script here is written with AI assistance: the code is generated or drafte
 
 | Name | What it does | Link |
 | --- | --- | :---: |
-| YouTube: Custom Collection | Collection of the YouTube modules in this repo (`General Custom`, `Playback Custom`, `Playlist Tools`, `Quiet Page`), bundled into one install with sub-section settings, JSON backup and diagnostics. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube/youtube-custom-collection.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube/youtube-custom-collection.user.js) |
+| YouTube: Custom Collection | Collection of the YouTube modules in this repo (`General Custom`, `Playback Custom`, `Playlist Tools`, `Quiet Page`, `Video Filter`), bundled into one install with sub-section settings, JSON backup and diagnostics. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube/youtube-custom-collection.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube/youtube-custom-collection.user.js) |
 | YouTube: General Custom | Custom video grid columns per section, Open Shorts in Watch Page, and Clean Share Link (with address bar cleaning and copy-at-time) in one script. Set it from the userscript manager menu. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube/youtube-general-custom.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube/youtube-general-custom.user.js) |
 | YouTube: Playback Custom | Preferred resolution, playback defaults (speed, hotkeys, theater, volume, subtitles, audio track), autoplay control, auto-expand description, and video bookmarks. Set it from the userscript manager menu. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube/youtube-playback-custom.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube/youtube-playback-custom.user.js) |
 | YouTube: Playlist Tools | Dedicated Watch Later Tools (`/playlist?list=WL`), Playlist Tools (normal playlists), Liked Videos Tools (`/playlist?list=LL`), and Watch Page playlist length calculator. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube/youtube-playlist-tools.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube/youtube-playlist-tools.user.js) |
 | YouTube: Quiet Page | Stops video previews and paused prompts, hides Members-only/Premium cards and People Mentioned, and hides feed, watch page and sidebar clutter. Set it from the userscript manager menu. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube/youtube-quiet-page.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube/youtube-quiet-page.user.js) |
 | YouTube: Timer Tamer | Batches the page's timers onto the next animation frame while a video plays, to cut idle CPU. Install it alone: a second timer tamer would stack its delay on top of this one. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube/youtube-timer-tamer.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube/youtube-timer-tamer.user.js) |
+| YouTube: Video Filter | Real-time video visual filters (brightness, contrast, saturation, hue, sepia, grayscale, invert, gamma, sharpness) with presets, global defaults, and per-video overrides from a player button next to Settings. | [Install](https://raw.githubusercontent.com/Afadfath03/Userscript/main/scripts/youtube/youtube-video-filter.user.js) · [Script](https://github.com/Afadfath03/Userscript/blob/main/scripts/youtube/youtube-video-filter.user.js) |
 
 ### YouTube Music
 
@@ -33,7 +34,7 @@ The **Install** links point at the raw `.user.js`; most userscript managers (Tam
 
 ## Preview
 
-`preview/` holds an interactive preview page ([preview/index.html](preview/index.html)) that loads all 11 scripts directly from `scripts/`, along with captured UI screenshots in `preview/screenshots/`.
+`preview/` holds an interactive preview page ([preview/index.html](preview/index.html)) that loads all 12 scripts directly from `scripts/`, along with captured UI screenshots in `preview/screenshots/`.
 
 - Open [preview/index.html](preview/index.html) directly in a browser (or over a local HTTP server) to try every script's menu commands, settings panels, dark/light themes, and live stages.
 - Regenerate all screenshots with Playwright:
