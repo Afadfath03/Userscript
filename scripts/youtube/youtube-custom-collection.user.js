@@ -42,7 +42,9 @@
   let openLikedToolsDialog = () => {};
   const videoIdFromUrl = () => {
     if (location.pathname === '/watch') return new URLSearchParams(location.search).get('v') || '';
-    if (location.protocol === 'file:') return playerEl()?.dataset.previewVid || '';
+    if (location.protocol === 'file:' || location.hostname === '127.0.0.1' || location.hostname === 'localhost') {
+      return playerEl()?.dataset.previewVid || '';
+    }
     return '';
   };
   const onWatchPage = () => !!videoIdFromUrl();

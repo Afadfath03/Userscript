@@ -709,9 +709,6 @@
 
   <script>
     const PREVIEW_BASE = new URL('.', location.href).href;
-    if (location.protocol !== 'file:') {
-      history.replaceState(null, '', '/watch?v=demoVF001');
-    }
     // Paint a colorful poster SVG onto the mock <video> so every filter slider is visibly clear
     {
       const posterSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540">
@@ -748,7 +745,6 @@
           document.getElementById('vf-meta-title').textContent = title;
           document.getElementById('vf-player-label').textContent = `01:24 / 10:00 · ${title}`;
           document.getElementById('movie_player').dataset.previewVid = id;
-          if (location.protocol !== 'file:') history.replaceState(null, '', `/watch?v=${id}`);
           document.dispatchEvent(new Event('yt-navigate-finish'));
         });
       }
