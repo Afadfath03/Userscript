@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Custom Collection
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      5.2
+// @version      5.3
 // @description  Collection of YouTube userscripts made by me, bundled into one install with per-feature settings
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -1993,6 +1993,8 @@
     const sel = (suffix) => scopes.map((s) => `${s} ${suffix}`).join(',');
     const item = 'ytd-rich-item-renderer:not([is-slim-media]):not([is-post]):not([is-mini-mode])';
 
+    const EMPTY_ATTR = 'data-ytc-grid-empty';
+    const EMPTY_TARGET = `ytd-rich-section-renderer, ${item}`;
     const style = document.createElement('style');
     style.id = 'ytc-grid';
     style.textContent =
@@ -2016,8 +2018,26 @@
       `width:100%!important;max-width:100%!important;min-width:0!important}` +
       `${sel('ytd-rich-section-renderer')},${sel('ytd-continuation-item-renderer')}{` +
       `width:100%!important;flex:0 0 100%!important}` +
-      `${sel('ytd-rich-item-renderer:has(ytd-ad-slot-renderer)')}{display:none!important}`;
+      `${sel('ytd-rich-item-renderer:has(ytd-ad-slot-renderer)')},${sel(`[${EMPTY_ATTR}]`)}{display:none!important}`;
     document.documentElement.append(style);
+
+    let emptyRaf = 0;
+    function syncEmpty() {
+      emptyRaf = 0;
+      const nodes = document.querySelectorAll(EMPTY_TARGET);
+      if (!enabled()) {
+        for (const el of nodes) el.removeAttribute(EMPTY_ATTR);
+        return;
+      }
+      for (const el of nodes) {
+        if (el.closest('[hidden]')) continue;
+        if (el.hasAttribute(EMPTY_ATTR)) el.removeAttribute(EMPTY_ATTR);
+        if (el.getBoundingClientRect().height < 1) el.setAttribute(EMPTY_ATTR, '');
+      }
+    }
+    const scheduleEmpty = () => {
+      if (!emptyRaf) emptyRaf = requestAnimationFrame(syncEmpty);
+    };
 
     function apply() {
       const root = document.documentElement;
@@ -2028,8 +2048,13 @@
       for (const s of SECTIONS) {
         root.classList.toggle(s.cls, on && get(s.key, true) === true);
       }
+      scheduleEmpty();
     }
 
+    new MutationObserver(() => {
+      if (enabled()) scheduleEmpty();
+    }).observe(document.documentElement, { childList: true, subtree: true });
+    document.addEventListener('yt-navigate-finish', scheduleEmpty);
     document.addEventListener('ytc-change', apply);
     apply();
   }

@@ -24,6 +24,7 @@ const FIXTURE = `<!doctype html><html><head><style>
       <ytd-rich-item-renderer id="h-ad"><div id="content"><ytd-ad-slot-renderer></ytd-ad-slot-renderer></div></ytd-rich-item-renderer>
       ${card('h1', 'is-in-first-column')}${card('h2')}
     </div></ytd-rich-grid-row>
+    <ytd-rich-section-renderer id="h-empty-shelf" style="height: 0"></ytd-rich-section-renderer>
     <ytd-rich-grid-row><div id="contents">${card('h3', 'is-in-first-column')}${card('h4')}</div></ytd-rich-grid-row>
     <ytd-rich-grid-row><div id="contents">
       ${card('h5', 'is-in-first-column')}${card('h6')}
@@ -91,8 +92,12 @@ async function setup(script, url = `${base}/`) {
   const { ctx, page } = await setup(STANDALONE);
   const row4 = await measureRow(page, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
   check('standalone: defaults to 4 per row uniformly', row4.count === 4 && row4.diff < 1);
-  check('standalone: collapses ad-slot wrapper in grid',
-    (await page.evaluate(() => getComputedStyle(document.getElementById('h-ad')).display)) === 'none');
+  check('standalone: collapses ad-slot wrapper and zero-height section in grid',
+    await page.evaluate(() =>
+      getComputedStyle(document.getElementById('h-ad')).display === 'none' &&
+      getComputedStyle(document.getElementById('h-empty-shelf')).display === 'none' &&
+      getComputedStyle(document.getElementById('h-shelf')).display !== 'none'
+    ));
   check('standalone: share url strips si parameter',
     (await page.locator('#share-url').inputValue()) === 'https://youtu.be/abcdef12345?t=45');
   await page.click('#copy-button');
@@ -144,9 +149,11 @@ async function setup(script, url = `${base}/`) {
   const { ctx, page } = await setup(COLLECTION);
   const row4 = await measureRow(page, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
   check('collection: General Custom defaults to 4 per row uniformly', row4.count === 4 && row4.diff < 1);
-  check('collection: collapses ad-slot wrapper and nested Members-only lockup outer card',
+  check('collection: collapses ad-slot wrapper, zero-height section, and nested Members-only lockup outer card',
     await page.evaluate(() =>
       getComputedStyle(document.getElementById('h-ad')).display === 'none' &&
+      getComputedStyle(document.getElementById('h-empty-shelf')).display === 'none' &&
+      getComputedStyle(document.getElementById('h-shelf')).display !== 'none' &&
       getComputedStyle(document.getElementById('h-mem')).display === 'none' &&
       !document.getElementById('h-mem-lockup').hasAttribute('data-ytc-off')
     ));

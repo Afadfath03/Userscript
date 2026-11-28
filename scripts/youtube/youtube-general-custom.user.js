@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: General Custom
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.1
+// @version      1.2
 // @description  Custom video grid columns per section, Open Shorts in Watch Page, and Clean Share Link in one YouTube script
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -85,10 +85,14 @@
     },
   ];
 
+  const GRID_EMPTY_ATTR = 'data-ytgc-grid-empty';
+  const GRID_ITEM = 'ytd-rich-item-renderer:not([is-slim-media]):not([is-post]):not([is-mini-mode])';
+  const GRID_EMPTY_TARGET = `ytd-rich-section-renderer, ${GRID_ITEM}`;
+
   {
     const scopes = GRID_SECTIONS.map((s) => `html.${s.cls} ${s.scope}`);
     const sel = (suffix) => scopes.map((s) => `${s} ${suffix}`).join(',');
-    const item = 'ytd-rich-item-renderer:not([is-slim-media]):not([is-post]):not([is-mini-mode])';
+    const item = GRID_ITEM;
     const style = document.createElement('style');
     style.id = 'ytgc-grid';
     style.textContent =
@@ -112,9 +116,28 @@
       `width:100%!important;max-width:100%!important;min-width:0!important}` +
       `${sel('ytd-rich-section-renderer')},${sel('ytd-continuation-item-renderer')}{` +
       `width:100%!important;flex:0 0 100%!important}` +
-      `${sel('ytd-rich-item-renderer:has(ytd-ad-slot-renderer)')}{display:none!important}`;
+      `${sel('ytd-rich-item-renderer:has(ytd-ad-slot-renderer)')},${sel(`[${GRID_EMPTY_ATTR}]`)}{display:none!important}`;
     document.documentElement.append(style);
   }
+
+  let gridEmptyRaf = 0;
+  function syncEmptyGrid() {
+    gridEmptyRaf = 0;
+    const nodes = document.querySelectorAll(GRID_EMPTY_TARGET);
+    const active = enabled() && get('gridOn', true) === true;
+    if (!active) {
+      for (const el of nodes) el.removeAttribute(GRID_EMPTY_ATTR);
+      return;
+    }
+    for (const el of nodes) {
+      if (el.closest('[hidden]')) continue;
+      if (el.hasAttribute(GRID_EMPTY_ATTR)) el.removeAttribute(GRID_EMPTY_ATTR);
+      if (el.getBoundingClientRect().height < 1) el.setAttribute(GRID_EMPTY_ATTR, '');
+    }
+  }
+  const scheduleEmptyGrid = () => {
+    if (!gridEmptyRaf) gridEmptyRaf = requestAnimationFrame(syncEmptyGrid);
+  };
 
   function applyGrid() {
     const root = document.documentElement;
@@ -122,6 +145,7 @@
     if (active) root.style.setProperty('--ytgc-cols', String(cols()));
     else root.style.removeProperty('--ytgc-cols');
     for (const s of GRID_SECTIONS) root.classList.toggle(s.cls, active && get(s.key, true) === true);
+    scheduleEmptyGrid();
   }
 
   // ---------- open shorts in watch page ----------
@@ -286,7 +310,8 @@
   new MutationObserver((list) => {
     const watchShorts = shortsOn();
     const watchShare = shareOn();
-    if (!watchShorts && !watchShare) return;
+    const watchGrid = enabled() && get('gridOn', true) === true;
+    if (!watchShorts && !watchShare && !watchGrid) return;
     let added = false;
     for (const m of list) {
       for (const n of m.addedNodes) {
@@ -304,6 +329,7 @@
         for (const node of batch) rewriteShortsLinks(node);
       }
       if (shareOn()) cleanInputs();
+      if (enabled() && get('gridOn', true) === true) scheduleEmptyGrid();
     });
   }).observe(document.documentElement, { childList: true, subtree: true });
 
@@ -315,6 +341,7 @@
   document.addEventListener('yt-navigate-finish', () => {
     syncShorts();
     cleanAddress();
+    scheduleEmptyGrid();
   });
   window.addEventListener('popstate', () => {
     syncShorts();
