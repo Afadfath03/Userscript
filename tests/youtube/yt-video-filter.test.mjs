@@ -86,22 +86,40 @@ async function setup(script, store = {}, path = '/watch?v=vidAAA11111') {
       !('ytvf.videos' in window.__store)
     ));
 
-  // Per-parameter label click toggles off with strikethrough and preserves slider value; mode switches to custom
-  await page.locator('#ytvf-popover label', { hasText: 'Brightness' }).click();
-  check('standalone: clicking parameter label toggles off with strikethrough and preserves slider value',
+  // No checkbox; clicking parameter name button toggles off with strikethrough and preserves slider value
+  check('standalone: no checkbox toggle rendered in popover',
+    await page.evaluate(() => document.querySelectorAll('#ytvf-popover input[type="checkbox"]').length === 0));
+  await page.click('#ytvf-name-brightness');
+  check('standalone: clicking parameter name toggles off with strikethrough and preserves slider value',
     await page.evaluate(() => {
-      const lab = [...document.querySelectorAll('#ytvf-popover label')].find((l) => l.textContent === 'Brightness');
+      const btn = document.getElementById('ytvf-name-brightness');
       return (
         document.getElementById('v').style.filter === '' &&
         document.getElementById('ytvf-sl-brightness').value === '130' &&
-        getComputedStyle(lab).textDecorationLine.includes('line-through')
+        getComputedStyle(btn).textDecorationLine.includes('line-through')
       );
     }));
-  await page.locator('#ytvf-popover label', { hasText: 'Brightness' }).click();
-  check('standalone: clicking parameter label again restores filter and sets mode to custom',
+  await page.click('#ytvf-name-brightness');
+  check('standalone: clicking parameter name again restores filter and sets mode to custom',
     await page.evaluate(() =>
       document.getElementById('v').style.filter.includes('brightness(130%)') &&
       document.getElementById('ytvf-mode').value === 'custom'
+    ));
+
+  // Click numeric value to type a number + Enter, then per-row reset button
+  await page.click('#ytvf-val-brightness');
+  await page.locator('#ytvf-popover input.ytvf-num').fill('145');
+  await page.locator('#ytvf-popover input.ytvf-num').press('Enter');
+  check('standalone: clicking percentage allows typing value and updates filter',
+    await page.evaluate(() =>
+      document.getElementById('v').style.filter.includes('brightness(145%)') &&
+      document.getElementById('ytvf-val-brightness').textContent === '145%'
+    ));
+  await page.click('#ytvf-rst-brightness');
+  check('standalone: per-row reset button resets brightness to 100%',
+    await page.evaluate(() =>
+      document.getElementById('v').style.filter === '' &&
+      document.getElementById('ytvf-val-brightness').textContent === '100%'
     ));
 
   // Adjust Gamma -> lazy SVG injected and referenced
@@ -135,12 +153,13 @@ async function setup(script, store = {}, path = '/watch?v=vidAAA11111') {
       !('ytvf.videos' in window.__store)
     ));
 
-  // Save for this video
+  // Save for this video -> auto-selects dedicated Saved for video mode, no Use global button
   await page.locator('#ytvf-popover button', { hasText: 'Save for this video' }).click();
-  check('standalone: Save for this video persists under ytvf.videos[id] and shows Use global',
+  check('standalone: Save for this video persists under ytvf.videos[id], selects Saved for video mode, and has no Use global button',
     await page.evaluate(() =>
       window.__store['ytvf.videos']?.vidAAA11111?.contrast === 112 &&
-      !![...document.querySelectorAll('#ytvf-popover button')].find((b) => b.textContent === 'Use global')
+      document.getElementById('ytvf-mode')?.value === 'video' &&
+      ![...document.querySelectorAll('#ytvf-popover button')].some((b) => b.textContent === 'Use global')
     ));
 
   // Option 3: Save as global while current video already has override updates BOTH global and current video override
@@ -182,16 +201,35 @@ async function setup(script, store = {}, path = '/watch?v=vidAAA11111') {
   const restoredAfterAd = await page.evaluate(() => document.getElementById('v').style.filter.includes('contrast(140%)'));
   check('standalone: ad-showing suspends filter and restores after ad', clearedOnAd && restoredAfterAd);
 
-  // Return to vidAAA11111 and Use global
+  // Return to vidAAA11111 -> mode auto-selects Saved for video; selecting Normal (=Global) previews global without deleting;
+  // selecting Neutral clears filter; 2-step Delete saved removes per-video override and reverts to Normal
   await page.evaluate(() => {
     history.pushState({}, '', '/watch?v=vidAAA11111');
     document.dispatchEvent(new Event('yt-navigate-finish'));
   });
   await page.waitForTimeout(60);
   await page.click('#ytvf-btn');
-  await page.locator('#ytvf-popover button', { hasText: 'Use global' }).click();
-  check('standalone: Use global removes per-video override',
-    await page.evaluate(() => !window.__store['ytvf.videos']?.vidAAA11111));
+  check('standalone: video with saved filter auto-selects dedicated Saved for video mode',
+    await page.evaluate(() => document.getElementById('ytvf-mode')?.value === 'video'));
+  await page.selectOption('#ytvf-mode', 'normal');
+  check('standalone: selecting Mode Normal (Global) previews global without deleting per-video override',
+    await page.evaluate(() => !!window.__store['ytvf.videos']?.vidAAA11111));
+  await page.selectOption('#ytvf-mode', 'neutral');
+  check('standalone: selecting Mode Neutral clears filter live',
+    await page.evaluate(() => document.getElementById('v').style.filter === ''));
+  await page.click('#ytvf-del-saved');
+  check('standalone: Delete saved asks for confirmation on first click',
+    await page.evaluate(() =>
+      document.getElementById('ytvf-del-saved')?.textContent === 'Click again to delete' &&
+      !!window.__store['ytvf.videos']?.vidAAA11111
+    ));
+  await page.click('#ytvf-del-saved');
+  check('standalone: second click on Delete saved removes per-video override and reverts to Normal',
+    await page.evaluate(() =>
+      !window.__store['ytvf.videos']?.vidAAA11111 &&
+      document.getElementById('ytvf-mode')?.value === 'normal' &&
+      document.getElementById('v').style.filter.includes('contrast(140%)')
+    ));
 
   // Keyboard isolation + Escape closes popover
   const bubbled = await page.evaluate(() => {

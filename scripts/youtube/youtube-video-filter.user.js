@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Video Filter
 // @namespace    https://github.com/Afadfath03/Userscript
-// @version      1.0
+// @version      1.1
 // @description  Real-time YouTube video visual filters (brightness, contrast, saturation, hue, sepia, grayscale, invert, gamma, sharpness) with presets, global defaults, and per-video overrides
 // @author       Afadfath03
 // @homepageURL  https://github.com/Afadfath03/Userscript
@@ -42,7 +42,7 @@
   const NEUTRAL = { ...Object.fromEntries(PARAMS.map((p) => [p.key, p.def])), disabled: [] };
 
   const PRESETS = [
-    { id: 'normal', label: 'Normal', values: {} },
+    { id: 'neutral', label: 'Neutral', values: {} },
     { id: 'vivid', label: 'Vivid', values: { brightness: 103, contrast: 112, saturation: 125, sharpness: 20 } },
     { id: 'cinema', label: 'Cinema', values: { brightness: 96, contrast: 115, saturation: 92, gamma: 1.1 } },
     { id: 'warm', label: 'Warm / Night', values: { brightness: 88, contrast: 95, saturation: 90, sepia: 25, gamma: 0.95 } },
@@ -310,19 +310,26 @@
 #ytvf-popover .ytvf-select{width:100%;min-height:30px;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#181818;color:#f1f1f1;font:inherit;font-size:12px;cursor:pointer}
 #ytvf-popover .ytvf-select:focus-visible{outline:2px solid #3ea6ff;outline-offset:1px}
 #ytvf-popover .ytvf-sliders{display:flex;flex-direction:column;gap:8px}
-#ytvf-popover .ytvf-row{display:grid;grid-template-columns:16px 70px 1fr 48px;align-items:center;gap:6px}
-#ytvf-popover .ytvf-row.is-muted label{opacity:.48;text-decoration:line-through}
+#ytvf-popover .ytvf-row{display:grid;grid-template-columns:72px 1fr 48px 22px;align-items:center;gap:6px}
+#ytvf-popover .ytvf-row.is-muted .ytvf-name{opacity:.48;text-decoration:line-through}
 #ytvf-popover .ytvf-row.is-muted input[type="range"],#ytvf-popover .ytvf-row.is-muted .ytvf-val{opacity:.42}
-#ytvf-popover .ytvf-row input[type="checkbox"]{width:14px;height:14px;margin:0;accent-color:#3ea6ff;cursor:pointer}
-#ytvf-popover .ytvf-row label{font-size:12px;color:#d6d6d6;white-space:nowrap;cursor:pointer;user-select:none}
+#ytvf-popover .ytvf-name{border:0;background:none;padding:2px 0;color:#d6d6d6;font:inherit;font-size:12px;text-align:left;white-space:nowrap;cursor:pointer;user-select:none}
+#ytvf-popover .ytvf-name:hover{color:#fff}
 #ytvf-popover .ytvf-row input[type="range"]{width:100%;margin:0;accent-color:#3ea6ff;cursor:pointer}
-#ytvf-popover .ytvf-val{font-size:11.5px;color:#aaa;text-align:right;font-variant-numeric:tabular-nums;border:0;background:none;padding:2px 0;cursor:pointer}
+#ytvf-popover .ytvf-val{font-size:11.5px;color:#aaa;text-align:right;font-variant-numeric:tabular-nums;border:0;background:none;padding:2px 0;cursor:text}
 #ytvf-popover .ytvf-val:hover{color:#fff;text-decoration:underline}
+#ytvf-popover .ytvf-num{width:48px;padding:1px 3px;border-radius:4px;border:1px solid #3ea6ff;background:#111;color:#fff;font:inherit;font-size:11.5px;text-align:right;font-variant-numeric:tabular-nums}
+#ytvf-popover .ytvf-row-reset{width:22px;height:22px;padding:0;border:0;border-radius:50%;background:none;color:#aaa;font-size:13px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+#ytvf-popover .ytvf-row-reset:hover:not(:disabled){background:rgba(255,255,255,.14);color:#fff}
+#ytvf-popover .ytvf-row-reset:disabled{opacity:.25;cursor:default}
 #ytvf-popover .ytvf-foot{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.1);background:rgba(18,18,18,.6)}
 #ytvf-popover .ytvf-act{flex:1 1 auto;min-height:30px;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08);color:#f1f1f1;font:inherit;font-size:11.5px;cursor:pointer;white-space:nowrap}
 #ytvf-popover .ytvf-act:hover{background:rgba(255,255,255,.16)}
 #ytvf-popover .ytvf-act.is-primary{background:#3ea6ff;color:#0f0f0f;border-color:transparent;font-weight:600}
 #ytvf-popover .ytvf-act.is-primary:hover{background:#65b8ff}
+#ytvf-popover .ytvf-del{flex:1 0 100%;margin-top:2px;padding:2px 4px;border:0;background:none;color:#999;font:inherit;font-size:11px;text-align:center;cursor:pointer}
+#ytvf-popover .ytvf-del:hover{color:#ddd;text-decoration:underline}
+#ytvf-popover .ytvf-del.is-armed{color:#ff7b72;font-weight:500}
 `;
 
   function filterIcon() {
@@ -359,9 +366,31 @@
     btn.setAttribute('aria-expanded', document.getElementById('ytvf-popover') ? 'true' : 'false');
   }
 
+  function positionPopover() {
+    const pop = document.getElementById('ytvf-popover');
+    const btn = document.getElementById('ytvf-btn');
+    const player = playerEl();
+    if (!pop || !btn || !player) return;
+    const pRect = player.getBoundingClientRect();
+    const bRect = btn.getBoundingClientRect();
+    const popW = pop.offsetWidth || 310;
+    if (pRect.width > 0 && bRect.width > 0) {
+      const targetLeft = (bRect.left - pRect.left) + (bRect.width / 2) - (popW / 2);
+      const clampedLeft = Math.max(8, Math.min(pRect.width - popW - 8, targetLeft));
+      pop.style.left = `${Math.round(clampedLeft)}px`;
+      pop.style.right = 'auto';
+      const bottomOffset = Math.max(48, Math.round(pRect.bottom - bRect.top + 8));
+      pop.style.bottom = `${bottomOffset}px`;
+    }
+  }
+
+  let deleteArmed = false;
+
   function closePopover() {
+    deleteArmed = false;
     document.removeEventListener('pointerdown', onOutsidePointer, true);
     document.removeEventListener('keydown', onPopoverKey, true);
+    window.removeEventListener('resize', positionPopover);
     document.getElementById('ytvf-popover')?.remove();
     updateButtonState();
   }
@@ -387,8 +416,11 @@
 
   function detectMode(values, includeGlobal) {
     if (includeGlobal) {
+      const id = videoIdFromUrl();
+      const savedVid = id ? readVideos()[id] : null;
+      if (savedVid && filtersEqual(values, normalizeFilter(savedVid))) return 'video';
       const glob = readGlobal();
-      if (!isNeutral(glob) && filtersEqual(values, glob)) return 'global';
+      if (filtersEqual(values, glob)) return 'normal';
     }
     for (const preset of PRESETS) {
       if (filtersEqual(values, normalizeFilter({ ...NEUTRAL, ...preset.values }))) return preset.id;
@@ -446,7 +478,8 @@
     modeSelect.className = 'ytvf-select';
     modeSelect.setAttribute('aria-label', 'Filter mode');
     const modeOptions = [
-      ['global', 'Global'],
+      ...(st.hasOverride ? [['video', 'Saved for video']] : []),
+      ['normal', 'Normal'],
       ...PRESETS.map((pr) => [pr.id, pr.label]),
       ['custom', 'Custom'],
     ];
@@ -458,9 +491,15 @@
     }
     modeSelect.value = detectMode(live.values, true);
     modeSelect.addEventListener('change', () => {
+      deleteArmed = false;
       const choice = modeSelect.value;
       if (choice === 'custom') return;
-      if (choice === 'global') {
+      if (choice === 'video') {
+        const id = videoIdFromUrl();
+        const savedVid = id ? readVideos()[id] : null;
+        if (!savedVid) return;
+        live.values = normalizeFilter(savedVid);
+      } else if (choice === 'normal') {
         live.values = readGlobal();
       } else {
         const preset = PRESETS.find((pr) => pr.id === choice);
@@ -482,17 +521,13 @@
       const row = document.createElement('div');
       row.className = off ? 'ytvf-row is-muted' : 'ytvf-row';
 
-      const chk = document.createElement('input');
-      chk.type = 'checkbox';
-      chk.id = `ytvf-en-${p.key}`;
-      chk.checked = !off;
-      chk.setAttribute('aria-label', `Toggle ${p.label}`);
-      chk.title = `Toggle ${p.label}`;
-
-      const lab = document.createElement('label');
-      lab.htmlFor = `ytvf-en-${p.key}`;
-      lab.title = `Click to toggle ${p.label}`;
-      lab.textContent = p.label;
+      const nameBtn = document.createElement('button');
+      nameBtn.type = 'button';
+      nameBtn.className = 'ytvf-name';
+      nameBtn.id = `ytvf-name-${p.key}`;
+      nameBtn.setAttribute('aria-pressed', String(!off));
+      nameBtn.title = `Click to toggle ${p.label}`;
+      nameBtn.textContent = p.label;
 
       const input = document.createElement('input');
       input.type = 'range';
@@ -506,15 +541,26 @@
       const valBtn = document.createElement('button');
       valBtn.type = 'button';
       valBtn.className = 'ytvf-val';
-      valBtn.title = `Reset ${p.label}`;
+      valBtn.id = `ytvf-val-${p.key}`;
+      valBtn.title = `Click to type ${p.label}`;
       valBtn.textContent = formatValue(p, live.values[p.key]);
+
+      const rowReset = document.createElement('button');
+      rowReset.type = 'button';
+      rowReset.className = 'ytvf-row-reset';
+      rowReset.id = `ytvf-rst-${p.key}`;
+      rowReset.setAttribute('aria-label', `Reset ${p.label}`);
+      rowReset.title = `Reset ${p.label}`;
+      rowReset.textContent = '↺';
+      rowReset.disabled = !off && live.values[p.key] === p.def;
 
       const syncRow = () => {
         const muted = isParamOff(live.values, p.key);
         row.className = muted ? 'ytvf-row is-muted' : 'ytvf-row';
-        chk.checked = !muted;
+        nameBtn.setAttribute('aria-pressed', String(!muted));
         input.value = String(live.values[p.key]);
         valBtn.textContent = formatValue(p, live.values[p.key]);
+        rowReset.disabled = !muted && live.values[p.key] === p.def;
         modeSelect.value = detectMode(live.values, true);
         const saved = resolveSavedFor(videoIdFromUrl()).values;
         live.dirty = !filtersEqual(live.values, saved);
@@ -524,23 +570,58 @@
         applyFilter();
       };
 
-      chk.addEventListener('change', () => {
-        const nextDisabled = new Set(live.values.disabled || []);
-        if (chk.checked) nextDisabled.delete(p.key);
-        else nextDisabled.add(p.key);
-        live.values = normalizeFilter({ ...live.values, disabled: [...nextDisabled] });
-        syncRow();
-      });
-
       const onUpdate = (nextNum) => {
         const nextDisabled = (live.values.disabled || []).filter((k) => k !== p.key);
         live.values = normalizeFilter({ ...live.values, [p.key]: nextNum, disabled: nextDisabled });
         syncRow();
       };
 
+      nameBtn.addEventListener('click', () => {
+        const nextDisabled = new Set(live.values.disabled || []);
+        if (nextDisabled.has(p.key)) nextDisabled.delete(p.key);
+        else nextDisabled.add(p.key);
+        live.values = normalizeFilter({ ...live.values, disabled: [...nextDisabled] });
+        syncRow();
+      });
+
       input.addEventListener('input', () => onUpdate(Number(input.value)));
-      valBtn.addEventListener('click', () => onUpdate(p.def));
-      row.append(chk, lab, input, valBtn);
+
+      valBtn.addEventListener('click', () => {
+        const numIn = document.createElement('input');
+        numIn.type = 'number';
+        numIn.className = 'ytvf-num';
+        numIn.min = String(p.min);
+        numIn.max = String(p.max);
+        numIn.step = String(p.step);
+        numIn.value = String(live.values[p.key]);
+        numIn.setAttribute('aria-label', `${p.label} value`);
+        let done = false;
+        const finish = (commit) => {
+          if (done) return;
+          done = true;
+          const parsed = Number(numIn.value);
+          numIn.replaceWith(valBtn);
+          if (commit && Number.isFinite(parsed)) onUpdate(parsed);
+        };
+        numIn.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            finish(true);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            finish(false);
+          }
+        });
+        numIn.addEventListener('blur', () => finish(true));
+        valBtn.replaceWith(numIn);
+        numIn.focus();
+        numIn.select();
+      });
+
+      rowReset.addEventListener('click', () => onUpdate(p.def));
+      row.append(nameBtn, input, valBtn, rowReset);
       sliders.append(row);
     }
     body.append(sliders);
@@ -591,21 +672,30 @@
     foot.append(saveVid, saveGlob, resetBtn);
 
     if (st.hasOverride) {
-      const useGlob = document.createElement('button');
-      useGlob.type = 'button';
-      useGlob.className = 'ytvf-act';
-      useGlob.textContent = 'Use global';
-      useGlob.addEventListener('click', () => {
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.id = 'ytvf-del-saved';
+      delBtn.className = deleteArmed ? 'ytvf-del is-armed' : 'ytvf-del';
+      delBtn.textContent = deleteArmed ? 'Click again to delete' : 'Delete saved';
+      delBtn.addEventListener('click', () => {
+        if (!deleteArmed) {
+          deleteArmed = true;
+          delBtn.className = 'ytvf-del is-armed';
+          delBtn.textContent = 'Click again to delete';
+          return;
+        }
+        deleteArmed = false;
         const id = videoIdFromUrl();
         if (id) deleteVideo(id);
         loadLiveForCurrentVideo();
         applyFilter();
         renderPopover();
       });
-      foot.append(useGlob);
+      foot.append(delBtn);
     }
 
     pop.append(head, body, foot);
+    positionPopover();
     updateButtonState();
   }
 
@@ -618,6 +708,7 @@
     renderPopover();
     document.addEventListener('pointerdown', onOutsidePointer, true);
     document.addEventListener('keydown', onPopoverKey, true);
+    window.addEventListener('resize', positionPopover);
   }
 
   function syncButton() {
@@ -654,8 +745,8 @@
       });
     }
     const settingsBtn = controls.querySelector('.ytp-settings-button');
-    if (settingsBtn && settingsBtn.parentElement === controls) {
-      if (btn.nextElementSibling !== settingsBtn) controls.insertBefore(btn, settingsBtn);
+    if (settingsBtn && settingsBtn.parentElement) {
+      if (btn.nextElementSibling !== settingsBtn) settingsBtn.parentElement.insertBefore(btn, settingsBtn);
     } else if (btn.parentElement !== controls) {
       controls.prepend(btn);
     }
@@ -689,13 +780,15 @@
 #ytvf-panel .ytvf-mode-row{display:grid;grid-template-columns:56px 1fr;align-items:center;gap:8px}
 #ytvf-panel .ytvf-mode-row label{font-size:13px}
 #ytvf-panel .ytvf-select,#ytvf-panel .ytvf-search{min-height:34px;padding:4px 10px;border-radius:8px;border:1px solid var(--yt-spec-10-percent-layer,rgba(128,128,128,.32));background:var(--yt-spec-badge-chip-background,rgba(128,128,128,.08));color:inherit;font:inherit;font-size:13px}
-#ytvf-panel .ytvf-srow{display:grid;grid-template-columns:18px 76px 1fr 52px;align-items:center;gap:6px}
-#ytvf-panel .ytvf-srow.is-muted label{opacity:.48;text-decoration:line-through}
+#ytvf-panel .ytvf-srow{display:grid;grid-template-columns:76px 1fr 52px 24px;align-items:center;gap:6px}
+#ytvf-panel .ytvf-srow.is-muted .ytvf-sname{opacity:.48;text-decoration:line-through}
 #ytvf-panel .ytvf-srow.is-muted input[type="range"],#ytvf-panel .ytvf-srow.is-muted .ytvf-sval{opacity:.42}
-#ytvf-panel .ytvf-srow input[type="checkbox"]{width:15px;height:15px;margin:0;accent-color:var(--yt-spec-call-to-action,#3ea6ff);cursor:pointer}
-#ytvf-panel .ytvf-srow label{font-size:13px;cursor:pointer;user-select:none}
+#ytvf-panel .ytvf-sname{width:auto;min-height:24px;padding:0;font-size:13px;cursor:pointer;user-select:none}
 #ytvf-panel .ytvf-srow input[type="range"]{width:100%;margin:0;accent-color:var(--yt-spec-call-to-action,#3ea6ff)}
-#ytvf-panel .ytvf-sval{width:auto;min-height:24px;padding:0;justify-content:flex-end;font-size:12px;color:var(--yt-spec-text-secondary,#606060);font-variant-numeric:tabular-nums}
+#ytvf-panel .ytvf-sval{width:auto;min-height:24px;padding:0;justify-content:flex-end;font-size:12px;color:var(--yt-spec-text-secondary,#606060);font-variant-numeric:tabular-nums;cursor:text}
+#ytvf-panel .ytvf-snum{width:52px;padding:2px 4px;border-radius:4px;border:1px solid var(--yt-spec-call-to-action,#3ea6ff);background:var(--yt-spec-base-background,#181818);color:inherit;font:inherit;font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+#ytvf-panel .ytvf-srst{width:24px;min-height:24px;padding:0;justify-content:center;border-radius:50%;font-size:13px;color:var(--yt-spec-text-secondary,#606060)}
+#ytvf-panel .ytvf-srst:disabled{opacity:.25;cursor:default}
 #ytvf-panel .ytvf-vbar{display:flex;gap:8px;padding:8px 16px 6px}
 #ytvf-panel .ytvf-vbar .ytvf-search{flex:1 1 auto;min-width:0}
 #ytvf-panel .ytvf-vbar .ytvf-select{flex:0 0 auto;max-width:136px}
@@ -913,15 +1006,12 @@
         const off = isParamOff(glob, p.key);
         const row = document.createElement('div');
         row.className = off ? 'ytvf-srow is-muted' : 'ytvf-srow';
-        const chk = document.createElement('input');
-        chk.type = 'checkbox';
-        chk.id = `ytvf-ge-${p.key}`;
-        chk.checked = !off;
-        chk.setAttribute('aria-label', `Toggle ${p.label}`);
-        const lab = document.createElement('label');
-        lab.htmlFor = `ytvf-ge-${p.key}`;
-        lab.title = `Click to toggle ${p.label}`;
-        lab.textContent = p.label;
+        const nameBtn = document.createElement('button');
+        nameBtn.type = 'button';
+        nameBtn.className = 'ytvf-sname';
+        nameBtn.setAttribute('aria-pressed', String(!off));
+        nameBtn.title = `Click to toggle ${p.label}`;
+        nameBtn.textContent = p.label;
         const input = document.createElement('input');
         input.type = 'range';
         input.id = `ytvf-g-${p.key}`;
@@ -929,33 +1019,68 @@
         input.max = String(p.max);
         input.step = String(p.step);
         input.value = String(glob[p.key]);
+        input.setAttribute('aria-label', p.label);
         const valBtn = document.createElement('button');
         valBtn.type = 'button';
         valBtn.className = 'ytvf-sval';
+        valBtn.title = `Click to type ${p.label}`;
         valBtn.textContent = formatValue(p, glob[p.key]);
+        const rstBtn = document.createElement('button');
+        rstBtn.type = 'button';
+        rstBtn.className = 'ytvf-srst';
+        rstBtn.setAttribute('aria-label', `Reset ${p.label}`);
+        rstBtn.title = `Reset ${p.label}`;
+        rstBtn.textContent = '↺';
+        rstBtn.disabled = !off && glob[p.key] === p.def;
         const syncGlobalRow = () => {
           const muted = isParamOff(glob, p.key);
           row.className = muted ? 'ytvf-srow is-muted' : 'ytvf-srow';
-          chk.checked = !muted;
+          nameBtn.setAttribute('aria-pressed', String(!muted));
           input.value = String(glob[p.key]);
           valBtn.textContent = formatValue(p, glob[p.key]);
+          rstBtn.disabled = !muted && glob[p.key] === p.def;
           modeSelect.value = detectMode(glob, false);
         };
-        chk.addEventListener('change', () => {
-          const nextDisabled = new Set(glob.disabled || []);
-          if (chk.checked) nextDisabled.delete(p.key);
-          else nextDisabled.add(p.key);
-          commitGlobal({ ...glob, disabled: [...nextDisabled] });
-          syncGlobalRow();
-        });
         const update = (v) => {
           const nextDisabled = (glob.disabled || []).filter((k) => k !== p.key);
           commitGlobal({ ...glob, [p.key]: v, disabled: nextDisabled });
           syncGlobalRow();
         };
+        nameBtn.addEventListener('click', () => {
+          const nextDisabled = new Set(glob.disabled || []);
+          if (nextDisabled.has(p.key)) nextDisabled.delete(p.key);
+          else nextDisabled.add(p.key);
+          commitGlobal({ ...glob, disabled: [...nextDisabled] });
+          syncGlobalRow();
+        });
         input.addEventListener('input', () => update(Number(input.value)));
-        valBtn.addEventListener('click', () => update(p.def));
-        row.append(chk, lab, input, valBtn);
+        valBtn.addEventListener('click', () => {
+          const numIn = document.createElement('input');
+          numIn.type = 'number';
+          numIn.className = 'ytvf-snum';
+          numIn.min = String(p.min);
+          numIn.max = String(p.max);
+          numIn.step = String(p.step);
+          numIn.value = String(glob[p.key]);
+          let done = false;
+          const finish = (commit) => {
+            if (done) return;
+            done = true;
+            const parsed = Number(numIn.value);
+            numIn.replaceWith(valBtn);
+            if (commit && Number.isFinite(parsed)) update(parsed);
+          };
+          numIn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); finish(true); }
+            else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+          });
+          numIn.addEventListener('blur', () => finish(true));
+          valBtn.replaceWith(numIn);
+          numIn.focus();
+          numIn.select();
+        });
+        rstBtn.addEventListener('click', () => update(p.def));
+        row.append(nameBtn, input, valBtn, rstBtn);
         box.append(row);
       }
 
